@@ -345,7 +345,7 @@ export function buildBuilding(out: Out, r: Reader, frame: Frame, o: BuildOverrid
 
   // ---- programme
   const groundArea = polyArea(local);
-  const gfa = massesGFA(masses, use === "mixed" ? "residential" : use);
+  const gfa = massesGFA(masses, use === "mixed" ? "residential" : use, { ground: st.groundH, typical: st.typH });
   const program: Partial<Record<Use, number>> = {};
   const gu = r.s("groundUse");
   const su = r.s("secondaryUse");
