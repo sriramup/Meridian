@@ -7,8 +7,8 @@ export function Kbd({ className, size = "sm", ...props }: HTMLAttributes<HTMLEle
     <kbd
       data-slot="kbd"
       className={cn(
-        "inline-flex shrink-0 select-none items-center justify-center rounded-[4px] border border-line-2 bg-[#f8eed6] font-mono font-medium leading-none text-ink-3 shadow-[0_1px_0_rgb(156_122_72/0.45)]",
-        size === "sm" ? "h-[18px] min-w-[18px] px-1 text-[10.5px]" : "h-4 min-w-4 px-[3px] text-[10px]",
+        "inline-flex shrink-0 select-none items-center justify-center rounded-[4px] border border-line-2 bg-[#f8eed6] font-sans font-medium leading-none text-ink-3 shadow-[0_1px_0_rgb(156_122_72/0.45)]",
+        size === "sm" ? "h-[18px] min-w-[18px] px-1 text-[11px]" : "h-4 min-w-4 px-[3px] text-[10.5px]",
         className,
       )}
       {...props}
