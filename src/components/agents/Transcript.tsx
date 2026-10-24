@@ -14,12 +14,15 @@ import { agents } from "./store";
 /** one session's conversation: user turns, the agent's reasoning, tool timeline and text, approvals */
 export function Transcript({ sessionId, items, running }: { sessionId: string; items: ChatItem[]; running: boolean }) {
   return (
-    <div className="space-y-4 px-4 py-4">
+    <div className="px-4 py-4">
       {items.map((it, i) => (
-        <Item key={it.id} sessionId={sessionId} item={it} prev={items[i - 1]} />
+        // one run's consecutive turns read as one continuous reply
+        <div key={it.id} className={cx(i > 0 && (it.kind === "assistant" && items[i - 1].kind === "assistant" ? "mt-1" : "mt-4"))}>
+          <Item sessionId={sessionId} item={it} prev={items[i - 1]} />
+        </div>
       ))}
       {running && !items.some((it) => it.kind === "approval" && it.state === "pending") && (
-        <div className="flex items-center gap-2 text-[12px] text-ink-3">
+        <div className="mt-3 flex items-center gap-2 text-[12px] text-ink-3">
           <Spinner size={13} label="Working" />
           Working
         </div>
