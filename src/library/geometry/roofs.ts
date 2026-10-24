@@ -96,14 +96,16 @@ function partRoof(p: Part, z: number, spec: RoofSpec, out: Solid[]): number {
       out.push(S("wedge", at(0, 0, z), [L + 2 * ov, W + 2 * ov, rise], col, mat, rot));
       return rise;
     case "gambrel": {
-      // steep lower slopes (≈60°) to 30 % in from each eave, shallow upper gable
-      const r1 = W * 0.3 * Math.tan(60 * D2R) * 0.55;
-      const lower = S("box", at(0, 0, z), [L, W * 0.98, r1], spec.wall, "wood", rot);
-      out.push(lower);
-      out.push(S("wedge", at(0, 0, z), [L + 2 * ov, W + 2 * ov, r1 * 1.05], col, mat, rot));
-      const up = (W * 0.42) * Math.tan(Math.min(pitch, 35 * D2R));
-      out.push(S("wedge", at(0, 0, z + r1), [L + 2 * ov, W * 0.84, up], col, mat, rot));
-      return r1 + up;
+      // barn roof: steep lower slopes (≈ 60°) from the eaves to knuckles 20 % in, then a shallow gable
+      const run = W * 0.2;
+      const h1 = run * Math.tan(60 * D2R);
+      const inner = W - 2 * run;
+      out.push(S("box", at(0, 0, z), [L, inner, h1], spec.wall, "wood", rot));
+      const slab = Math.hypot(run, h1);
+      for (const sg of [-1, 1]) out.push(S("box", at(0, sg * (W / 2 - run / 2), z + h1 / 2 - 0.1), [L + 2 * ov, slab + ov, 0.2], col, mat, rot, [-sg * 60, 0]));
+      const up = (inner / 2) * Math.tan(Math.min(pitch, 30 * D2R));
+      out.push(S("wedge", at(0, 0, z + h1), [L + 2 * ov, inner + 0.6, up], col, mat, rot));
+      return h1 + up;
     }
     case "hip": {
       const Wd = W + 2 * ov;
@@ -136,7 +138,8 @@ function partRoof(p: Part, z: number, spec: RoofSpec, out: Solid[]): number {
     case "butterfly": {
       // a pitched slab across the span with the triangular void under it filled by a stepped wall
       const sp = spec.type === "shed" ? W : W / 2;
-      const r = sp * Math.tan(Math.min(pitch, 35 * D2R));
+      // mono-pitch roofs over wide spans stay low: at most 20°
+      const r = sp * Math.tan(Math.min(pitch, 20 * D2R));
       const slab = 0.25;
       const panels = spec.type === "shed" ? [{ v: 0, sgn: 1 }] : [{ v: -W / 4, sgn: -1 }, { v: W / 4, sgn: 1 }];
       for (const pn of panels) {

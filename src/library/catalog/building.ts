@@ -465,7 +465,8 @@ export function buildingType(o: BuildingTypeOpts): PrimitiveDef {
       const info = buildBuilding(out, r, frame);
       if (info) {
         o.decorate?.({ r, out, frame, info, place, ctx });
-        out.summary.unshift(summaryOf(r.s("name") || o.name, info));
+        // the placement op reports each building's floors, height, GFA, homes and jobs itself
+        void summaryOf;
       }
       return out.done();
     },
