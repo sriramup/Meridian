@@ -30,7 +30,7 @@ import type { Changeset } from "@/world/world";
 import { entityName, viewCenter } from "./resolve";
 import { routeRequest, type Tier } from "./router";
 import { effectOf } from "./toolDefs";
-import { executeTool, type ToolContext, type ToolOutput } from "./tools";
+import { executeTool, simSummary, type ToolContext, type ToolOutput } from "./tools";
 import type { AgentMode, AgentSession, AgentsApi, ChatItem, Segment, ToolCallView, Zone } from "./types";
 import { zoneFromPolygon, zoneFromSelection, zoneFromText, zoneSummary, fmtHa } from "./zones";
 
@@ -232,16 +232,24 @@ const r0 = (x: number) => Math.round(x);
 function kpiLine(): string {
   const R = rtMaybe();
   if (!R) return "";
-  const recs = useSims.getState().records.filter((r) => r.status === "done" && r.result?.kpi);
+  const recs = useSims.getState().records.filter((r) => r.status === "done" && r.result);
   const latest = new Map<string, (typeof recs)[number]>();
   for (const r of recs) latest.set(r.kind, r);
   const out: string[] = [];
   for (const [kind, r] of latest) {
-    const k = r.result.kpi as Record<string, unknown>;
-    const vals = Object.entries(k)
-      .filter(([, v]) => typeof v === "number" && Number.isFinite(v))
+    let sum: Record<string, unknown>;
+    try {
+      sum = (simSummary(r) ?? {}) as Record<string, unknown>;
+    } catch {
+      continue;
+    }
+    // headline scalars: top-level numbers / short strings, plus the kpi object when there is one
+    const flat = { ...(typeof sum.kpi === "object" && sum.kpi ? (sum.kpi as Record<string, unknown>) : {}), ...sum };
+    const vals = Object.entries(flat)
+      .filter(([k, v]) => k !== "kpi" && k !== "assumptions" && (typeof v === "number" ? Number.isFinite(v) : typeof v === "string" && v.length <= 12))
       .slice(0, 6)
-      .map(([n, v]) => `${n} ${Math.abs(v as number) >= 100 ? r0(v as number) : Math.round((v as number) * 100) / 100}`);
+      .map(([k, v]) => `${k} ${typeof v === "number" ? (Math.abs(v) >= 100 ? r0(v) : Math.round(v * 100) / 100) : v}`);
+    if (!vals.length) continue;
     const fresh = r.scenarioId === R.scenarios.activeId && r.cursor === R.scenarios.active.cursor;
     out.push(`${kind}${r.params?.period ? ` ${r.params.period}` : ""} (${r.scenarioName}${fresh ? ", current" : `, at edit ${r.cursor} — stale`}): ${vals.join(", ")}`);
   }
@@ -624,6 +632,11 @@ if (typeof window !== "undefined") {
   });
   setInterval(ensureCity, 1000);
   window.addEventListener("beforeunload", save);
+}
+
+/** a session's model message history (read-only view, for debugging and tests) */
+export function historyOf(id: string): readonly MsgParam[] {
+  return runtimes.get(id)?.messages ?? [];
 }
 
 /** the AgentsApi object (plus extras) — what the pane and the window hook use */

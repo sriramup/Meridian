@@ -99,6 +99,21 @@ describe("agent sessions", () => {
     expect(st().order[0]).toBe(b);
   });
 
+  it("tells each session about edits other sessions made while it worked (stale previews)", () => {
+    const [b, a] = st().order;
+    const notes = [a, b].map((id) => JSON.stringify(A.historyOf(id)).match(/While you worked, the world changed outside this session/g)?.length ?? 0);
+    expect(notes[0] + notes[1]).toBeGreaterThan(0);
+  });
+
+  it("the context snapshot carries current model KPIs once a model has run", async () => {
+    const { executeTool } = await import("@/agent/tools");
+    const out = await executeTool("run_simulation", { kind: "runoff", params: { storm: "10yr" } }, { requestApproval: async () => true, approvals: false });
+    expect(out.isError).toBeFalsy();
+    const ctx = A.contextBlock(st().order[0], "edit", null);
+    expect(ctx).toMatch(/latest model KPIs: runoff/);
+    expect(ctx).toMatch(/current/);
+  });
+
   it("undo reverts only the session's own edit", async () => {
     const [b, a] = st().order;
     const before = R.scenarios.appliedChangesets().map((c) => c.id);
