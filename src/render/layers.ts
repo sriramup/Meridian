@@ -26,7 +26,7 @@ export interface LayerContext {
   theme: Theme;
   app: Pick<AppState, "selection" | "layers" | "highlight" | "theme" | "cameraMode">;
   zoom: number;
-  /** of the modelled month: leaves turn in fall and are dead in winter */
+  /** of the modelled month: a few trees turn in fall, and leaves are dead in winter */
   season: Season;
 }
 
@@ -37,14 +37,14 @@ export function seasonOf(date: string): Season {
   return m >= 3 && m <= 5 ? "spring" : m <= 8 && m >= 6 ? "summer" : m >= 9 && m <= 11 ? "fall" : "winter";
 }
 
-/** autumn colours, picked per tree so a row doesn't turn as one */
+/** autumn colours for the few trees that turn: in central Texas live oaks and cedar elms stay
+    green, and only a scattering (red oaks, pears, cypress) goes muted rust or yellow */
 const FALL: RGB[] = [
-  [214, 116, 44],
-  [232, 160, 58],
-  [196, 84, 46],
-  [226, 136, 40],
-  [204, 150, 70],
+  [176, 112, 58],
+  [190, 150, 70],
+  [160, 92, 52],
 ];
+const FALL_SHARE = 0.12;
 /** dead winter leaves: dry browns and greys */
 const WINTER: RGB[] = [
   [132, 106, 80],
@@ -369,7 +369,8 @@ export function buildLayers(ctx: LayerContext): SceneLayers {
     const season = ctx.season;
     const tint = (d: TreeDatum): RGBA => {
       const pick = (c: RGB[]) => c[Math.floor(d.seed * 997) % c.length];
-      const base = season === "fall" ? pick(FALL) : season === "winter" ? pick(WINTER) : d.color ?? (d.proposed ? [118, 172, 96] : T.tree);
+      const turns = season === "fall" && ((d.seed * 7919) % 1) < FALL_SHARE;
+      const base = turns ? pick(FALL) : season === "winter" ? pick(WINTER) : d.color ?? (d.proposed ? [118, 172, 96] : T.tree);
       const k = (0.9 + d.seed * 0.2) * (T.id === "night" && season !== "spring" && season !== "summer" ? 0.55 : 1);
       return [Math.min(255, base[0] * k), Math.min(255, base[1] * k), Math.min(255, base[2] * k), 255];
     };

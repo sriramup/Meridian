@@ -52,7 +52,7 @@ function Header({ icon, kind, title, onClose, badge, onRename }: { icon: React.R
     <div className="flex items-start gap-2 border-b border-line px-3 py-2.5">
       <span className="mt-0.5 text-ink-3">{icon}</span>
       <div className="min-w-0 flex-1">
-        <div className="text-[10.5px] font-semibold tracking-[0.08em] text-ink-4 uppercase">{kind}</div>
+        <div className="font-legend text-[12.5px] leading-none text-ink-3">{kind}</div>
         {editing ? (
           <input
             autoFocus
@@ -168,7 +168,7 @@ function BuildingPanel({ b, onClose }: { b: Building; onClose: () => void }) {
           </div>
         )}
         <div className="border-t border-line px-3 py-3">
-          <div className="mb-2 text-[10.5px] font-semibold tracking-[0.08em] text-ink-4 uppercase">Edit</div>
+          <div className="mb-2 font-legend text-[12.5px] leading-none text-ink-3">Edit</div>
           <div className="flex items-center gap-2">
             <span className="w-14 text-[12px] text-ink-3">Floors</span>
             <IconButton size="sm" onClick={() => setFloors(Math.max(1, floors - 1))}>
@@ -251,7 +251,7 @@ function StreetPanel({ s, onClose }: { s: Street; onClose: () => void }) {
           <Stat label="Length" value={`${polyLength(s.path).toFixed(0)} m`} />
         </div>
         <div className="flex items-center justify-between px-3 pt-3">
-          <span className="text-[10.5px] font-semibold tracking-[0.08em] text-ink-4 uppercase">Cross-section</span>
+          <span className="font-legend text-[12.5px] leading-none text-ink-3">Cross-section</span>
           <Provenance kind={s.sectionSource} />
         </div>
         {/* section diagram */}
@@ -349,7 +349,7 @@ function StreetPanel({ s, onClose }: { s: Street; onClose: () => void }) {
           </Button>
         </div>
         <div className="border-t border-line px-3 py-3 mt-3">
-          <div className="mb-2 text-[10.5px] font-semibold tracking-[0.08em] text-ink-4 uppercase">Quick changes</div>
+          <div className="mb-2 font-legend text-[12.5px] leading-none text-ink-3">Quick changes</div>
           <div className="flex flex-wrap gap-1.5">
             <Button size="sm" onClick={() => apply([{ op: "add_lanes", count: 1 }])}>
               <Plus size={12} /> Lane each way

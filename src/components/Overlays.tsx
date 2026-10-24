@@ -75,7 +75,7 @@ export function ChangeReport() {
     <div className="chrome w-[320px] p-3">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <div className="text-[10.5px] font-semibold tracking-[0.08em] text-ink-4 uppercase">Applied</div>
+          <div className="font-legend text-[12.5px] leading-none text-ink-3">Applied</div>
           <div className="text-[12.5px] font-semibold text-ink">{r.label}</div>
         </div>
         <button onClick={() => setR(null)} className="text-ink-4 hover:text-ink">

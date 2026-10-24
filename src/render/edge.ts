@@ -8,12 +8,12 @@ type Bounds = readonly number[];
 
 /**
  * Fully visible within R0 of the study centre, gone by R1 (m). Both scale with the study area:
- * for Austin's 4.0 × 4.3 km pack they are 2,300 and 3,950 m.
+ * for Austin's 4.0 × 4.3 km pack they are 2,960 and 3,760 m, just inside the context data's square.
  */
 export function fadeRadii(b: Bounds): { r0: number; r1: number } {
   const half = Math.max(b[2] - b[0], b[3] - b[1]) / 2;
-  const r0 = half + 138;
-  return { r0, r1: r0 + 1650 * (half / 2162) };
+  const r0 = half + 800;
+  return { r0, r1: r0 + 800 * (half / 2162) };
 }
 
 /** 1 near the centre, easing to 0 over a wide circular band */
@@ -26,19 +26,19 @@ export function cityFade(b: Bounds, x: number, y: number): number {
   return t * t * (3 - 2 * t);
 }
 
-/** the surrounding city itself (buildings, roads, parks) stays intact until the last ~650 m, then shrinks away */
+/** the surrounding city itself (buildings, roads, parks) stays intact until the last ~320 m, then shrinks away */
 export function edgeShrink(b: Bounds, x: number, y: number): number {
   const { r1: R1 } = fadeRadii(b);
   const d = Math.hypot(x - (b[0] + b[2]) / 2, y - (b[1] + b[3]) / 2);
-  const a = R1 - 650 * ((R1 - fadeRadii(b).r0) / 1650);
+  const a = R1 - 320 * ((R1 - fadeRadii(b).r0) / 800);
   if (d <= a) return 1;
   if (d >= R1) return 0;
   const t = 1 - (d - a) / (R1 - a);
   return t * t * (3 - 2 * t);
 }
 
-/** how far the camera may go: the city disc plus a margin (m from the study centre) */
-export const cityRadius = (b: Bounds) => fadeRadii(b).r1;
+/** how far the camera may go (m from the study centre): to where the city starts to fade, so the faded rim stays at the edge of view */
+export const cityRadius = (b: Bounds) => fadeRadii(b).r0;
 
 const inside = (b: Bounds, x: number, y: number) => x >= b[0] && x <= b[2] && y >= b[1] && y <= b[3];
 /** study-area rasters: their own cells, faded with the city */

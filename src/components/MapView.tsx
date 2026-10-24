@@ -236,10 +236,10 @@ function withKerbs(layers: Layer[], kerbs: Layer[]): Layer[] {
   return at < 0 ? [...layers, ...kerbs] : [...layers.slice(0, at + 1), ...kerbs, ...layers.slice(at + 1)];
 }
 
-/** lon/lat box around the city disc (plus a margin for the view around the edge) */
+/** lon/lat box around the fully drawn part of the city */
 function cityBounds(proj: LocalProjection, b: readonly number[]): [[number, number], [number, number]] {
   const cx = (b[0] + b[2]) / 2,
     cy = (b[1] + b[3]) / 2,
-    r = cityRadius(b) + 300;
+    r = cityRadius(b);
   return [proj.toLonLat([cx - r, cy - r]), proj.toLonLat([cx + r, cy + r])];
 }

@@ -47,7 +47,7 @@ export function TopBar() {
         </Tip>
         <DM.Portal>
           <DM.Content sideOffset={6} align="start" className="z-50 w-72 rounded-[8px] border border-line bg-paper p-1 shadow-xl">
-            <div className="px-2 pt-1.5 pb-1 text-[10.5px] font-semibold tracking-[0.08em] text-ink-4 uppercase">Scenarios</div>
+            <div className="px-2 pt-1.5 pb-1 font-legend text-[12.5px] leading-none text-ink-3">Scenarios</div>
             {[...S.scenarios.values()].map((s) => (
               <DM.Item
                 key={s.id}
@@ -293,7 +293,7 @@ function CityMenu() {
       </Tip>
       <DM.Portal>
         <DM.Content sideOffset={6} align="start" className="z-50 w-80 rounded-[8px] border border-line bg-paper p-1 shadow-xl">
-          <div className="px-2 pt-1.5 pb-1 text-[10.5px] font-semibold tracking-[0.08em] text-ink-4 uppercase">Start from</div>
+          <div className="px-2 pt-1.5 pb-1 font-legend text-[12.5px] leading-none text-ink-3">Start from</div>
           {CITY_PRESETS.map((c) => (
             <DM.Item key={c.id} onSelect={() => go(c.id)} className={cx(item, "items-start")}>
               <span className="min-w-0 flex-1">

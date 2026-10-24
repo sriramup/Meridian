@@ -179,7 +179,7 @@ export function CommandSearch() {
       </label>
       {open && results.length > 0 && (
         <div className="chrome absolute top-9 left-0 z-50 w-[min(320px,calc(100cqw-120px))] p-1" role="listbox">
-          {!q.trim() && <div className="px-2 pt-1 pb-1.5 text-[10.5px] tracking-[0.08em] text-ink-4 uppercase">Try</div>}
+          {!q.trim() && <div className="px-2 pt-1 pb-1.5 font-legend text-[12.5px] leading-none text-ink-3">Try</div>}
           {results.map((c, i) => {
             const Icon = c.icon;
             return (

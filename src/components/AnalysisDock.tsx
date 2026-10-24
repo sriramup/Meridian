@@ -256,7 +256,7 @@ export function AnalysisDock() {
           </DM.Trigger>
           <DM.Portal>
             <DM.Content side="top" align="end" sideOffset={8} className="chrome z-50 w-60 p-1">
-              <div className="px-2 pt-1.5 pb-1 text-[10.5px] font-semibold tracking-[0.08em] text-ink-4 uppercase">Other analyses</div>
+              <div className="px-2 pt-1.5 pb-1 font-legend text-[12.5px] leading-none text-ink-3">Other analyses</div>
               {extra.map((c) => (
                 <DM.Item key={c.id} onSelect={() => setOverlay(overlay === c.id ? null : c.id)} className="flex cursor-default items-center gap-2 rounded-[5px] px-2 py-1.5 text-[12.5px] text-ink outline-none data-[highlighted]:bg-paper-3">
                   <c.icon size={13} strokeWidth={1.8} className="text-ink-3" />
@@ -390,7 +390,7 @@ function Assumptions({ lines, calibration }: { lines: string[]; calibration?: { 
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Content side="top" sideOffset={8} className="chrome z-50 w-[380px] p-3">
-          <div className="text-[10.5px] font-semibold tracking-[0.08em] text-ink-4 uppercase">Model assumptions</div>
+          <div className="font-legend text-[12.5px] leading-none text-ink-3">Model assumptions</div>
           <ul className="mt-1.5 space-y-1 text-[11.5px] leading-snug text-ink-2">
             {lines.map((l, i) => (
               <li key={i}>{l}</li>
@@ -398,7 +398,7 @@ function Assumptions({ lines, calibration }: { lines: string[]; calibration?: { 
           </ul>
           {calibration && calibration.length > 0 && (
             <>
-              <div className="mt-3 text-[10.5px] font-semibold tracking-[0.08em] text-ink-4 uppercase">Check against TxDOT counts (peak hour)</div>
+              <div className="mt-3 font-legend text-[12.5px] leading-none text-ink-3">Check against TxDOT counts (peak hour)</div>
               <div className="mt-1 text-[11px] text-ink-3">
                 GEH &lt; 5 at {calibration.filter((c) => c.geh < 5).length} of {calibration.length} stations — not validated for absolute volumes.
               </div>

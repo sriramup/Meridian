@@ -4,7 +4,8 @@
 // ground-contact occlusion, and (at night) lit windows.
 //
 // Facade type is carried in the fill colour's alpha byte (250 - type) so the
-// layer needs no extra per-vertex attributes; alpha 255 renders plain.
+// layer needs no extra per-vertex attributes; 251 is a context building (roof
+// only) and alpha 255 renders plain.
 
 import { SolidPolygonLayer, type SolidPolygonLayerProps } from "@deck.gl/layers";
 import type { ShaderModule } from "@luma.gl/shadertools";
@@ -36,13 +37,34 @@ float fac_hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.54
 // facades read as tone instead of aliasing into moiré / speckle.
 float fac_fade(float dPerPeriod) { return smoothstep(0.12, 0.4, dPerPeriod); }
 
+float fac_noise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(fac_hash(i), fac_hash(i + vec2(1.0, 0.0)), f.x), mix(fac_hash(i + vec2(0.0, 1.0)), fac_hash(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+
+// flat roofs: membrane, gravel or concrete, greyer and a little darker than the walls, one tone per
+// roof (keyed on its height, so a podium and its tower differ), with weathering and, close up, grain
+vec3 fac_roof(vec3 base, vec3 pos, float mpp) {
+  float h = fac_hash(vec2(floor(pos.z * 2.0 + 0.5), 17.0));
+  vec3 tone = base * mix(0.78, 0.94, h);
+  tone = mix(tone, vec3(dot(tone, vec3(0.3333))), 0.4);
+  float w = fac_noise(pos.xy / 11.0) * 0.6 + fac_noise(pos.xy / 3.3) * 0.4;
+  tone *= mix(0.92, 1.03, w);
+  float grain = fac_hash(floor(pos.xy / 0.5)) - 0.5;
+  tone *= 1.0 + grain * 0.08 * (1.0 - smoothstep(0.12, 0.45, mpp));
+  return tone;
+}
+
 vec3 fac_apply(vec3 base, vec3 pos, vec3 nrm, float type, vec2 d) {
   float z = pos.z;
   // ground-contact occlusion (and at podium joints)
   float ao = mix(0.78, 1.0, smoothstep(0.0, 7.0, z));
   vec2 n2 = normalize(nrm.xy + vec2(1e-5));
-  bool roof = abs(nrm.z) > 0.5;
-  if (roof || facade.detail < 0.5) return base * (roof ? 1.0 : ao);
+  if (abs(nrm.z) > 0.5) return fac_roof(base, pos, d.x);
+  // type -1: surrounding context buildings, which get roofs and ground occlusion but no facade
+  if (type < 0.0 || facade.detail < 0.5) return base * ao;
   float along = dot(pos.xy, vec2(-n2.y, n2.x));
   float fh = type == 0.0 ? 3.9 : type == 6.0 ? 3.1 : type == 5.0 ? 3.2 : 3.6;
   float fz = z / fh;
@@ -136,7 +158,7 @@ export class FacadeLayer<D = unknown> extends SolidPolygonLayer<D, { night?: num
           vec2 facD = vec2(length(fwidth(vFacPos.xy)), fwidth(vFacPos.z));
           // some rasterisers return zero derivatives on parts of a quad; never let that disable the fade
           facD = max(facD, vec2(vFacMpp));
-          if (vFacType >= 242.5 && vFacType <= 250.5) {
+          if (vFacType >= 242.5 && vFacType <= 251.5) {
             float ftype = floor(250.5 - vFacType); // integral type id; never compare a raw float with ==
             color.rgb = fac_apply(color.rgb, vFacPos, vFacNormal, ftype, facD);
             color.a = layer.opacity;

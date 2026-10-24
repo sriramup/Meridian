@@ -260,7 +260,7 @@ function EmptyState({ configured }: { configured: boolean | null }) {
       )}
       {(rtMaybe()?.meta.sandbox ? SANDBOX_EXAMPLES : EXAMPLES).map((g) => (
         <div key={g.group} className="mt-5">
-          <div className="mb-1.5 text-[10.5px] font-semibold tracking-[0.08em] text-ink-4 uppercase">{g.group}</div>
+          <div className="mb-1.5 font-legend text-[12.5px] leading-none text-ink-3">{g.group}</div>
           <div className="space-y-px">
             {g.items.map((t) => (
               <button key={t} onClick={() => send(t)} disabled={configured === false} className="group flex w-full items-start gap-2 rounded-[6px] px-2 py-1.5 text-left text-[12.5px] leading-snug text-ink-2 transition-colors hover:bg-paper-3 hover:text-ink disabled:opacity-50">

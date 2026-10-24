@@ -1,46 +1,58 @@
 @import "tailwindcss";
 
-/* An old storybook scroll: parchment surfaces, sepia ink, pastel rose for what is active,
-   sage / honey / terracotta for good / caution / problems, antique gold for what is proposed. */
+/* An old atlas: foxed parchment sheets, iron-gall ink in dark and light brown, burnt umber for what
+   is active, sage / ochre / madder for good / caution / problems, gilt for what is proposed. */
+
+/* the title face, self-hosted: drop SaltblackCombat.woff2 / .otf / .ttf into public/fonts */
+@font-face {
+  font-family: "Saltblack Combat";
+  src: url("/fonts/SaltblackCombat.woff2") format("woff2"), url("/fonts/SaltblackCombat.otf") format("opentype"), url("/fonts/SaltblackCombat.ttf") format("truetype");
+  font-display: swap;
+}
+
 @theme {
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
-  --font-display: var(--font-mystery-quest), var(--font-cormorant), Georgia, serif;
-  --font-brand: var(--font-mystery-quest), Georgia, serif;
-  --color-ink: #3b2a1d;
-  --color-ink-2: #5a4332;
-  --color-ink-3: #85705b;
-  --color-ink-4: #a6917a;
-  --color-line: #e2d1ad;
-  --color-line-2: #cfb88f;
-  --color-paper: #f7eed9;
-  --color-paper-2: #f1e5c9;
-  --color-paper-3: #ead9b6;
-  --color-accent: #e8b7c4;
-  --color-accent-2: #f5e0e5;
-  --color-on-accent: #4a2733;
-  /* rose ink: text and icons in the accent colour (the pastel itself is for fills) */
-  --color-rose: #9c4565;
-  --color-gold: #c3964a;
-  --color-gold-2: #f2e4c2;
-  --color-proposed: #b98a3e;
-  --color-proposed-2: #f3e5c3;
-  --color-good: #5a8a5b;
-  --color-good-2: #dde9d4;
-  --color-warn: #a9762a;
-  --color-warn-2: #f4e3bf;
-  --color-bad: #b04d4a;
-  --color-bad-2: #f5d9d4;
-  --color-sky: #b9d3e6;
-  --color-lavender: #d4c8ea;
-  --color-sage: #c8dcc0;
-  --radius-panel: 12px;
+  --font-display: var(--font-fell), var(--font-cormorant), Georgia, serif;
+  --font-legend: var(--font-fell-sc), var(--font-fell), Georgia, serif;
+  --font-brand: "Saltblack Combat", var(--font-fraktur), Georgia, serif;
+  --color-ink: #2e1c0e;
+  --color-ink-2: #4c331d;
+  --color-ink-3: #77583a;
+  --color-ink-4: #9a7d5c;
+  --color-line: #d9c39b;
+  --color-line-2: #bf9f6c;
+  --color-paper: #f3e5c6;
+  --color-paper-2: #ecdab4;
+  --color-paper-3: #e2cb9d;
+  --color-accent: #cfa56a;
+  --color-accent-2: #ecd9b2;
+  --color-on-accent: #2e1c0e;
+  /* umber ink: text and icons in the accent colour (the tan itself is for fills) */
+  --color-rose: #8a3d1c;
+  --color-gold: #a97c37;
+  --color-gold-2: #efdcb3;
+  --color-proposed: #a5782f;
+  --color-proposed-2: #f0ddb4;
+  --color-good: #56774a;
+  --color-good-2: #dce2c4;
+  --color-warn: #9c6a22;
+  --color-warn-2: #f0dbb0;
+  --color-bad: #9e3b2c;
+  --color-bad-2: #f0d2c2;
+  --color-sky: #b3c9cf;
+  --color-lavender: #cdbfd6;
+  --color-sage: #c6d3b0;
+  --radius-panel: 7px;
 }
 
 :root {
   color-scheme: light;
-  /* a faint paper grain laid over every scroll surface */
-  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.45 0 0 0 0 0.33 0 0 0 0 0.18 0 0 0 0.09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  /* fine paper tooth */
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.36 0 0 0 0 0.23 0 0 0 0 0.1 0 0 0 0.17 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  /* creases of a sheet that has been folded and handled: ridged noise lit from the upper left */
+  --crinkle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='900'%3E%3Cfilter id='c'%3E%3CfeTurbulence type='turbulence' baseFrequency='0.006 0.009' numOctaves='4' seed='3' stitchTiles='stitch' result='t'/%3E%3CfeDiffuseLighting in='t' surfaceScale='4.5' lighting-color='%23fff'%3E%3CfeDistantLight azimuth='225' elevation='58'/%3E%3C/feDiffuseLighting%3E%3CfeColorMatrix values='0 0 0 0 0.36 0 0 0 0 0.22 0 0 0 0 0.09 -0.9 0 0 0 0.84'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23c)'/%3E%3C/svg%3E");
+  --parchment: var(--grain), var(--crinkle);
 }
 
 html,
@@ -62,53 +74,63 @@ body {
 .font-display {
   font-family: var(--font-display);
   font-weight: 400;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.005em;
 }
 
 .font-brand {
   font-family: var(--font-brand);
   font-weight: 400;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
+}
+
+/* the spaced small capitals of a map legend */
+.font-legend {
+  font-family: var(--font-legend);
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  text-transform: none;
 }
 
 .maplibregl-canvas:focus {
   outline: none;
 }
 
-/* floating chrome over the city: a sheet of parchment, one treatment everywhere */
+/* floating chrome over the city: a sheet of foxed parchment with a ruled cartouche border and
+   edges browned by handling, one treatment everywhere */
 .chrome {
   pointer-events: auto;
   background:
-    var(--grain),
-    radial-gradient(130% 160% at 50% 0%, #fcf6e8 0%, #f6ebd3 58%, #efe1c2 100%);
-  border: 1px solid var(--color-line-2);
+    var(--parchment),
+    radial-gradient(140% 160% at 40% 10%, #f8edd3 0%, #f1e1bf 55%, #e6cfa2 100%);
+  border: 1px solid #9c7a48;
   border-radius: var(--radius-panel);
   box-shadow:
-    inset 0 0 0 1px rgb(255 251 238 / 0.75),
-    inset 0 0 22px rgb(176 138 78 / 0.12),
-    0 1px 2px rgb(88 60 28 / 0.16),
-    0 14px 32px -16px rgb(88 60 28 / 0.4);
+    inset 0 0 0 2px rgb(248 238 214 / 0.85),
+    inset 0 0 0 3px rgb(156 122 72 / 0.45),
+    inset 0 0 26px rgb(122 78 30 / 0.24),
+    0 1px 2px rgb(60 36 12 / 0.28),
+    0 16px 34px -16px rgb(60 36 12 / 0.55);
 }
 
 /* a horizontal strip rolled at both ends, like a scroll opened across the map */
 .scroll-ends {
   background:
-    var(--grain),
-    linear-gradient(90deg, #e2cd9f 0, #f4e7cb 14px, #f9f0dc 50%, #f4e7cb calc(100% - 14px), #e2cd9f 100%);
+    var(--parchment),
+    linear-gradient(90deg, #c9a874 0, #e6d0a4 6px, #f2e3c2 16px, #f7ebd0 50%, #f2e3c2 calc(100% - 16px), #e6d0a4 calc(100% - 6px), #c9a874 100%);
 }
 
 /* the agent's sheet beside the map: a long unrolled page */
 .agent-sheet {
   background:
-    var(--grain),
-    linear-gradient(90deg, #ead9b4 0, #f6ecd6 10px, #f8f0dd 60%, #f3e6c9 100%);
+    var(--parchment),
+    linear-gradient(90deg, #d8bd8c 0, #ecdab4 12px, #f4e6c7 60%, #eedcb6 100%);
 }
 
 .panel {
-  background: var(--grain), var(--color-paper);
+  background: var(--parchment), var(--color-paper);
   border: 1px solid var(--color-line-2);
   border-radius: var(--radius-panel);
-  box-shadow: 0 1px 2px rgb(88 60 28 / 0.16), 0 8px 24px -12px rgb(88 60 28 / 0.35);
+  box-shadow: inset 0 0 18px rgb(122 78 30 / 0.16), 0 1px 2px rgb(60 36 12 / 0.24), 0 8px 24px -12px rgb(60 36 12 / 0.45);
 }
 
 .scroll-thin {
@@ -130,6 +152,11 @@ select option {
   background: var(--color-paper);
 }
 
+/* Radix menus, popovers and dialogs drawn with bg-paper: give them the same sheet */
+.bg-paper {
+  background-image: var(--grain), var(--crinkle);
+}
+
 ::selection {
   background: var(--color-accent-2);
 }
@@ -139,7 +166,7 @@ select option {
   100% { background-position: 200px 0; }
 }
 .shimmer {
-  background: linear-gradient(90deg, transparent 0, rgb(232 183 196 / 0.35) 50%, transparent 100%);
+  background: linear-gradient(90deg, transparent 0, rgb(207 165 106 / 0.4) 50%, transparent 100%);
   background-size: 200px 100%;
   animation: shimmer 1.4s linear infinite;
 }

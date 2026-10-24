@@ -266,7 +266,8 @@ export class SceneCache {
     if (proposed) base = T.proposed;
     if (b.style?.facade === "glass" && !proposed) base = T.glass;
     const tint = (b.style?.tint ?? 0.5) - 0.5;
-    const k = 1 + tint * (T.id === "night" ? 0.25 : 0.05);
+    // by day buildings range from white to a light grey so a block doesn't read as one white mass
+    const k = T.id === "night" ? 1 + tint * 0.25 : 0.95 + tint * 0.16;
     return [Math.min(255, base[0] * k), Math.min(255, base[1] * k), Math.min(255, base[2] * k), facadeAlpha(facadeFor(b))];
   }
 

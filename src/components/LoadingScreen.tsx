@@ -8,10 +8,10 @@ export function LoadingScreen() {
   const error = useApp((s) => s.error);
   const label = useApp((s) => s.progressLabel);
   return (
-    <div className="absolute inset-0 grid place-items-center bg-paper" style={{ backgroundImage: "var(--grain), radial-gradient(90% 80% at 50% 40%, #fbf5e6 0%, #f3e6c9 70%, #e9d7b1 100%)" }}>
+    <div className="absolute inset-0 grid place-items-center bg-paper" style={{ backgroundImage: "var(--parchment), radial-gradient(90% 80% at 50% 40%, #f8eccf 0%, #eedcb5 62%, #d9bd8a 100%)" }}>
       <div className="flex w-[320px] flex-col items-center text-center">
         <Wordmark className="origin-center scale-[1.9]" />
-        <p className="mt-7 font-display text-[17px] leading-snug text-ink-3">Draw a town, then watch its shade, heat, water and traffic.</p>
+        <p className="mt-7 font-display text-[17px] leading-snug text-ink-3 italic">Draw a town, then watch its shade, heat, water and traffic.</p>
         <div className="mt-6 h-1.5 w-full overflow-hidden rounded-full border border-line-2 bg-paper-2">
           <div className="h-full rounded-full bg-accent transition-[width] duration-300 ease-out" style={{ width: `${Math.round(progress * 100)}%` }} />
         </div>

@@ -83,7 +83,7 @@ export function Segmented<T extends string>({ value, onChange, options, size = "
 export function SectionLabel({ children, right }: { children: ReactNode; right?: ReactNode }) {
   return (
     <div className="flex items-center justify-between px-3 pt-3 pb-1.5">
-      <span className="text-[10.5px] font-semibold tracking-[0.08em] text-ink-4 uppercase">{children}</span>
+      <span className="font-legend text-[12.5px] leading-none text-ink-3">{children}</span>
       {right}
     </div>
   );
