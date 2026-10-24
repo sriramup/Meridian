@@ -440,7 +440,7 @@ function generateInto(v: View, def: PrimitiveDef, params: ParamValues, place: Pl
     counts.building++;
     if (bld.lib?.primary) primaryId = bld.id;
     const pr = programmeOf(bld, world.meta.calibration?.householdSize);
-    summary.push(`${bld.name ?? def.name}: ${bld.floors} floor${bld.floors > 1 ? "s" : ""}, ${fmt.m(bld.height)}, ${fmt.m2(pr.gfa)} GFA${pr.units >= 1 ? `, ~${fmt.int(pr.units)} homes` : ""}${pr.jobs >= 1 ? `, ~${fmt.int(pr.jobs)} jobs` : ""}`);
+    summary.push(`${bld.name ?? def.name}: ${bld.floors} floor${bld.floors > 1 ? "s" : ""}, ${fmt.m(bld.height)}, ${fmt.m2(pr.gfa)} GFA${pr.units >= 0.5 ? `, ~${fmt.int(pr.units)} home${Math.round(pr.units) === 1 ? "" : "s"}` : ""}${pr.jobs >= 0.5 ? `, ~${fmt.int(pr.jobs)} job${Math.round(pr.jobs) === 1 ? "" : "s"}` : ""}`);
     for (const iss of checkBuilding(world, bld, new Set([bld.id]))) {
       if (iss.kind === "overlap" || iss.kind === "row") continue;
       if (iss.severity === "error") conflicts.push({ id: bld.id, kind: iss.kind, message: iss.message, resolved: false });
