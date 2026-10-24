@@ -280,8 +280,13 @@ export const TRANSPORT: PrimitiveDef[] = [
       const s: Solid[] = [];
       for (let i = 0; i < n; i++) {
         const y = y0 - 8 - i * 14;
-        s.push(box(0, y, 0, L, 6, 1.0, C.concrete, "concrete"), ...canopySolids(0, y, L * 0.7, 5, 4.5, [200, 204, 208], C.steel, Math.max(2, Math.round(L / 20))).slice(0, 1 + Math.max(2, Math.round(L / 20)) + 1));
-        s.push(box(0, y - 5, 0, L * 1.1, 0.15, 0.2, C.steelDark, "metal"), box(0, y - 3.6, 0, L * 1.1, 0.15, 0.2, C.steelDark, "metal"));
+        // island platform (6 m wide, 0.9 m high), yellow tactile edges, canopy on columns, two tracks beside it
+        s.push(box(0, y, 0, L, 6, 0.9, [176, 172, 166], "concrete"), box(0, y - 2.85, 0.9, L, 0.3, 0.02, C.yellow, "plastic"), box(0, y + 2.85, 0.9, L, 0.3, 0.02, C.yellow, "plastic"));
+        s.push(box(0, y, 4.6, L * 0.7, 5, 0.35, [84, 96, 104], "metal"));
+        const cols = Math.max(2, Math.round((L * 0.7) / 12));
+        for (let k = 0; k < cols; k++) s.push(box(-L * 0.35 + (L * 0.7 * (k + 0.5)) / cols, y, 0.9, 0.35, 0.35, 3.7, C.steelDark, "metal"));
+        for (const off of [-4.6, -3.2]) s.push(box(0, y + off, 0, L * 1.1, 0.12, 0.18, C.steelDark, "metal"));
+        s.push(box(0, y - 3.9, 0, L * 1.1, 2.6, 0.12, [120, 112, 100], "stone"));
       }
       info.addSolids(s);
       areaL(out, info.frame, "plaza", rectL(0, info.bbox[3] + 12, info.bbox[2] - info.bbox[0], 24));
@@ -345,7 +350,7 @@ export const TRANSPORT: PrimitiveDef[] = [
       for (let i = 0; i < n; i++) {
         const x = -(n * 0.8) / 2 + 0.6 + i * 0.8;
         s.push(box(x, 0, 0.08, 0.15, 0.25, 0.7, C.steel, "metal"));
-        if (i < bikes) s.push(S("torus", [x, 0.6, 0], [0.04, 0.66, 0.66], C.black, "plastic", 0, [0, 90]), S("torus", [x, 1.6, 0], [0.04, 0.66, 0.66], C.black, "plastic", 0, [0, 90]), beam([x, 0.6], [x, 1.6], 0.6, 0.06, 0.06, c, "metal"), box(x, 1.5, 0.6, 0.06, 0.06, 0.45, c, "metal"), box(x, 0.7, 0.9, 0.5, 0.06, 0.06, C.black, "plastic"));
+        if (i < bikes) s.push(S("torus", [x, 0.6, 0.33], [0.66, 0.66, 0.05], C.black, "plastic", 0, [0, 90]), S("torus", [x, 1.6, 0.33], [0.66, 0.66, 0.05], C.black, "plastic", 0, [0, 90]), beam([x, 0.6], [x, 1.6], 0.6, 0.06, 0.06, c, "metal"), box(x, 1.5, 0.6, 0.06, 0.06, 0.45, c, "metal"), box(x, 0.7, 0.9, 0.5, 0.06, 0.06, C.black, "plastic"));
       }
       return { solids: s };
     },
