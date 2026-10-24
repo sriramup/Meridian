@@ -136,10 +136,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer({ dr
           <ToggleGroup type="single" variant="segmented" size="xs" value={mode} onValueChange={(v: string) => v && onMode(v as AgentMode)} aria-label="Mode">
             {MODES.map((m) => (
               <Tooltip key={m.value} content={m.title} side="top">
-                {/* the tooltip trigger is a wrapper so its data-state doesn't clobber the toggle's */}
-                <span className="inline-flex">
-                  <ToggleGroupItem value={m.value}>{m.label}</ToggleGroupItem>
-                </span>
+                <ToggleGroupItem value={m.value}>{m.label}</ToggleGroupItem>
               </Tooltip>
             ))}
           </ToggleGroup>

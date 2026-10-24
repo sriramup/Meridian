@@ -17,8 +17,8 @@ export interface Route {
 }
 
 const EDIT =
-  /\b(add|build|create|make|place|put|plant|remove|delete|demolish|replace|widen|narrow|convert|change|set|turn|close|open|reopen|pedestriani[sz]e|extend|move|shift|realign|merge|split|draw|generate|design|upgrade|fix|improve|reduce|increase|raise|lower|undo|redo|revert|branch|switch|rename|green|give|install|swap|retrofit|densify|rezone|connect|link|insert|fill|apply|commit|do it|go ahead|proceed)\b/i;
-const ANALYSIS = /\b(simulat|(run|rerun|re-run)\b[^.?!]{0,30}\b(traffic|heat|runoff|stormwater|flood|access|bike|sun|shade|growth|capacity|model|simulation)|model the|what (would|will) happen|impact|effect of|evaluate|assess|test|check|validate|rank|estimate|forecast|measure the)\w*/i;
+  /\b(add|build|create|make|place|put|plant|remove|delete|demolish|replace|widen|narrow|convert|change|set|turn|close|open|reopen|pedestriani[sz]e|extend|move|shift|realign|merge|split|draw|generate|design|upgrade|fix|improve|reduce|increase|raise|lower|undo|redo|revert|branch|switch|rename|green|give|install|swap|retrofit|densify|rezone|connect|link|insert|fill|apply|commit|do it|go ahead|proceed|lay|layout|pave|landscape|line|plot|sketch|rotate|copy|duplicate|paint|fence|align|restrict|limit|clear|lay out|put in|try|start|continue|keep going|again)\b/i;
+const ANALYSIS = /\b(simulat|suggest|propose|recommend|find|locate|identify|where (should|could|would)|show (me )?(where|the)|(run|rerun|re-run)\b[^.?!]{0,30}\b(traffic|heat|runoff|stormwater|flood|access|bike|sun|shade|growth|capacity|model|simulation)|model the|what (would|will) happen|impact|effect of|evaluate|assess|test|check|validate|rank|estimate|forecast|measure the)\w*/i;
 const DEEP =
   /\b(masterplan|master plan|district|neighbourhood plan|neighborhood plan|optimi[sz]\w*|alternatives?|options|scenarios to|branches|compare|comparison|trade-?offs?|strategy|strategic|redesign|overhaul|transform|study|several|multiple|each of|whole (city|area|downtown|network)|network-wide|citywide|city-wide|minimi[sz]e|maximi[sz]e|best (way|site|location)s?|plan for|step by step|thorough|in depth|in-depth|comprehensive)\b/i;
 const QUESTION = /^(what|what's|whats|which|where|who|when|how (many|much|tall|high|wide|long|big|far|old)|is|are|was|were|does|do|did|can you tell|tell me|show me what|why is|why are|any)\b/i;
@@ -42,5 +42,6 @@ export function routeRequest(text: string, opts: { mode?: "plan" | "edit"; hasSe
   }
   if (edit || analysis) return { tier: "standard", reason: edit ? "edit" : "analysis" };
   if (opts.mode === "plan" && !question) return { tier: "standard", reason: "plan request" };
-  return { tier: words <= 12 ? "quick" : "standard", reason: words <= 12 ? "short request" : "general request" };
+  // only questions and small talk take the fast tier: an unrecognised instruction is most likely a task
+  return question ? { tier: "quick", reason: "short question" } : { tier: "standard", reason: "general request" };
 }
