@@ -47,7 +47,8 @@ export interface StackResult {
 
 export function floorHeightsFor(use: Use, groundH?: number, typH?: number) {
   const d = floorHeights(use === "mixed" ? "residential" : use);
-  return { ground: groundH && groundH > 0 ? groundH : d.ground, typ: typH && typH > 0 ? typH : d.typ };
+  // a floor-to-floor height under 2.2 m is not a storey; values given are clamped to that minimum
+  return { ground: groundH && groundH > 0 ? Math.max(2.2, groundH) : d.ground, typ: typH && typH > 0 ? Math.max(2.2, typH) : d.typ };
 }
 
 /** elevation of the top of floor f (f floors above ground) */
@@ -65,6 +66,35 @@ function xform(poly: Polygon, about: Vec2, s: number, twistDeg: number, off: Vec
     }),
   );
 }
+
+/** no two non-adjacent edges of any ring cross (insets of thin wings can fold over themselves) */
+export function isSimplePoly(p: Polygon): boolean {
+  for (const r of p) {
+    const n = r.length;
+    if (n < 3) return false;
+    if (n > 400) continue;
+    for (let i = 0; i < n; i++)
+      for (let j = i + 2; j < n; j++) {
+        if (i === 0 && j === n - 1) continue;
+        const a = r[i],
+          b = r[(i + 1) % n],
+          c = r[j],
+          d = r[(j + 1) % n];
+        const o = (p: Vec2, q: Vec2, s: Vec2) => (q[0] - p[0]) * (s[1] - p[1]) - (q[1] - p[1]) * (s[0] - p[0]);
+        const d1 = o(a, b, c),
+          d2 = o(a, b, d),
+          d3 = o(c, d, a),
+          d4 = o(c, d, b);
+        if (((d1 > 1e-9 && d2 < -1e-9) || (d1 < -1e-9 && d2 > 1e-9)) && ((d3 > 1e-9 && d4 < -1e-9) || (d3 < -1e-9 && d4 > 1e-9))) return false;
+      }
+  }
+  return true;
+}
+
+const goodInset = (p: Polygon, d: number): Polygon | null => {
+  const q = d > 0 ? insetPoly(p, d) : p;
+  return q && isValidPoly(q) && polyArea(q) > 12 && isSimplePoly(q) ? q : null;
+};
 
 export function stackMasses(base: Polygon, spec: StackSpec): StackResult {
   const notes: string[] = [];
@@ -122,14 +152,13 @@ export function stackMasses(base: Polygon, spec: StackSpec): StackResult {
     const tw = shaped ? twist * (t / Math.max(1, F - start)) : 0;
     let poly = xform(towerBase, polyCentroid(towerBase), k, tw, [0, 0]);
     if (d > 0) {
-      const ins = insetPoly(poly, d);
-      if (ins && isValidPoly(ins) && polyArea(ins) > 12) poly = ins;
+      const ins = goodInset(poly, d);
+      if (ins) poly = ins;
       else {
-        // too small to step again: hold the last plate
-        insetCap = Math.max(0, d - depth);
-        d = insetCap;
-        const ins2 = d > 0 ? insetPoly(poly, d) : poly;
-        poly = ins2 && isValidPoly(ins2) ? ins2 : poly;
+        // too small to step again: hold the last plate that worked
+        while (d > 0 && !goodInset(poly, d)) d = Math.max(0, d - depth);
+        insetCap = d;
+        poly = goodInset(poly, d) ?? poly;
         if (!notes.length) notes.push("plate too small for further setbacks; upper floors keep the last step");
       }
     }
