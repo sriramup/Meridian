@@ -39,7 +39,7 @@ export function layoutForm(specs: ParamSpec[], values: ParamValues): FormLayout 
   return { sections, advanced: toSections(adv), advancedCount };
 }
 
-export type Widget = "number" | "slider" | "segmented" | "select" | "switch" | "color" | "text" | "multi";
+export type Widget = "number" | "slider" | "segmented" | "select" | "switch" | "color" | "text" | "multi" | "json";
 
 /** the input a param gets */
 export function widgetFor(p: ParamSpec): Widget {
@@ -58,6 +58,8 @@ export function widgetFor(p: ParamSpec): Widget {
       return "text";
     case "multi":
       return "multi";
+    case "json":
+      return "json";
   }
 }
 
@@ -112,6 +114,13 @@ export function coerce(p: ParamSpec, raw: unknown, current: unknown): unknown {
       // keep option order so the value is stable regardless of click order
       return p.options.map((o) => o.value).filter((v) => arr.includes(v));
     }
+    case "json":
+      if (typeof raw !== "string") return raw;
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return current;
+      }
   }
 }
 
@@ -132,6 +141,8 @@ export function formatValue(p: ParamSpec, v: unknown): string {
       return v ? "Yes" : "No";
     case "multi":
       return (Array.isArray(v) ? v : []).map((x) => p.options.find((o) => o.value === x)?.label ?? x).join(", ");
+    case "json":
+      return JSON.stringify(v);
     default:
       return String(v ?? "");
   }
