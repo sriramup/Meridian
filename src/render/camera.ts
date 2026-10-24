@@ -1,6 +1,5 @@
 import { rtMaybe } from "@/state/runtime";
 import { LocalProjection } from "@/world/projection";
-import { closestOnPath, polyLength } from "@/geometry/polyline";
 import type { Vec2 } from "@/world/types";
 
 function ctx() {
@@ -38,34 +37,8 @@ export function overview() {
   c.map.flyTo({ center: c.proj.toLonLat(iv.center), zoom: iv.zoom - 0.3, pitch: iv.pitch, bearing: iv.bearing, duration: 2400, curve: 1.2 });
 }
 
-/** compass bearing down the nearest street, toward its longer stretch from p (the view a person would take) */
-export function streetBearingAt(p: Vec2): number | null {
-  const R = rtMaybe();
-  if (!R) return null;
-  let best: { d: number; dir: Vec2; ahead: number } | null = null;
-  for (const e of R.world.query([p[0] - 40, p[1] - 40, p[0] + 40, p[1] + 40], ["street"])) {
-    if (e.kind !== "street" || e.cls === "service" || e.tunnel) continue;
-    const c = closestOnPath(p, e.path);
-    if (best && c.d >= best.d) continue;
-    const a = e.path[c.seg],
-      b = e.path[c.seg + 1] ?? a;
-    const L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
-    const total = polyLength(e.path);
-    // look toward whichever end of the street is farther away
-    const fwd = c.along < total / 2;
-    best = { d: c.d, dir: fwd ? [(b[0] - a[0]) / L, (b[1] - a[1]) / L] : [(a[0] - b[0]) / L, (a[1] - b[1]) / L], ahead: fwd ? total - c.along : c.along };
-  }
-  if (!best) return null;
-  return ((Math.atan2(best.dir[0], best.dir[1]) * 180) / Math.PI + 360) % 360;
-}
-
-/** eye-level view (≈1.7 m) looking along `bearing` (defaults to down the nearest street) */
-export function pedestrianAt(p: Vec2, bearing?: number) {
-  const c = ctx();
-  if (!c) return;
-  stopOrbit();
-  c.map.flyTo({ center: c.proj.toLonLat(p), zoom: 22.4, pitch: 84, bearing: bearing ?? streetBearingAt(p) ?? c.map.getBearing(), duration: 3200, curve: 1.6 });
-}
+// street level (the eye-height camera) lives in streetView.ts
+export { pedestrianAt, streetBearingAt } from "./streetView";
 
 export function orbit(p: Vec2, seconds = 30) {
   const c = ctx();

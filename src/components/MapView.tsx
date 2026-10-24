@@ -101,12 +101,14 @@ export function MapView() {
       pickingRadius: 3,
       useDevicePixels: Math.min(2, window.devicePixelRatio || 1),
       onHover: (info: PickingInfo) => {
+        // street level has its own ground cursor; nothing highlights under it
+        if (useApp.getState().cameraMode === "pedestrian") return;
         const o = info.object as { id?: string } | undefined;
         useApp.getState().setHover(o?.id && typeof o.id === "string" ? o.id : null);
       },
       onClick: (info: PickingInfo, ev) => {
         const st = useApp.getState();
-        if (st.tool !== "select") return;
+        if (st.tool !== "select" || st.cameraMode === "pedestrian") return;
         const o = info.object as { id?: string } | undefined;
         const id = o?.id && typeof o.id === "string" ? o.id : null;
         const shift = (ev?.srcEvent as MouseEvent | undefined)?.shiftKey;
