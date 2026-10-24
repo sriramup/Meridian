@@ -58,10 +58,15 @@ export function entityBBox(e: Entity): BBox {
     case "utility":
     case "path":
       return pathBBox(e.path);
+    case "prop": {
+      if (e.footprint) return polyBBox(e.footprint);
+      const r = Math.max(0.5, ...e.solids.map((s) => Math.hypot(s.at[0], s.at[1]) + Math.hypot(s.size[0], s.size[1]) / 2));
+      return [e.p[0] - r, e.p[1] - r, e.p[0] + r, e.p[1] + r];
+    }
   }
 }
 
-const KINDS: EntityKind[] = ["building", "street", "node", "area", "tree", "parcel", "stop", "route", "utility", "path", "poi", "place"];
+const KINDS: EntityKind[] = ["building", "street", "node", "area", "tree", "parcel", "stop", "route", "utility", "path", "poi", "place", "prop"];
 
 export class World implements NetworkAccess {
   meta: CityMeta;

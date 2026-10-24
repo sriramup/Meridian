@@ -1,7 +1,7 @@
 // Usage: node scripts/dev/shot.mjs <url> <out.png> [waitMs] [w] [h] [evalJs]
 import { chromium } from "playwright";
 const [url, out, wait = "12000", w = "1600", h = "1000", js] = process.argv.slice(2);
-const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium-1194/chrome-linux/chrome", args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"] });
+const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium", args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"] });
 const page = await browser.newPage({ viewport: { width: +w, height: +h }, deviceScaleFactor: 1 });
 const logs = [];
 page.on("console", (m) => logs.push(`[${m.type()}] ${m.text()}`));

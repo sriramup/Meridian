@@ -7,6 +7,12 @@ export interface ToolDef {
   name: string;
   description: string;
   input_schema: Schema;
+  /**
+   * read: inspects or runs models, never changes the world. edit: can commit a change (plan mode
+   * allows it only as a dry run; zones bound where it may act). view: moves the camera or changes
+   * what the map shows. Missing = edit (the safe default for gating).
+   */
+  effect?: "read" | "edit" | "view";
 }
 
 const point = { type: "array", items: { type: "number" }, minItems: 2, maxItems: 2, description: "[x, y] local metres" };
