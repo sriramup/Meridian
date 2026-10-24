@@ -266,7 +266,7 @@ export const customBuilding: PrimitiveDef = {
   generate(params, place, ctx) {
     const { building, notes } = buildCustomBuilding(params, place);
     const b: Building = { ...building, id: ctx.id("b"), lib: { ...ctx.ref, primary: true } };
-    if ((params.units as number) > 0 || (params.jobs as number) > 0) b.occupancy = { ...((params.units as number) > 0 ? { units: params.units as number } : {}), ...((params.jobs as number) > 0 ? { jobs: params.jobs as number } : {}), gfa: massesGFA(b.masses, b.use === "mixed" ? "residential" : b.use) };
+    if ((params.units as number) > 0 || (params.jobs as number) > 0) b.occupancy = { ...((params.units as number) > 0 ? { units: params.units as number } : {}), ...((params.jobs as number) > 0 ? { jobs: params.jobs as number } : {}), gfa: massesGFA(b.masses, b.use === "mixed" ? "residential" : b.use, b.storeys) };
     return { buildings: [b], warnings: notes.filter((n) => /could not|too small/i.test(n)) };
   },
 };
