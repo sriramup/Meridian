@@ -64,6 +64,24 @@ export interface AgentSession {
   scenarioId?: string;
   /** last error message, when status is "error" */
   error?: string;
+  /** how the latest run was routed and how long it took (set when it starts, completed when it ends) */
+  lastRun?: RunStats;
+}
+
+/** request routing and timing of a run (src/agent/router.ts picks the tier) */
+export interface RunStats {
+  /** quick: fast model, low effort; standard: main model; deep: main model, high effort */
+  tier: "quick" | "standard" | "deep";
+  reason?: string;
+  /** model that served it (reported by the server) */
+  model?: string;
+  startedAt: number;
+  /** total run time */
+  ms?: number;
+  /** time to the first streamed text or tool call */
+  firstTokenMs?: number;
+  /** tool calls made */
+  tools: number;
 }
 
 /**

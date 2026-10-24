@@ -25,6 +25,8 @@ export interface Changeset {
   report?: CascadeReport;
   /** group id when several changesets belong to one agent action */
   group?: string;
+  /** agent session that committed it (src/agent/sessions.ts): per-session undo and attribution */
+  session?: string;
 }
 
 export interface CascadeReport {

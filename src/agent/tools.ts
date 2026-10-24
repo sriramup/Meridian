@@ -6,7 +6,9 @@ import { circle, convexHull, difference, intersection, isValidPoly, normalizePol
 import { closestOnPath, curvatureStats, minRadiusForSpeed, pointAt, polyLength } from "@/geometry/polyline";
 import { dist } from "@/geometry/vec";
 import { runSim, useSims, type SimRecord } from "@/sim/client";
-import { TOOL_DEFS } from "./toolDefs";
+import { TOOL_DEFS, effectOf, supportsDryRun } from "./toolDefs";
+import type { AgentMode, Zone } from "./types";
+import { inZone, zoneCheck, zoneRing } from "./zones";
 import { schoolsNeeded, STUDENT_RATES, UNIT_COSTS } from "@/sim/capacity";
 import { dqT } from "@/sim/heat";
 import { GREEN_ROOF_SETBACK, plantedRoof } from "@/sim/landcover";
@@ -47,6 +49,8 @@ export interface ToolOutput {
   content: unknown;
   display: ToolDisplay;
   isError?: boolean;
+  /** refused by the session's mode or zone (shown as "blocked" in the pane) */
+  blocked?: boolean;
 }
 
 export interface ToolContext {
@@ -55,6 +59,67 @@ export interface ToolContext {
   signal?: AbortSignal;
   /** compute the change and its cascade report without committing it */
   dryRun?: boolean;
+  // ---- multi-agent runtime (src/agent/sessions.ts); all optional so manual / test callers are unchanged
+  /** plan: edit tools run only as dry runs (or are refused when they have none) */
+  mode?: AgentMode;
+  /** edits must stay inside this zone (src/agent/zones.ts rules) */
+  zone?: Zone | null;
+  /** session making the call: changesets are tagged with it; undo / revert act on its own changesets */
+  sessionId?: string;
+  /** called right before a commit; a returned string refuses the commit (e.g. the session's scenario is no longer active) */
+  beforeCommit?: () => string | null;
+  /** called after each committed changeset */
+  onCommit?: (cs: Changeset) => void;
+  /** set_zone tool: resolve and store the session zone; returns the tool result */
+  setZone?: (input: { zone?: unknown; clear?: boolean }) => ToolOutput;
+  /** set by executeTool while an edit holds the world lock: lets commit() release it while waiting for an approval */
+  lock?: { release(): void; reacquire(): Promise<void> };
+}
+
+// ---------------------------------------------------------------- world lock
+// Edits from concurrent sessions are serialised: optimisers commit and undo trial changesets, and an
+// op computed against one world state must be applied to that same state.
+class Mutex {
+  private tail: Promise<void> = Promise.resolve();
+  async acquire(): Promise<() => void> {
+    let release!: () => void;
+    const next = new Promise<void>((r) => (release = r));
+    const prev = this.tail;
+    this.tail = prev.then(() => next);
+    await prev;
+    let done = false;
+    return () => {
+      if (!done) {
+        done = true;
+        release();
+      }
+    };
+  }
+}
+export const worldLock = new Mutex();
+
+/** do this changeset's ops still match the world (nothing it touches changed since it was computed)? */
+export function stillApplies(cs: Changeset): boolean {
+  const w = rt().world;
+  return cs.ops.every((op) => (op.type === "add" ? !w.get(op.entity.id) : op.type === "remove" ? w.get(op.entity.id) === op.entity : w.get(op.before.id) === op.before));
+}
+
+/** mode / scenario / zone checks before a changeset is committed; returns a refusal or null */
+function gate(cs: Changeset, title: string, ctx: ToolContext): ToolOutput | null {
+  const why = ctx.beforeCommit?.();
+  if (why) return { content: { applied: false, refused: true, error: why }, display: { title, detail: why, status: "warn" }, isError: true, blocked: true };
+  if (ctx.zone) {
+    const v = zoneCheck(ctx.zone, cs);
+    if (!v.ok) return { content: { applied: false, refused: true, error: v.message, outside_zone: v.outside.slice(0, 12) }, display: { title, detail: `Outside the zone “${ctx.zone.label}” — not applied`, status: "warn", lines: v.outside.slice(0, 4).map((o) => `✕ ${o.name}`) }, isError: true, blocked: true };
+  }
+  return null;
+}
+
+/** commit a changeset into the active scenario, tagged with the session */
+function applyCs(cs: Changeset, ctx: ToolContext) {
+  if (ctx.sessionId) cs.session = ctx.sessionId;
+  rt().scenarios.commit(cs);
+  ctx.onCommit?.(cs);
 }
 
 type In = Record<string, any>;
@@ -90,15 +155,20 @@ async function commit(res: OpResult, title: string, ctx: ToolContext): Promise<T
         buildings_demolished: removedB.length,
         gfa_demolished_m2: Math.round(removedB.reduce((s, b) => s + programmeOf(b).gfa, 0)),
         historic_demolished: removedB.filter((b) => b.historic).length,
+        ...(ctx.zone ? { zone_check: ((v) => (v.ok ? "inside the session zone" : v.message))(zoneCheck(ctx.zone, cs)) } : {}),
         data: res.data,
       },
       display: { title: `Preview: ${cs.label}`, detail: "not applied", status: "ok", lines: res.report.summary.slice(0, 6) },
     };
   }
+  const refused = gate(cs, title, ctx);
+  if (refused) return refused;
   const removedB = cs.ops.filter((o) => o.type === "remove" && o.entity.kind === "building").map((o) => (o as { entity: Building }).entity);
   const historic = removedB.filter((b) => b.historic);
   const needs = ctx.approvals && (historic.length > 0 || removedB.length > 25);
   if (needs) {
+    // other sessions may edit while the user decides: release the world lock, then re-check the change still applies
+    ctx.lock?.release();
     const ok = await ctx.requestApproval({
       title: `Approve “${cs.label}”?`,
       lines: [
@@ -107,10 +177,14 @@ async function commit(res: OpResult, title: string, ctx: ToolContext): Promise<T
         ...res.report.summary.slice(0, 4),
       ],
     });
+    await ctx.lock?.reacquire();
+    if (ok && !stillApplies(cs)) return err(title, "The world changed while waiting for approval (another agent or the user edited the same features). Nothing was applied; recompute the change and try again.");
+    const late = ok ? gate(cs, title, ctx) : null;
+    if (late) return late;
     if (!ok) return { content: { rejected: true, message: "The user declined this change. Nothing was applied. Propose an alternative that avoids the flagged impacts." }, display: { title, detail: "Declined by user — not applied", status: "warn" } };
   }
   const before = R.scenarios.activeId;
-  R.scenarios.commit(cs);
+  applyCs(cs, ctx);
   const st = useApp.getState();
   st.bumpWorld();
   st.bumpScenarios();
@@ -1070,13 +1144,17 @@ export const TOOLS: Record<string, (i: In, ctx: ToolContext) => Promise<ToolOutp
     return commit(res, "Modify buildings", ctx);
   },
 
-  async optimize_massing(i) {
+  async optimize_massing(i, ctx) {
     // search plan forms for one building: score each by direct sun on the open ground of its site, holding floor area
     const R = rt();
     const w = R.world;
     const b0 = w.get<Building>(i.id);
     if (!b0 || b0.kind !== "building") return err("Optimize massing", "Building not found");
     if (b0.historic) return err("Optimize massing", `${entityName(b0)} is historic-designated — its massing is not changed`);
+    {
+      const pre = gate({ id: "probe", label: "Massing study", author: "agent", time: 0, ops: [{ type: "update", before: b0, after: b0 }] }, "Optimize massing", ctx);
+      if (pre) return pre;
+    }
     const date = i.date ?? "2026-12-21";
     const site: Polygon = i.site ? resolveArea(i.site).poly : b0.parcelId && w.get<Parcel>(b0.parcelId) ? w.get<Parcel>(b0.parcelId)!.poly : [convexHull(b0.footprint[0].concat(...b0.footprint.slice(1)) as Vec2[])];
     if (R.scenarios.activeId === "baseline") R.scenarios.branch(i.branch_name ?? `Massing study — ${entityName(b0)}`, "agent");
@@ -1119,7 +1197,7 @@ export const TOOLS: Record<string, (i: In, ctx: ToolContext) => Promise<ToolOutp
     // best = most sun while keeping at least 90% of the floor area
     const ok = tried.filter((t) => Number.isFinite(t.sun_h) && t.gfa_m2 >= gfa0 * 0.9);
     const best = ok.sort((a, b) => b.sun_h - a.sun_h)[0];
-    if (best?.cs) R.scenarios.commit(best.cs);
+    if (best?.cs) applyCs(best.cs, ctx);
     await simulate("sun", { date });
     useApp.getState().bumpWorld();
     useApp.getState().bumpScenarios();
@@ -1449,18 +1527,42 @@ export const TOOLS: Record<string, (i: In, ctx: ToolContext) => Promise<ToolOutp
     return { content: css.map((c) => ({ id: c.id, label: c.label, author: c.author, summary: c.report?.summary.slice(0, 3) })), display: { title: "Read edit history", detail: `${S.active.cursor} edits in ${S.active.name}`, status: "ok" } };
   },
 
-  async undo(i) {
+  async undo(i, ctx) {
     const S = rt().scenarios;
-    const n = i.steps ?? 1;
-    const done = i.redo ? S.redo(n) : S.undo(n);
+    const n = Math.max(1, i.steps ?? 1);
+    let done: Changeset[] = [];
+    let note: string | undefined;
+    if (!ctx.sessionId || i.any_author) done = i.redo ? S.redo(n) : S.undo(n);
+    else if (i.redo) {
+      // redo only re-applies this session's own undone edits, and only while they are next in line
+      for (let k = 0; k < n; k++) {
+        const next = S.active.changesets[S.active.cursor];
+        if (!next || next.session !== ctx.sessionId) break;
+        done.push(...S.redo(1));
+      }
+      if (!done.length) note = "Nothing of this session's to redo (the next edit in the history belongs to someone else, or nothing was undone).";
+    } else {
+      // undo this session's own last N edits; later edits by others stay and are re-applied where they still fit
+      const mine = S.appliedChangesets().filter((c) => c.session === ctx.sessionId).slice(-n).reverse();
+      for (const cs of mine) {
+        const top = S.appliedChangesets().at(-1);
+        if (top?.id === cs.id) done.push(...S.undo(1));
+        else if (S.revertChangeset(cs.id)) done.push(cs);
+      }
+      const others = S.appliedChangesets().filter((c) => c.session !== ctx.sessionId).length;
+      if (!mine.length) note = `This session has no edits to undo in “${S.active.name}”${others ? ` (${others} edits there were made by other agents or the user; pass any_author:true only if the user explicitly asked to undo those)` : ""}.`;
+    }
     useApp.getState().bumpWorld();
     useApp.getState().bumpScenarios();
-    return { content: { [i.redo ? "redone" : "undone"]: done.map((c) => c.label), edits_now: S.active.cursor, note: "Simulation settings and results are unchanged; re-run models to evaluate the new state." }, display: { title: `${i.redo ? "Redid" : "Undid"} ${done.length} edit${done.length === 1 ? "" : "s"}`, detail: done.map((c) => c.label).join(" · "), status: done.length ? "ok" : "warn" } };
+    return { content: { [i.redo ? "redone" : "undone"]: done.map((c) => c.label), edits_now: S.active.cursor, ...(note ? { message: note } : {}), note: "Simulation settings and results are unchanged; re-run models to evaluate the new state." }, display: { title: `${i.redo ? "Redid" : "Undid"} ${done.length} edit${done.length === 1 ? "" : "s"}`, detail: done.map((c) => c.label).join(" · "), status: done.length ? "ok" : "warn" } };
   },
 
-  async revert_change(i) {
+  async revert_change(i, ctx) {
     const S = rt().scenarios;
-    const label = S.appliedChangesets().find((c) => c.id === i.changeset_id)?.label;
+    const target = S.appliedChangesets().find((c) => c.id === i.changeset_id);
+    const label = target?.label;
+    if (target && ctx.sessionId && target.session !== ctx.sessionId && !i.any_author)
+      return { content: { applied: false, refused: true, error: `“${label}” was made by ${target.session ? "another agent session" : target.author === "agent" ? "an agent" : "the user"}, not this session. Leave it, or pass any_author:true only if the user explicitly asked to revert it.` }, display: { title: "Revert change", detail: "Not this session's edit — left in place", status: "warn" }, isError: true, blocked: true };
     const ok = S.revertChangeset(i.changeset_id);
     useApp.getState().bumpWorld();
     useApp.getState().bumpScenarios();
@@ -1485,12 +1587,16 @@ export const TOOLS: Record<string, (i: In, ctx: ToolContext) => Promise<ToolOutp
         continue;
       }
       const copy: Changeset = { ...cs, id: cs.id + "b" + Date.now().toString(36), label: `${cs.label} (from ${from.name})` };
-      R.scenarios.commit(copy);
+      const refused = gate(copy, "Borrow changes", ctx);
+      if (refused) {
+        skipped.push(`${cs.label} (${(refused.content as { error: string }).error.split(". ")[0]})`);
+        continue;
+      }
+      applyCs(copy, ctx);
       applied.push(cs.label);
     }
     useApp.getState().bumpWorld();
     useApp.getState().bumpScenarios();
-    void ctx;
     return { content: { applied, skipped_conflicting: skipped }, display: { title: `Borrowed ${applied.length} change${applied.length === 1 ? "" : "s"} from “${from.name}”`, detail: skipped.length ? `${skipped.length} skipped (conflicts with this scenario)` : undefined, status: skipped.length ? "warn" : "ok" } };
   },
 
@@ -1504,7 +1610,7 @@ export const TOOLS: Record<string, (i: In, ctx: ToolContext) => Promise<ToolOutp
     return { content: { scenario: rec.scenarioName, at_edit: rec.cursor, runtime_s: r1((rec.ms ?? 0) / 1000), ...s }, display: { title: `${rec.label} — ${rec.scenarioName}`, detail: `${r1((rec.ms ?? 0) / 1000)} s`, status: "ok", simId: rec.id } };
   },
 
-  async optimize_bottlenecks(i) {
+  async optimize_bottlenecks(i, ctx) {
     // greedy local search: at each of the worst non-motorway junctions, try small candidate fixes,
     // re-run the assignment for each, keep the one that most reduces network delay (if any)
     const R = rt();
@@ -1524,7 +1630,7 @@ export const TOOLS: Record<string, (i: In, ctx: ToolContext) => Promise<ToolOutp
     const skipped: string[] = [];
     const seen = new Set<string>();
     for (let step = 0; step < maxChanges; step++) {
-      const worst = (base.nodes as { id: string; name: string; vc: number; control: string }[]).find((n) => !seen.has(n.id) && !exclude.has(n.id) && n.vc > targetVc && !w.incident(n.id).every(highway));
+      const worst = (base.nodes as { id: string; name: string; vc: number; control: string }[]).find((n) => !seen.has(n.id) && !exclude.has(n.id) && n.vc > targetVc && !w.incident(n.id).every(highway) && (!ctx.zone || inZone(ctx.zone, w.get<StreetNode>(n.id)?.p ?? [1e9, 1e9])));
       if (!worst) break;
       seen.add(worst.id);
       const inc = w.incident(worst.id).filter((s) => !highway(s));
@@ -1560,8 +1666,10 @@ export const TOOLS: Record<string, (i: In, ctx: ToolContext) => Promise<ToolOutp
         tried.push(entry);
         if (!best || d < best.d) best = { entry, cs: res.changeset, r, d };
       }
-      if (best && best.d < -1) {
-        R.scenarios.commit(best.cs);
+      const refused = best && best.d < -1 ? gate(best.cs, "Optimise bottlenecks", ctx) : null;
+      if (refused) skipped.push(`${worst.name}: ${(refused.content as { error: string }).error.split(". ")[0]}`);
+      else if (best && best.d < -1) {
+        applyCs(best.cs, ctx);
         base = best.r;
         applied.push(best.entry);
       } else skipped.push(`${worst.name} (v/c ${r1(worst.vc)}): no candidate reduced network delay${cands.length ? "" : " — no applicable candidates"}`);
@@ -1626,7 +1734,12 @@ export const TOOLS: Record<string, (i: In, ctx: ToolContext) => Promise<ToolOutp
         skipped.push(`${p.label}: rejected (${demolished ? `${demolished} demolitions` : `${unresolved} buildings inside the right-of-way`})`);
         continue;
       }
-      R.scenarios.commit(res.changeset);
+      const refused = gate(res.changeset, "Emergency access", ctx);
+      if (refused) {
+        skipped.push(`${p.label}: ${(refused.content as { error: string }).error.split(". ")[0]}`);
+        continue;
+      }
+      applyCs(res.changeset, ctx);
       applied.push({ ...describe(p), geometry: res.report.summary[0] });
     }
     const afterRec = await simulate("access");
@@ -2007,6 +2120,11 @@ export const TOOLS: Record<string, (i: In, ctx: ToolContext) => Promise<ToolOutp
     };
   },
 
+  async set_zone(i, ctx) {
+    if (!ctx.setZone) return err("Set zone", "Zones are set per agent session; there is no session here.");
+    return ctx.setZone(i);
+  },
+
   async camera(i) {
     switch (i.action) {
       case "overview":
@@ -2100,15 +2218,60 @@ export function validateToolInput(name: string, input: unknown): string | null {
   return null;
 }
 
+const ZONE_KEYS = ["within", "area", "site"];
+/** tools that select their targets by name / area and accept `within`: with a session zone and no explicit target, limit them to the zone */
+const ZONE_SCOPED = new Set(["edit_streets", "set_street_attributes", "plant_trees", "convert_areas", "move_streets", "green_roofs"]);
+
 export async function executeTool(name: string, input: In, ctx: ToolContext): Promise<ToolOutput> {
   const fn = TOOLS[name];
   if (!fn) return err(name, `Unknown tool ${name}`);
-  const invalid = validateToolInput(name, input ?? {});
+  input = input ?? {};
+  const invalid = validateToolInput(name, input);
   if (invalid) return err(name, invalid);
+  const effect = effectOf(name, input);
+  const notes: string[] = [];
+  // plan mode: edits only as previews
+  if (ctx.mode === "plan" && effect === "edit") {
+    if (!supportsDryRun(name))
+      return {
+        content: { applied: false, refused: true, error: `Plan mode: ${name} changes the world and has no preview, so it was not run. Describe it as a proposed step instead (the user can switch this session to edit mode to carry it out).` },
+        display: { title: name, detail: "Plan mode — not run", status: "warn" },
+        isError: true,
+        blocked: true,
+      };
+    if (!input.dry_run) notes.push("Plan mode: ran as a dry run (preview). Nothing was applied.");
+    input = { ...input, dry_run: true };
+  }
+  // the session zone as an area reference: "zone" → its polygon
+  if (ctx.zone) {
+    for (const k of ZONE_KEYS) if (typeof input[k] === "string" && /^(the\s+)?(session\s+)?zone$/i.test(input[k].trim())) input = { ...input, [k]: zoneRing(ctx.zone, 64) };
+    if (effect === "edit" && ZONE_SCOPED.has(name) && input.within === undefined && !input.street_ids?.length && !input.ids?.length) {
+      input = { ...input, within: zoneRing(ctx.zone, 64) };
+      notes.push(`Limited to the session zone “${ctx.zone.label}”.`);
+    }
+  } else for (const k of ZONE_KEYS) if (typeof input[k] === "string" && /^(the\s+)?(session\s+)?zone$/i.test(input[k].trim())) return err(name, "This session has no zone set; pass a place, polygon or ids instead.");
+  const run = async (c: ToolContext) => {
+    try {
+      const out = await fn(input, input.dry_run ? { ...c, dryRun: true } : c);
+      if (notes.length && out.content && typeof out.content === "object" && !Array.isArray(out.content)) out.content = { ...(out.content as object), note_from_runtime: notes.join(" ") };
+      return out;
+    } catch (e) {
+      return err(name, (e as Error).message);
+    }
+  };
+  if (effect !== "edit" || input.dry_run) return run(ctx);
+  // edits are serialised across sessions (see worldLock)
+  let release = await worldLock.acquire();
+  const lock = {
+    release: () => release(),
+    reacquire: async () => {
+      release = await worldLock.acquire();
+    },
+  };
   try {
-    return await fn(input ?? {}, input?.dry_run ? { ...ctx, dryRun: true } : ctx);
-  } catch (e) {
-    return err(name, (e as Error).message);
+    return await run({ ...ctx, lock });
+  } finally {
+    release();
   }
 }
 
