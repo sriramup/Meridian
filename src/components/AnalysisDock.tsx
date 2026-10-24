@@ -424,7 +424,7 @@ function viewScope(): Scope | null {
  * frame of the clock (tile sums, microseconds), and recomputed whenever a new run (an edit, a month)
  * lands.
  */
-function useHeatKpis(rec: SimRecord | undefined, hour: number): { label: string; value: string }[] {
+function useHeatKpis(rec: SimRecord | undefined, hour: number): { label: string; value: string; hint?: string }[] {
   const [scope, setScope] = useState<Scope | null>(null);
   useEffect(() => {
     let map = rt().map;
@@ -468,19 +468,19 @@ function useHeatKpis(rec: SimRecord | undefined, hour: number): { label: string;
   const pct = (x: number, d = 0) => `${(x * 100).toFixed(d)}%`;
   const none = "—";
   return [
-    { label: "Surface temp", value: k.surface === null ? none : fmtF(k.surface) },
-    { label: "Feels like on foot", value: k.feels === null ? none : fmtF(k.feels) },
-    { label: "Canopy", value: k.cells ? pct(k.canopy, 1) : none },
-    { label: "Shaded paths", value: k.feels === null ? none : k.shaded === null ? "Night" : pct(k.shaded) },
+    { label: "Feels like on foot", value: k.feels === null ? none : fmtF(k.feels), hint: "Mean feels-like temperature on sidewalks, plazas and streets in view" },
+    { label: "Above 104 °F", value: k.hot === null ? none : pct(k.hot), hint: "Share of the ground in view whose surface is hotter than 104 °F" },
+    { label: "Canopy", value: k.cells ? pct(k.canopy, 1) : none, hint: "Tree canopy cover of the area in view" },
+    { label: "Shaded paths", value: k.feels === null ? none : k.shaded === null ? "Night" : pct(k.shaded), hint: "Share of walkable ground in view out of direct sun" },
   ];
 }
 
-function KpiGrid({ kpis, title }: { kpis: { label: string; value: string }[]; title?: string }) {
+function KpiGrid({ kpis, title }: { kpis: { label: string; value: string; hint?: string }[]; title?: string }) {
   if (!kpis.length) return null;
   return (
     <div className="grid grid-cols-[repeat(2,max-content)] content-center gap-x-5 gap-y-1 border-l border-line px-3 py-2 @max-[480px]:gap-x-3" title={title}>
       {kpis.slice(0, 4).map((k) => (
-        <div key={k.label} className="whitespace-nowrap">
+        <div key={k.label} className="whitespace-nowrap" title={k.hint}>
           <div className="text-[10px] text-ink-4">{k.label}</div>
           <div className="tabular text-[13px] font-semibold text-ink">{k.value}</div>
         </div>

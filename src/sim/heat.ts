@@ -213,9 +213,14 @@ export interface HeatTiles {
   paths: Float32Array;
   /** canopy cover summed over the tile's cells */
   canopy: Float32Array;
-  /** per modelled hour, per tile: [Σ surface °C, Σ feels-like °C over path cells, shaded path cells] */
+  /** per modelled hour, per tile: [Σ surface °C, Σ feels-like °C over path cells, shaded path cells, cells with surface above HOT_SURFACE_C] (TILE_STRIDE values) */
   hourly: Float32Array[];
 }
+
+/** values per tile in HeatTiles.hourly */
+export const TILE_STRIDE = 4;
+/** surface temperature counted as hot ground: 40 °C = 104 °F */
+export const HOT_SURFACE_C = 40;
 
 /** sun below this altitude (rad, ≈ 3.5°) is treated as diffuse-only: no direct beam, nothing is "in sun" */
 export const SUN_MIN_ALT = 0.06;
@@ -406,11 +411,11 @@ export function runHeat(lc: Landcover, weather: Weather, p: HeatParams, onProgre
         ex = prev!.result.exposure[pk].slice();
         sf = prev!.result.surface[pk].slice();
         th = prev!.result.tiles.hourly[pk].slice();
-        for (let t = 0; t < nt; t++) if (inWin(t)) th[t * 3] = th[t * 3 + 1] = th[t * 3 + 2] = 0;
+        for (let t = 0; t < nt; t++) if (inWin(t)) th.fill(0, t * TILE_STRIDE, t * TILE_STRIDE + TILE_STRIDE);
       } else {
         ex = new Uint8Array(n);
         sf = new Uint8Array(n);
-        th = new Float32Array(nt * 3);
+        th = new Float32Array(nt * TILE_STRIDE);
       }
     }
     const Sd = 0.18 * S; // diffuse share reaching shaded ground
@@ -439,7 +444,7 @@ export function runHeat(lc: Landcover, weather: Weather, p: HeatParams, onProgre
             const q = Math.round((E - 15) * 4);
             ex![i] = q < 1 ? 1 : q > 255 ? 255 : q;
             if (fl & 2) {
-              const t3 = (trow + ((x / T) | 0)) * 3;
+              const t3 = (trow + ((x / T) | 0)) * TILE_STRIDE;
               th![t3 + 1] += E;
               if (!groundLit) th![t3 + 2]++;
             }
@@ -449,7 +454,9 @@ export function runHeat(lc: Landcover, weather: Weather, p: HeatParams, onProgre
           const Ts = Tl + (dS > sto ? dS : sto);
           const q = Math.round((Ts - 15) * 4);
           sf![i] = q < 1 ? 1 : q > 255 ? 255 : q;
-          th![(trow + ((x / T) | 0)) * 3] += Ts;
+          const t4 = (trow + ((x / T) | 0)) * TILE_STRIDE;
+          th![t4] += Ts;
+          if (Ts > HOT_SURFACE_C) th![t4 + 3]++;
         }
       }
     }
@@ -484,9 +491,9 @@ export function runHeat(lc: Landcover, weather: Weather, p: HeatParams, onProgre
       sd = 0;
     const th = hourly[k];
     for (let t = 0; t < nt; t++) {
-      s += th[t * 3];
-      e += th[t * 3 + 1];
-      sd += th[t * 3 + 2];
+      s += th[t * TILE_STRIDE];
+      e += th[t * TILE_STRIDE + 1];
+      sd += th[t * TILE_STRIDE + 2];
     }
     meanSurfaceH.push(s / n);
     meanExposureH.push(paths ? e / paths : 0);

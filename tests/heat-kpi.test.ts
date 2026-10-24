@@ -48,6 +48,9 @@ describe("heat KPIs per hour and per area", () => {
     expect(night.surface!).toBeGreaterThan(weather.t[3]);
     expect(noon.shaded!).toBeLessThan(0.05);
     expect(night.shaded).toBeNull();
+    // sun-baked pavement passes 104 °F at a July noon; none of it does at 3 AM
+    expect(noon.hot!).toBeGreaterThan(0.5);
+    expect(night.hot).toBe(0);
   });
 
   it("interpolates between modelled hours", () => {
@@ -73,6 +76,10 @@ describe("heat KPIs per hour and per area", () => {
     expect(after.shaded!).toBeGreaterThan(before.shaded! + 0.05);
     expect(after.surface!).toBeLessThan(before.surface! - 0.5);
     expect(after.feels!).toBeLessThan(before.feels!);
+    // in a July mid-afternoon the air alone is ≈37 °C, so even shaded ground passes 104 °F; mid-morning,
+    // shade decides it: the trees take ground out of the hot share
+    expect(after.hot!).toBeLessThanOrEqual(before.hot!);
+    expect(areaKpi(planted, sel, 10).hot!).toBeLessThan(areaKpi(bare, sel, 10).hot!);
     // a view elsewhere is unaffected by canopy it can't see
     const far = tilesIn(planted.tiles, grid, { center: [220, 220], radius: 20 });
     expect(areaKpi(planted, far, 15).canopy).toBe(0);
