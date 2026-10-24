@@ -10,6 +10,13 @@
 //   "lavaca"                    legacy Austin flow: resolve Lavaca & 4th → vacant parcel → 30-storey tower → PM traffic
 //   "long" | "slow" | "grid"    long-running task: 4 streets drawn one per turn (≈1.2 s delay per turn), so two
 //                               sessions visibly run in parallel; "at X, Y" sets where (default: zone centre or 0,0)
+//   "demolish" | "clear the block"
+//                               approval flow: find_features (buildings within 200 m of "X, Y", else the zone centre,
+//                               else 0,0; up to 60) → remove_features on all of them. More than 25 buildings (or any
+//                               historic one) triggers the approval prompt (session status "needs_input"). Apply →
+//                               "Cleared N buildings."; Decline → the model adapts with a smaller step: it removes
+//                               only the 3 nearest buildings (under the approval threshold) and says so. With 25 or
+//                               fewer buildings in range it removes them without asking.
 //   "outside"                   (checked before the zone flow) see below
 //   "only work" | "set zone" | "zone:" | "work anywhere"
 //                               set_zone with the words after "only work in/between…" or "zone:" → confirmation
@@ -143,6 +150,21 @@ function nextTurn(body) {
     if (r.length < paths.length) return { delay: 1200, turn: [call("create_street", { path: paths[r.length], cls: "residential", name: `Mock Street ${r.length + 1}` }, r.length ? undefined : `Laying out a 4-street grid around [${x}, ${y}].`), "tool_use"] };
     const ok = r.filter((x) => !x.error && (x.data?.applied || x.data?.preview)).length;
     return { delay: 600, turn: say(`Done: ${ok} of ${paths.length} streets ${plan ? "previewed (plan mode — nothing applied)" : "built"} around [${x}, ${y}].${r.some((x) => x.error) ? ` ${r.filter((x) => x.error).length} were refused: ${String(r.find((x) => x.error).data?.error ?? "").slice(0, 160)}` : ""}`) };
+  }
+
+  if (/\bdemolish|clear the block\b/.test(q)) {
+    const [x, y] = at(request, home);
+    if (r.length === 0) return { turn: [call("find_features", { kind: "building", near: [x, y], radius: 200, limit: 60 }, `Looking for the buildings around [${x}, ${y}].`), "tool_use"] };
+    const ids = (r[0].data?.rows ?? []).map((b) => b.id);
+    if (r.length === 1) {
+      if (!ids.length) return { turn: say(`There are no buildings within 200 m of [${x}, ${y}].`) };
+      return { turn: [call("remove_features", { ids, reason: "clear the block" }, `Removing all ${ids.length} buildings${ids.length > 25 ? " — this needs your approval" : ""}.`), "tool_use"] };
+    }
+    if (r.length === 2) {
+      if (r[1].data?.rejected) return { turn: [call("remove_features", { ids: ids.slice(0, 3), reason: "smaller first step" }, "Understood — I'll leave the block and only clear the three nearest lots instead."), "tool_use"] };
+      return { turn: say(r[1].error ? `That failed: ${String(r[1].data?.error).slice(0, 200)}` : `Cleared ${ids.length} buildings around [${x}, ${y}].`) };
+    }
+    return { turn: say(last.error ? `That failed: ${String(last.data?.error).slice(0, 200)}` : `Done: kept the block and removed only the 3 nearest buildings, which doesn't need approval.`) };
   }
 
   if (/\boutside\b/.test(q)) {
