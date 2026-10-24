@@ -23,7 +23,7 @@ import { AnalysisDock } from "./AnalysisDock";
 import { HelpDialog, NavHint } from "./Help";
 import { Inspector } from "./Inspector";
 import { StartCard } from "./StartCard";
-import { LibrarySolids } from "./library/LibrarySolids";
+import { LibraryRuntime } from "./library/LibraryRuntime";
 import { MapView } from "./MapView";
 import { Annotations, ChangeReport, Toasts } from "./Overlays";
 import { Toolbar } from "./Toolbar";
@@ -79,7 +79,7 @@ export function Shell() {
       <div className="absolute inset-0 flex">
         <div className="@container relative min-w-0 flex-1">
           <MapView />
-          <LibrarySolids />
+          <LibraryRuntime />
           <ZoneDrawSurface />
           <ZoneLayers paneOpen={agentOpen} />
           <div className="relative z-[5]">
@@ -164,7 +164,7 @@ export function deleteSelection(): boolean {
   return ok;
 }
 
-const TOOL_KEYS: Record<string, Tool> = { v: "select", b: "building", s: "street", a: "area", t: "tree", d: "district", r: "transit", m: "measure" };
+const TOOL_KEYS: Record<string, Tool> = { v: "select", l: "library", b: "building", s: "street", a: "area", t: "tree", d: "district", r: "transit", m: "measure" };
 const OVERLAY_KEYS: Record<string, OverlayId> = { "1": "traffic", "2": "heat", "3": "density", "4": "access", "5": "zoning", "6": "transit", "7": "flood", "8": "runoff", "9": "sun", "0": "change" };
 
 function useShortcuts() {
@@ -252,7 +252,7 @@ function useMapInteractions() {
       const toLocal = (ll: { lng: number; lat: number }): Vec2 => proj.toLocal(ll.lng, ll.lat);
       const click = (e: { lngLat: { lng: number; lat: number } }) => {
         const st = useApp.getState();
-        if (st.tool === "select" || draw.pending) return;
+        if (st.tool === "select" || st.tool === "library" || draw.pending) return;
         const p = toLocal(e.lngLat);
         if (st.tool === "tree" && st.planting.mode === "single") {
           // a blocked spot is already shown in red under the cursor; clicking it does nothing
