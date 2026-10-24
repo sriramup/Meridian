@@ -10,6 +10,7 @@ import { offsetPath, polyLength } from "@/geometry/polyline";
 import { contextModel, useSims, type SimRecord } from "@/sim/client";
 import { dqT } from "@/sim/heat";
 import { bracket } from "@/sim/heatKpi";
+import { configureRasterImages, requestRaster } from "./rasterImages";
 import { useImpact, type ImpactPin } from "@/sim/impact";
 import { gridMask, ringFade, studyFade } from "./edge";
 import { rtMaybe } from "@/state/runtime";
@@ -145,6 +146,45 @@ function heatLut(lo: number, hi: number): Uint8ClampedArray {
   return l;
 }
 
+type Img = HTMLCanvasElement | ImageBitmap;
+const lastInSlot = new Map<string, Img>();
+
+configureRasterImages({
+  // an hour on screen redraws at once; background hours join (their textures upload) only while the
+  // camera is still, a few at a time
+  onReady: (urgent) => (urgent ? useApp.getState().bumpOverlay() : bumpWhenIdle()),
+  idle: cameraIdle,
+});
+
+let lastMove = 0;
+let moveHooked: unknown = null;
+/** the camera is still (not moving, and not for the last 400 ms) */
+function cameraIdle(): boolean {
+  const map = rtMaybe()?.map;
+  if (!map) return true;
+  if (moveHooked !== map) {
+    moveHooked = map;
+    map.on("move", () => (lastMove = performance.now()));
+  }
+  return !map.isMoving() && performance.now() - lastMove > 400;
+}
+
+let bumpTimer: ReturnType<typeof setTimeout> | null = null;
+function bumpWhenIdle() {
+  if (bumpTimer) return;
+  bumpTimer = setTimeout(() => {
+    bumpTimer = null;
+    if (cameraIdle()) useApp.getState().bumpOverlay();
+    else bumpWhenIdle();
+  }, 300);
+}
+
+/** a heat-style quantised raster: built in the raster worker (main thread only without Worker support) */
+function heatImage(key: string, grid: Grid, bounds: readonly number[], edge: Fade, values: Uint8Array, lut: Uint8ClampedArray, urgent: boolean): Img | null {
+  if (typeof Worker === "undefined") return urgent ? quantImage(key, grid, values, lut, edge) : null;
+  return requestRaster(key, grid, bounds, edge, values, lut, urgent);
+}
+
 /** stands in for an hour whose image isn't built yet, so the layer list never changes shape */
 let blank: HTMLCanvasElement | null = null;
 function blankCanvas() {
@@ -155,7 +195,7 @@ function blankCanvas() {
   return blank;
 }
 
-function bitmap(id: string, canvas: HTMLCanvasElement, opacity = 0.82, g: Grid = rtMaybe()!.meta.grid, visible = true): Layer {
+function bitmap(id: string, canvas: Img, opacity = 0.82, g: Grid = rtMaybe()!.meta.grid, visible = true): Layer {
   return new BitmapLayer({
     id,
     ...common(),
@@ -250,7 +290,7 @@ function prewarm(key: string, jobs: (() => unknown)[]) {
  * (later in the list) gets its weight directly; the one beneath is scaled up to show through it.
  * Hours whose image isn't built yet hold a 1×1 transparent stand-in until the idle prewarm makes them.
  */
-function crossfade(id: string, n: number, img: (k: number, build: boolean) => HTMLCanvasElement | null, i0: number, i1: number, t: number, alpha: number, g?: Grid): Layer[] {
+function crossfade(id: string, n: number, img: (k: number, build: boolean) => Img | null, i0: number, i1: number, t: number, alpha: number, g?: Grid, askAll = false): Layer[] {
   const w = new Map<number, number>([[i0, i0 === i1 ? 1 : 1 - t]]);
   if (i1 !== i0) w.set(i1, t);
   const [lo, hi] = i0 < i1 ? [i0, i1] : [i1, i0];
@@ -259,7 +299,12 @@ function crossfade(id: string, n: number, img: (k: number, build: boolean) => HT
   const out: Layer[] = [];
   for (let k = 0; k < n; k++) {
     const active = w.has(k);
-    const c = img(k, active) ?? blankCanvas();
+    const slot = `${id}-${k}`;
+    // askAll: every hour is requested (the inactive ones as background work); until an image lands
+    // the slot keeps what it showed before (e.g. the previous month's hour), so nothing flashes
+    const got = active || askAll ? img(k, active) : img(k, false);
+    if (got) lastInSlot.set(slot, got);
+    const c = got ?? lastInSlot.get(slot) ?? blankCanvas();
     const op = !active ? 0 : k === hi && i0 !== i1 ? upper : lower;
     out.push(bitmap(`${id}-${k}`, c, op, g));
   }
@@ -460,27 +505,25 @@ export function overlayLayers(overlay: OverlayId | null, hour: number, _theme: s
         });
       };
       const lut = heatLut(lo, hi2);
-      const plain = (hi: number, build = true) => {
-        const key = `heat:${rec.id}:${hi}::${lo}`;
-        return build ? quantImage(key, g, rec.result.surface[hi], lut) : peekImage(key);
-      };
+      const bounds = rtMaybe()!.meta.bounds;
+      // the hours on screen are built first; asking for the others (not urgent) is the prewarm,
+      // which the raster worker runs only while the camera is still
+      const plain = (hi: number, onScreen = true) => heatImage(`heat:${rec.id}:${hi}::${lo}`, g, bounds, "study", rec.result.surface[hi], lut, onScreen);
       // the surrounding city (unaffected by edits) continues the map outward
       const ctx = cmp ? null : surrounding("heat", rec.params);
       if (ctx?.model === "heat") {
-        const cimage = (hi: number, build = true) => {
-          const ckey = `heatctx:${JSON.stringify(rec.params)}:${hi}:${lo}`;
-          if (!build) return peekImage(ckey);
+        const cimage = (hi: number, onScreen = true) => {
           const ci = ctx.hours.indexOf(hours[hi]);
           const arr = ci < 0 ? null : ctx.surface[ci];
-          return arr ? quantImage(ckey, ctx.gridSpec, arr, lut, "ring") : null;
+          return arr ? heatImage(`heatctx:${JSON.stringify(rec.params)}:${hi}:${lo}`, ctx.gridSpec, bounds, "ring", arr, lut, onScreen) : null;
         };
-        ground.push(...crossfade("heatctx", hours.length, cimage, i0, i1, t, 0.6, ctx.gridSpec));
-        prewarm(`ctx:${rec.id}:${lo}`, hours.map((_, k) => () => cimage(k)));
+        ground.push(...crossfade("heatctx", hours.length, cimage, i0, i1, t, 0.6, ctx.gridSpec, true));
       } else if (!cmp) ground.push(...crossfade("heatctx", hours.length, () => null, i0, i1, t, 0.6));
-      const img = cmp ? image : plain;
-      ground.push(...crossfade("heat", hours.length, img, i0, i1, t, cmp ? 0.8 : 0.6));
-      // build the rest of the day's images in idle time so playback never stalls on one
-      prewarm(`heat:${rec.id}:${cmp?.id ?? ""}:${lo}`, hours.map((_, k) => () => img(k)));
+      if (cmp) {
+        ground.push(...crossfade("heat", hours.length, image, i0, i1, t, 0.8));
+        // build the rest of the day's difference images in idle time so playback never stalls on one
+        prewarm(`heat:${rec.id}:${cmp.id}:${lo}`, hours.map((_, k) => () => image(k)));
+      } else ground.push(...crossfade("heat", hours.length, plain, i0, i1, t, 0.6, undefined, true));
     }
   } else if (overlay === "sun") {
     const { rec } = shown("sun");
