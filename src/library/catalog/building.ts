@@ -9,7 +9,7 @@ import { PROGRAMME, fmt } from "@/world/ops/core";
 import type { Building, Mass, Polygon, Solid, Use, Vec2 } from "@/world/types";
 import type { Category, GenerateContext, ParamSpec, ParamValues, Placement, PlacementInput, PrimitiveDef } from "../types";
 import { FOOTPRINT_SHAPES, footprintPoly, type FootprintShape, type FootprintSpec } from "../geometry/footprints";
-import { type Frame, frameOf, polyToLocal, polyToWorld } from "../geometry/frame";
+import { type Frame, frameOf, hashSeed, polyToLocal, polyToWorld, rng, toWorld as toW } from "../geometry/frame";
 import { floorHeightsFor, stackMasses } from "../geometry/massing";
 import { FACADES, FACADE_OPTIONS, ROOFS, ROOF_COLOR_OPTIONS, hexToRgb, shade, type FacadeKey, type RoofKey } from "../geometry/palette";
 import { footprintParts, transformParts, type Part } from "../geometry/parts";
@@ -383,6 +383,11 @@ export function buildBuilding(out: Out, r: Reader, frame: Frame, o: BuildOverrid
     primary,
   );
   if (!b.greenRoof) delete b.greenRoof;
+  if (r.n("units") > 0 || r.n("jobs") > 0) {
+    b.occupancy = { gfa: Math.round(gfa) };
+    if (r.n("units") > 0) b.occupancy.units = units;
+    if (r.n("jobs") > 0) b.occupancy.jobs = jobs;
+  }
   return {
     building: b,
     frame,
@@ -471,3 +476,142 @@ export function buildingType(o: BuildingTypeOpts): PrimitiveDef {
 export const rectLocal = (cx: number, cy: number, w: number, d: number): Polygon => [[[cx - w / 2, cy - d / 2], [cx + w / 2, cy - d / 2], [cx + w / 2, cy + d / 2], [cx - w / 2, cy + d / 2]]];
 
 export { box, floorHeightsFor };
+
+// ---------------------------------------------------------------- rows and clusters of buildings
+
+const ROW_PARAMS: ParamSpec[] = [
+  int("count", "Buildings in row", 6, { group: "Layout", min: 1, max: 40, description: "Number of attached units / buildings" }),
+  num("unitWidth", "Unit frontage", 6.5, { group: "Layout", unit: "m", min: 3, max: 60, step: 0.1, description: "Width of each unit along the row (rowhouse lots are typically 5–8 m)" }),
+  num("gap", "Gap between units", 0, { group: "Layout", unit: "m", min: 0, max: 30, step: 0.5, description: "0 = attached (party walls)" }),
+  num("stagger", "Front stagger", 0, { group: "Layout", unit: "m", min: 0, max: 10, step: 0.1, description: "Alternate units step forward / back" }),
+  int("heightVariation", "Height variation", 0, { group: "Layout", min: 0, max: 5, unit: "floors", description: "Random extra floors per unit" }),
+  bool("varyColour", "Vary colours", true, { group: "Layout" }),
+];
+
+const ROW_FACADES: FacadeKey[] = ["brick_red", "brick_buff", "siding_blue", "stucco_cream", "brick_brown", "siding_sage", "stucco_pink", "limestone", "siding_yellow"];
+
+/** a row of attached (or spaced) buildings sharing one parameter set: rowhouses, townhouses, shopfronts */
+export function buildingRowType(o: Omit<BuildingTypeOpts, "layout">): PrimitiveDef {
+  const params = [...ROW_PARAMS.map((p) => (o.defaults && p.key in o.defaults ? ({ ...p, default: o.defaults[p.key] } as ParamSpec) : p)), ...(o.extra ?? []), ...withDefaults(BUILDING_PARAMS, Object.fromEntries(Object.entries(o.defaults ?? {}).filter(([k2]) => !ROW_PARAMS.some((p) => p.key === k2))), o.patch)];
+  return {
+    id: o.id,
+    name: o.name,
+    category: o.category,
+    description: o.description,
+    tags: o.tags,
+    icon: o.icon ?? "building",
+    placement: o.placement ?? "rect",
+    params,
+    generate(values, place, ctx) {
+      const r = reader(values, params);
+      const out = new Out(ctx);
+      const frame = frameOf(place);
+      const fit = frame.siteW > 0 && r.b("fitToSite");
+      let n = r.n("count");
+      let uw = r.n("unitWidth");
+      const gap = r.n("gap");
+      if (fit) {
+        n = Math.max(1, Math.floor((frame.siteW + gap) / (uw + gap)));
+        uw = (frame.siteW - gap * (n - 1)) / n;
+      }
+      const depth = fit ? Math.max(4, Math.min(frame.siteD, r.n("depth"))) : r.n("depth");
+      const total = n * uw + (n - 1) * gap;
+      const rand = rngOf(ctx);
+      let units = 0,
+        gfa = 0;
+      const floorsBase = r.n("floors");
+      for (let i = 0; i < n; i++) {
+        const x = -total / 2 + uw / 2 + i * (uw + gap);
+        const y = (i % 2 ? 1 : -1) * (r.n("stagger") / 2) + (fit ? frame.siteD / 2 - depth / 2 : 0);
+        const fl = floorsBase + Math.floor(rand() * (r.n("heightVariation") + 1));
+        const v: ParamValues = { ...values, floors: fl, shape: "rect", width: uw, depth, fitToSite: false, targetArea: 0 };
+        if (r.b("varyColour") && !r.b("customColor")) v.facade = ROW_FACADES[(i + Math.floor(rand() * 3)) % ROW_FACADES.length];
+        const rr = reader(v, params);
+        const sub: Frame = { c: toW(frame, [x, y]), a: frame.a, siteW: 0, siteD: 0 };
+        const info = buildBuilding(out, rr, sub, {}, i === 0);
+        if (!info) continue;
+        o.decorate?.({ r: rr, out, frame: sub, info, place, ctx });
+        units += info.units;
+        gfa += info.gfa;
+      }
+      out.summary.unshift(`${o.name}: ${n} units of ${uw.toFixed(1)} m × ${depth.toFixed(1)} m, ${floorsBase}+ floors, GFA ${fmt.m2(gfa)}${units ? `, ${units} homes` : ""}`);
+      return out.done();
+    },
+  };
+}
+
+const CLUSTER_PARAMS: ParamSpec[] = [
+  int("rows", "Rows of buildings", 2, { group: "Layout", min: 1, max: 12 }),
+  int("cols", "Buildings per row", 3, { group: "Layout", min: 1, max: 12 }),
+  num("spacingX", "Spacing across", 12, { group: "Layout", unit: "m", min: 0, max: 100, step: 0.5, description: "Clear distance between buildings side by side" }),
+  num("spacingY", "Spacing front–back", 16, { group: "Layout", unit: "m", min: 0, max: 100, step: 0.5, description: "Clear distance between rows (courtyards, lawns)" }),
+  bool("lawn", "Shared lawn", true, { group: "Layout" }),
+  int("treesPerGap", "Trees per courtyard", 2, { group: "Layout", min: 0, max: 10 }),
+];
+
+/** a grid of identical (or varied) buildings with shared grounds: garden apartments, business parks, dorm quads */
+export function buildingClusterType(o: Omit<BuildingTypeOpts, "layout">): PrimitiveDef {
+  const params = [...CLUSTER_PARAMS.map((p) => (o.defaults && p.key in o.defaults ? ({ ...p, default: o.defaults[p.key] } as ParamSpec) : p)), ...(o.extra ?? []), ...withDefaults(BUILDING_PARAMS, Object.fromEntries(Object.entries(o.defaults ?? {}).filter(([k2]) => !CLUSTER_PARAMS.some((p) => p.key === k2))), o.patch)];
+  return {
+    id: o.id,
+    name: o.name,
+    category: o.category,
+    description: o.description,
+    tags: o.tags,
+    icon: o.icon ?? "building",
+    placement: o.placement ?? "rect",
+    params,
+    generate(values, place, ctx) {
+      const r = reader(values, params);
+      const out = new Out(ctx);
+      const frame = frameOf(place);
+      let rows = r.n("rows"),
+        cols = r.n("cols");
+      const sx = r.n("spacingX"),
+        sy = r.n("spacingY");
+      let w = r.n("width"),
+        d = r.n("depth");
+      if (frame.siteW > 0 && r.b("fitToSite")) {
+        // fit as many buildings of the given size as the site allows
+        cols = Math.max(1, Math.floor((frame.siteW - 4 + sx) / (w + sx)));
+        rows = Math.max(1, Math.floor((frame.siteD - 4 + sy) / (d + sy)));
+        w = Math.min(w, frame.siteW - 4);
+        d = Math.min(d, frame.siteD - 4);
+      }
+      const TW = cols * w + (cols - 1) * sx,
+        TD = rows * d + (rows - 1) * sy;
+      if (r.b("lawn")) out.area("grass", polyToWorld(frame, rectLocal(0, 0, frame.siteW > 0 ? frame.siteW : TW + 12, frame.siteD > 0 ? frame.siteD : TD + 12)), { primary: false });
+      let units = 0,
+        gfa = 0,
+        k = 0;
+      for (let j = 0; j < rows; j++)
+        for (let i = 0; i < cols; i++) {
+          const x = -TW / 2 + w / 2 + i * (w + sx),
+            y = -TD / 2 + d / 2 + j * (d + sy);
+          const v: ParamValues = { ...values, width: w, depth: d, fitToSite: false };
+          const rr = reader(v, params);
+          const sub: Frame = { c: toW(frame, [x, y]), a: frame.a, siteW: 0, siteD: 0 };
+          const info = buildBuilding(out, rr, sub, {}, k++ === 0);
+          if (!info) continue;
+          o.decorate?.({ r: rr, out, frame: sub, info, place, ctx });
+          units += info.units;
+          gfa += info.gfa;
+        }
+      // trees in the courtyards between rows
+      const nt = r.n("treesPerGap");
+      if (nt > 0 && sy >= 8)
+        for (let j = 0; j < rows - 1; j++) {
+          const y = -TD / 2 + (j + 1) * d + j * sy + sy / 2;
+          for (let t = 0; t < nt * cols; t++) {
+            const x = -TW / 2 + (TW * (t + 0.5)) / (nt * cols);
+            const rad = Math.min(4, sy / 2 - 1.5);
+            if (rad > 1.5) out.tree(toW(frame, [x, y]), rad, rad * 2.2, "live_oak", false);
+          }
+        }
+      out.summary.unshift(`${o.name}: ${rows * cols} buildings, GFA ${fmt.m2(gfa)}${units ? `, ${units} homes` : ""}`);
+      return out.done();
+    },
+  };
+}
+
+const rngOf = (ctx: GenerateContext) => rng(hashSeed(ctx.ref?.instance ?? "row"));
