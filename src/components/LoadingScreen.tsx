@@ -1,5 +1,6 @@
 "use client";
 
+import { useLayoutEffect, useRef, useState } from "react";
 import { useApp } from "@/state/store";
 
 export function LoadingScreen() {
@@ -22,9 +23,43 @@ export function LoadingScreen() {
   );
 }
 
+/**
+ * Vertical shift (px) that puts the ink of `el`'s text, not its font box, on the box's centre.
+ * Blackletter faces (and the fallbacks shown while they load) carry tall, uneven ascent/descent,
+ * so centring the box leaves the letters visibly high; measuring the glyphs works for any face.
+ */
+function inkOffset(el: HTMLElement): number {
+  const cs = getComputedStyle(el);
+  const g = document.createElement("canvas").getContext("2d");
+  if (!g) return 0;
+  g.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+  const m = g.measureText(el.textContent ?? "");
+  const A = m.fontBoundingBoxAscent,
+    D = m.fontBoundingBoxDescent;
+  if (!(A + D > 0)) return 0;
+  // the box (line-height: none) spans ascent + descent around the baseline; the ink spans its own
+  return (A - D - m.actualBoundingBoxAscent + m.actualBoundingBoxDescent) / 2;
+}
+
+/**
+ * The compass star and the blackletter name, centred on each other by their ink. Laid out as a
+ * flex box so no inline strut or baseline pushes it off centre in its parent; the name is nudged
+ * by its measured glyph bounds, again whenever a font finishes loading.
+ */
 export function Wordmark({ className = "" }: { className?: string }) {
+  const name = useRef<HTMLSpanElement>(null);
+  const [dy, setDy] = useState(0);
+  useLayoutEffect(() => {
+    const el = name.current;
+    if (!el) return;
+    const fit = () => setDy(Math.round(-inkOffset(el) * 4) / 4);
+    fit();
+    document.fonts?.addEventListener("loadingdone", fit);
+    void document.fonts?.ready.then(fit);
+    return () => document.fonts?.removeEventListener("loadingdone", fit);
+  }, []);
   return (
-    <span className={`inline-flex items-center gap-1.5 ${className}`}>
+    <span className={`flex items-center gap-1.5 ${className}`}>
       {/* a compass star on its meridian */}
       <svg width="20" height="20" viewBox="-10 -10 20 20" aria-hidden className="shrink-0">
         <circle r="8.2" fill="none" stroke="var(--color-gold)" strokeWidth="1" strokeDasharray="1.2 1.6" />
@@ -32,7 +67,9 @@ export function Wordmark({ className = "" }: { className?: string }) {
         <path d="M0 -7 1.9 -1.9 7 0 1.9 1.9 0 7 -1.9 1.9 -7 0 -1.9 -1.9Z" fill="var(--color-accent)" stroke="var(--color-ink-2)" strokeWidth="0.8" strokeLinejoin="round" />
         <circle r="1.1" fill="var(--color-ink-2)" />
       </svg>
-      <span className="font-brand text-[22px] leading-none text-ink">Meridian</span>
+      <span ref={name} className="font-brand text-[22px] leading-none text-ink" style={dy ? { transform: `translateY(${dy}px)` } : undefined}>
+        Meridian
+      </span>
     </span>
   );
 }
