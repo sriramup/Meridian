@@ -65,22 +65,22 @@ describe("solid instances", () => {
     c.update([a, b, l]);
     expect(c.lastRebuilt).toBe(3);
     const keys = c.layers().map((p) => p.key);
-    expect(keys).toEqual(["box:gloss", "box:matte", "cylinder:gloss", "sphere:light"]);
+    expect(keys).toEqual(["box:gloss:2", "box:matte:2", "cylinder:gloss:2", "sphere:light:2"]);
     expect(c.count).toBe(8);
-    const boxMetal = c.layers().find((p) => p.key === "box:gloss")!;
+    const boxMetal = c.layers().find((p) => p.key === "box:gloss:2")!;
     expect(boxMetal.owners.filter((o) => o === "prop:a").length).toBe(2);
     expect(boxMetal.matrices.length).toBe(boxMetal.n * 12);
     // nothing changed: no rebuild, same arrays
     const v = boxMetal.version;
     expect(c.update([a, b, l])).toBe(false);
     expect(c.lastRebuilt).toBe(0);
-    expect(c.layers().find((p) => p.key === "box:gloss")!.version).toBe(v);
+    expect(c.layers().find((p) => p.key === "box:gloss:2")!.version).toBe(v);
     // move one bench: only it is recomputed; the lamp's layers are untouched
-    const lampLayer = c.layers().find((p) => p.key === "sphere:light")!;
+    const lampLayer = c.layers().find((p) => p.key === "sphere:light:2")!;
     const a2 = { ...a, p: [1, 1] as [number, number] };
     expect(c.update([a2, b, l])).toBe(true);
     expect(c.lastRebuilt).toBe(1);
-    expect(c.layers().find((p) => p.key === "sphere:light")).toBe(lampLayer);
+    expect(c.layers().find((p) => p.key === "sphere:light:2")).toBe(lampLayer);
     // remove
     c.update([b, l]);
     expect(c.entityCount).toBe(2);
@@ -176,5 +176,25 @@ describe("far detail caps", () => {
     // the three largest survive
     const xs = Array.from(c.layers()[0].positions.filter((_, i) => i % 3 === 0)).sort();
     expect(xs).toEqual([7, 8, 9]);
+  });
+});
+
+describe("cells", () => {
+  it("draws each cell by its own state: hidden, coarse or full", () => {
+    const c = new SolidInstances();
+    const near = bench("prop:near", 10);
+    const far = { ...lamp("prop:far"), p: [1000, 1000] as [number, number] };
+    const off = { ...lamp("prop:off"), p: [-2000, 0] as [number, number] };
+    c.update([near, far, off], (key) => (key === "0:0" ? { visible: true, lod: 2, maxTier: 2 } : key.startsWith("-") ? { visible: false, lod: 0, maxTier: 0 } : { visible: true, lod: 0, maxTier: 1 }));
+    expect(c.instancesOf("prop:near")).toBe(3);
+    expect(c.instancesOf("prop:off")).toBe(0);
+    // the far lamp: coarse meshes, the tiny lamp head (0.4 m) dropped
+    expect(c.instancesOf("prop:far")).toBe(1);
+    expect(c.layers().some((p) => p.key === "cylinder:gloss:0")).toBe(true);
+    expect(c.cells().map((b) => b.key).sort()).toEqual(["-7:0", "0:0", "3:3"]);
+    // a view change that alters nothing re-packs nothing
+    const v = c.layers().map((p) => p.version);
+    expect(c.setView((key) => (key === "0:0" ? { visible: true, lod: 2, maxTier: 2 } : key.startsWith("-") ? { visible: false, lod: 0, maxTier: 0 } : { visible: true, lod: 0, maxTier: 1 }))).toBe(false);
+    expect(c.layers().map((p) => p.version)).toEqual(v);
   });
 });

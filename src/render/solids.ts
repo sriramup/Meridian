@@ -11,7 +11,7 @@
 import { COORDINATE_SYSTEM, type Layer, type PickingInfo } from "@deck.gl/core";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import { SimpleMeshLayer } from "@deck.gl/mesh-layers";
-import type { Building, Entity, Prop, Solid, SolidMaterial, SolidShape } from "@/world/types";
+import type { Building, Entity, Prop, Solid, SolidMaterial, SolidShape, Vec2 } from "@/world/types";
 import { SOLID_SHAPES, unitMesh, type MeshLod } from "./solidMeshes";
 
 /** how a material is lit: matte (most things), glossy (metal, glass, water, plastic), light (emissive at night) */
@@ -97,15 +97,39 @@ export function maxTierAt(zoom: number): 0 | 1 | 2 {
   return zoom >= 15.6 ? 2 : zoom >= 14.4 ? 1 : 0;
 }
 
+/** side of the square cells instances are grouped by for distance detail and frustum culling (m) */
+export const CELL = 300;
+export const cellOf = (x: number, y: number) => `${Math.floor(x / CELL)}:${Math.floor(y / CELL)}`;
+
+/** how one cell is drawn: whether it is on screen, its mesh detail and the smallest props it keeps */
+export interface CellState {
+  visible: boolean;
+  lod: MeshLod;
+  maxTier: 0 | 1 | 2;
+}
+/** a cell's ground box and the top of what stands in it, for distance and frustum tests */
+export interface CellBounds {
+  key: string;
+  box: [number, number, number, number];
+  top: number;
+}
+type CellView = (key: string, b: CellBounds) => CellState;
+const ALL: CellState = { visible: true, lod: 2, maxTier: 2 };
+
+type Part = { data: Float32Array; colors: Uint8Array; n: number; ext: Float32Array; rank: Uint16Array };
 interface Entry {
   src: Prop | Building;
   tier: 0 | 1 | 2;
+  cell: string;
   /** per instance: largest extent (m) and rank by volume within its entity (0 = largest; buildings 0) */
-  parts: Map<LayerKey, { data: Float32Array; colors: Uint8Array; n: number; ext: Float32Array; rank: Uint16Array }>;
+  parts: Map<LayerKey, Part>;
 }
 
+/** a drawn layer: one unit shape, shading class and mesh detail */
+export type PackKey = `${LayerKey}:${MeshLod}`;
+
 export interface PackedLayer {
-  key: LayerKey;
+  key: PackKey;
   shape: SolidShape;
   shading: Shading;
   n: number;
@@ -123,6 +147,14 @@ export interface PackedLayer {
 
 function entityWithSolids(e: Entity): e is Prop | Building {
   return e.kind === "prop" ? e.solids.length > 0 : e.kind === "building" ? !!e.solids?.length : false;
+}
+
+function anchorOf(e: Prop | Building): Vec2 {
+  if (e.kind === "prop") return e.p;
+  const r = e.footprint[0];
+  let x = 0, y = 0;
+  for (const p of r) (x += p[0]), (y += p[1]);
+  return [x / r.length, y / r.length];
 }
 
 function buildEntry(e: Prop | Building): Entry {
@@ -155,26 +187,32 @@ function buildEntry(e: Prop | Building): Entry {
     });
     parts.set(k, { data, colors, n: list.length, ext, rank });
   }
-  return { src: e, tier: detailTier(e), parts };
+  const a = anchorOf(e);
+  return { src: e, tier: detailTier(e), cell: cellOf(a[0], a[1]), parts };
 }
+
+const keepAt = (p: Part, j: number, lod: MeshLod) => p.ext[j] >= MIN_PART[lod] && p.rank[j] < MAX_PARTS[lod];
 
 export class SolidInstances {
   private entries = new Map<string, Entry>();
-  /** entity ids with instances in each layer */
+  /** entity ids with instances in each (shape, shading) group */
   private members = new Map<LayerKey, Set<string>>();
-  private packed = new Map<LayerKey, PackedLayer>();
+  private packed = new Map<PackKey, PackedLayer>();
   private dirtyKeys = new Set<LayerKey>();
-  private maxTier: 0 | 1 | 2 = 2;
-  private lod: MeshLod = 2;
+  private cellBounds = new Map<string, CellBounds>();
+  private boundsDirty = true;
+  private states = new Map<string, CellState>();
   private version = 0;
   /** entities (re)computed by the last update, for diagnostics and tests */
   lastRebuilt = 0;
 
   /**
-   * Bring the cache in line with the current entities. `source` yields every prop and building
-   * (only ones with solids are kept); unchanged records are skipped by reference.
+   * Bring the cache in line with the current entities and view. `source` yields every prop and
+   * building (only ones with solids are kept); unchanged records are skipped by reference. `view`
+   * says how each cell is drawn (a fixed tier / mesh detail for every cell, or a function of the cell).
+   * Returns whether any drawn layer changed.
    */
-  update(source: Iterable<Entity>, maxTier: 0 | 1 | 2 = 2, lod: MeshLod = 2): boolean {
+  update(source: Iterable<Entity>, view: CellView | 0 | 1 | 2 = 2, lod: MeshLod = 2): boolean {
     const seen = new Set<string>();
     let rebuilt = 0;
     for (const e of source) {
@@ -191,70 +229,111 @@ export class SolidInstances {
         m.add(e.id);
         this.dirtyKeys.add(k);
       }
+      this.boundsDirty = true;
       rebuilt++;
     }
     for (const [id, cur] of this.entries) if (!seen.has(id)) this.drop(id, cur);
-    if (maxTier !== this.maxTier || lod !== this.lod) {
-      this.maxTier = maxTier;
-      this.lod = lod;
-      for (const k of this.members.keys()) this.dirtyKeys.add(k);
-    }
     this.lastRebuilt = rebuilt;
-    const changed = this.dirtyKeys.size > 0;
+    return this.setView(typeof view === "function" ? view : () => ({ visible: true, lod, maxTier: view }));
+  }
+
+  /** re-evaluate every cell with a new view (camera moved); re-packs only when a cell's state changed */
+  setView(view: CellView): boolean {
+    if (this.boundsDirty) this.computeBounds();
+    let changed = false;
+    for (const b of this.cellBounds.values()) {
+      const s = view(b.key, b);
+      const prev = this.states.get(b.key);
+      if (!prev || prev.visible !== s.visible || prev.lod !== s.lod || prev.maxTier !== s.maxTier) {
+        this.states.set(b.key, s);
+        changed = true;
+      }
+    }
+    if (changed) for (const k of this.members.keys()) this.dirtyKeys.add(k);
+    const any = this.dirtyKeys.size > 0;
     for (const k of this.dirtyKeys) this.pack(k);
     this.dirtyKeys.clear();
-    return changed;
+    return any;
+  }
+
+  /** every cell with instances, with its bounds */
+  cells(): CellBounds[] {
+    if (this.boundsDirty) this.computeBounds();
+    return [...this.cellBounds.values()];
+  }
+
+  private computeBounds() {
+    this.cellBounds.clear();
+    for (const e of this.entries.values()) {
+      let b = this.cellBounds.get(e.cell);
+      if (!b) {
+        const [ix, iy] = e.cell.split(":").map(Number);
+        this.cellBounds.set(e.cell, (b = { key: e.cell, box: [ix * CELL, iy * CELL, (ix + 1) * CELL, (iy + 1) * CELL], top: 0 }));
+      }
+      const h = e.src.kind === "prop" ? e.src.height : e.src.height + 6;
+      if (h > b.top) b.top = h;
+    }
+    for (const k of this.states.keys()) if (!this.cellBounds.has(k)) this.states.delete(k);
+    this.boundsDirty = false;
   }
 
   private drop(id: string, cur: Entry) {
     this.entries.delete(id);
+    this.boundsDirty = true;
     for (const k of cur.parts.keys()) {
       this.members.get(k)?.delete(id);
       this.dirtyKeys.add(k);
     }
   }
 
+  private stateOf(e: Entry): CellState {
+    return this.states.get(e.cell) ?? ALL;
+  }
+
   private pack(k: LayerKey) {
     const ids = this.members.get(k);
-    const min = MIN_PART[this.lod];
-    const cap = MAX_PARTS[this.lod];
-    const keep = (p: Entry["parts"] extends Map<LayerKey, infer P> ? P : never, j: number) => p.ext[j] >= min && p.rank[j] < cap;
-    let n = 0;
+    const counts = [0, 0, 0];
     if (ids)
       for (const id of ids) {
         const e = this.entries.get(id)!;
-        if (e.tier > this.maxTier) continue;
+        const st = this.stateOf(e);
+        if (!st.visible || e.tier > st.maxTier) continue;
         const p = e.parts.get(k)!;
-        if (!min && cap === Infinity) n += p.n;
-        else for (let j = 0; j < p.n; j++) if (keep(p, j)) n++;
+        if (st.lod === 2) counts[2] += p.n;
+        else for (let j = 0; j < p.n; j++) if (keepAt(p, j, st.lod)) counts[st.lod]++;
       }
-    if (!n) {
-      this.packed.delete(k);
-      return;
-    }
-    const positions = new Float32Array(n * 3);
-    const matrices = new Float32Array(n * 12);
-    const colors = new Uint8Array(n * 4);
-    const owners: string[] = new Array(n);
-    let i = 0;
-    for (const id of ids!) {
-      const e = this.entries.get(id)!;
-      if (e.tier > this.maxTier) continue;
-      const p = e.parts.get(k)!;
-      for (let j = 0; j < p.n; j++) {
-        if (!keep(p, j)) continue;
-        const o = j * STRIDE;
-        positions[i * 3] = p.data[o];
-        positions[i * 3 + 1] = p.data[o + 1];
-        positions[i * 3 + 2] = p.data[o + 2];
-        matrices.set(p.data.subarray(o + 3, o + 12), i * 12);
-        colors.set(p.colors.subarray(j * 4, j * 4 + 4), i * 4);
-        owners[i] = id;
-        i++;
-      }
-    }
     const [shape, shading] = k.split(":") as [SolidShape, Shading];
-    this.packed.set(k, { key: k, shape, shading, n, positions, matrices, colors, owners, lod: this.lod, version: ++this.version });
+    for (const lod of [0, 1, 2] as MeshLod[]) {
+      const pk: PackKey = `${k}:${lod}`;
+      const n = counts[lod];
+      if (!n) {
+        this.packed.delete(pk);
+        continue;
+      }
+      const positions = new Float32Array(n * 3);
+      const matrices = new Float32Array(n * 12);
+      const colors = new Uint8Array(n * 4);
+      const owners: string[] = new Array(n);
+      let i = 0;
+      for (const id of ids!) {
+        const e = this.entries.get(id)!;
+        const st = this.stateOf(e);
+        if (!st.visible || st.lod !== lod || e.tier > st.maxTier) continue;
+        const p = e.parts.get(k)!;
+        for (let j = 0; j < p.n; j++) {
+          if (lod !== 2 && !keepAt(p, j, lod)) continue;
+          const o = j * STRIDE;
+          positions[i * 3] = p.data[o];
+          positions[i * 3 + 1] = p.data[o + 1];
+          positions[i * 3 + 2] = p.data[o + 2];
+          matrices.set(p.data.subarray(o + 3, o + 12), i * 12);
+          colors.set(p.colors.subarray(j * 4, j * 4 + 4), i * 4);
+          owners[i] = id;
+          i++;
+        }
+      }
+      this.packed.set(pk, { key: pk, shape, shading, n, positions, matrices, colors, owners, lod, version: ++this.version });
+    }
   }
 
   layers(): PackedLayer[] {
@@ -273,11 +352,11 @@ export class SolidInstances {
   /** the drawn instance count of one entity (0 when culled) */
   instancesOf(id: string): number {
     const e = this.entries.get(id);
-    if (!e || e.tier > this.maxTier) return 0;
-    const min = MIN_PART[this.lod];
-    const cap = MAX_PARTS[this.lod];
+    if (!e) return 0;
+    const st = this.stateOf(e);
+    if (!st.visible || e.tier > st.maxTier) return 0;
     let n = 0;
-    for (const p of e.parts.values()) for (let j = 0; j < p.n; j++) if (p.ext[j] >= min && p.rank[j] < cap) n++;
+    for (const p of e.parts.values()) for (let j = 0; j < p.n; j++) if (st.lod === 2 || keepAt(p, j, st.lod)) n++;
     return n;
   }
 }
