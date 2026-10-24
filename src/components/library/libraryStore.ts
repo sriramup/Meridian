@@ -24,8 +24,14 @@ export interface LibraryState {
   cursor: Vec2 | null;
   /** a press-and-drag in progress (heading for points, a rectangle for rect placement) */
   drag: { from: Vec2; to: Vec2 } | null;
+  /** a placed instance being moved (entity id): it follows the cursor until a click */
+  moving: string | null;
+  /** the tool to return to after a move */
+  moveFrom: { tool: string; defId: string | null } | null;
   /** bumped when the preview should be recomputed */
   tick: number;
+  startMove: (id: string) => void;
+  endMove: () => void;
   setQuery: (q: string) => void;
   setCategory: (c: string | null) => void;
   /** open a definition's form and arm it for placement */
@@ -47,7 +53,19 @@ export const useLibrary = create<LibraryState>((set, get) => ({
   points: [],
   cursor: null,
   drag: null,
+  moving: null,
+  moveFrom: null,
   tick: 0,
+  startMove: (id) => {
+    const app = useApp.getState();
+    set({ moving: id, moveFrom: { tool: app.tool, defId: get().defId }, points: [], drag: null, tick: get().tick + 1 });
+    if (app.tool !== "library") app.setTool("library");
+  },
+  endMove: () => {
+    const from = get().moveFrom;
+    set({ moving: null, moveFrom: null, tick: get().tick + 1 });
+    if (from && from.tool !== "library") useApp.getState().setTool(from.tool as never);
+  },
   setQuery: (query) => set({ query }),
   setCategory: (category) => set({ category }),
   arm: (defId) => {
@@ -59,7 +77,7 @@ export const useLibrary = create<LibraryState>((set, get) => ({
     const app = useApp.getState();
     if (app.tool !== "library") app.setTool("library");
   },
-  disarm: () => set({ defId: null, points: [], drag: null, cursor: null, tick: get().tick + 1 }),
+  disarm: () => set({ defId: null, moving: null, points: [], drag: null, cursor: null, tick: get().tick + 1 }),
   setParams: (defId, values) => set({ params: { ...get().params, [defId]: values }, tick: get().tick + 1 }),
   resetParams: (defId) => {
     const def = getPrimitive(defId);

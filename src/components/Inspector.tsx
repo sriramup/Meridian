@@ -20,6 +20,7 @@ import type { SectionEdit } from "@/world/ops/sectionEdit";
 import { checkBuilding } from "@/world/ops/validate";
 import type { Area, AreaType, Building, Entity, Parcel, Street, StreetNode, Strip, StripType, TransitRoute, Tree } from "@/world/types";
 import { Button, IconButton, Provenance, Segmented, Stat, cx } from "./ui";
+import { LibraryInspector, hasLib } from "./library/LibraryInspector";
 
 const user = { author: "user" as const };
 
@@ -90,6 +91,8 @@ function Header({ icon, kind, title, onClose, badge, onRename }: { icon: React.R
 const rename = (ids: string[]) => (name: string) => applyOp(renameEntities(rt().world, ids, name, user));
 
 function Single({ e, onClose }: { e: Entity; onClose: () => void }) {
+  // anything placed from the library is edited through its primitive's parameters
+  if (hasLib(e)) return <LibraryInspector e={e} onClose={onClose} />;
   switch (e.kind) {
     case "building":
       return <BuildingPanel b={e} onClose={onClose} />;
