@@ -192,6 +192,30 @@ describe("agent sessions", () => {
     S.switchTo(original);
   });
 
+  it("approvals are per session and don't block other sessions' edits while pending", async () => {
+    const { executeTool } = await import("@/agent/tools");
+    const ids: string[] = [];
+    for (let k = 0; k < 26; k++) {
+      const out = await executeTool("create_building", { site: sq(-1300 + (k % 13) * 45, -1300 + Math.floor(k / 13) * 45, 12), typology: "block", floors: 2, use: "residential" }, { requestApproval: async () => true, approvals: false });
+      ids.push(...((out.content as { created: string[] }).created ?? []));
+    }
+    expect(ids.length).toBe(26);
+    const x = A.createSession();
+    const y = A.createSession();
+    scripts.set("clear the lots", (r) => (r.length ? { text: "cleared" } : { tools: [{ name: "remove_features", input: { ids } }] }));
+    scripts.set("one more block", (r) => (r.length ? { text: "ok" } : { tools: [{ name: "create_building", input: { site: sq(1300, 1300), typology: "block", floors: 3, use: "residential" } }] }));
+    const px = A.send(x, "clear the lots");
+    for (let k = 0; k < 100 && st().sessions[x].status !== "needs_input"; k++) await new Promise((r) => setTimeout(r, 10));
+    expect(st().sessions[x].status).toBe("needs_input");
+    await A.send(y, "one more block");
+    expect(calls(y)).toEqual(["create_building:done"]);
+    const ap = st().sessions[x].items.find((i) => i.kind === "approval")!;
+    A.resolveApproval(x, ap.id, true);
+    await px;
+    expect(calls(x)).toEqual(["remove_features:done"]);
+    for (const id of ids) expect(R.world.get(id)).toBeUndefined();
+  });
+
   it("stop aborts a running session; delete keeps at least one session", async () => {
     const s = A.createSession();
     scripts.set("slow", () => ({ delay: 200, tools: [{ name: "get_context", input: {} }] }));
