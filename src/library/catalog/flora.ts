@@ -292,7 +292,7 @@ export const FLORA: PrimitiveDef[] = [
     type: "grass",
     defaultSize: [8, 3],
     params: [num("width", "Width (if not drawn)", 8, { group: D, unit: "m", min: 1, max: 200 }), num("depth", "Depth (if not drawn)", 3, { group: D, unit: "m", min: 0.5, max: 200 }), choice("palette", "Colour palette", "mixed", opts("mixed", "warm", "cool", "white", "pollinator"), { group: A }), num("density", "Plants per m²", 2, { group: P, min: 0.2, max: 6, step: 0.1, unit: "per m²" }), bool("edging", "Stone edging", true, { group: A })],
-    extra: (r, out, site, f, ctx) => flowerPlants(r, out, site, ctx),
+    extra: (r, out, site, _f, ctx) => flowerPlants(r, out, site, ctx),
   }),
   areaDef({
     id: "flora.wildflower_meadow",
@@ -304,7 +304,7 @@ export const FLORA: PrimitiveDef[] = [
     type: "grass",
     defaultSize: [40, 25],
     params: [num("width", "Width (if not drawn)", 40, { group: D, unit: "m", min: 3, max: 1000 }), num("depth", "Depth (if not drawn)", 25, { group: D, unit: "m", min: 3, max: 1000 }), choice("palette", "Colour palette", "pollinator", opts("mixed", "warm", "cool", "white", "pollinator"), { group: A }), num("density", "Flower clumps per m²", 0.4, { group: P, min: 0.05, max: 3, step: 0.05, unit: "per m²" })],
-    extra: (r, out, site, f, ctx) => flowerPlants(r, out, site, ctx, true),
+    extra: (r, out, site, _f, ctx) => flowerPlants(r, out, site, ctx, true),
   }),
   areaDef({
     id: "flora.ornamental_grasses",
@@ -316,7 +316,7 @@ export const FLORA: PrimitiveDef[] = [
     type: "grass",
     defaultSize: [10, 4],
     params: [num("width", "Width (if not drawn)", 10, { group: D, unit: "m", min: 1, max: 300 }), num("depth", "Depth (if not drawn)", 4, { group: D, unit: "m", min: 1, max: 300 }), num("height", "Grass height", 1.0, { group: D, unit: "m", min: 0.2, max: 3, step: 0.1 }), color("color", "Colour", "#b4a46a", { group: A, swatches: ["#b4a46a", "#c890a8", "#8aa070", "#d0c090"] }), num("spacing", "Spacing", 0.9, { group: P, unit: "m", min: 0.3, max: 3, step: 0.1 })],
-    extra: (r, out, site, f, ctx) => {
+    extra: (r, out, site, _f, ctx) => {
       const pts = scatterIn(site, r.n("spacing"), seedOf(ctx), 0.4).slice(0, 600);
       const s: Solid[] = [];
       const c = polyCentroid(site);

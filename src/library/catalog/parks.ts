@@ -4,7 +4,7 @@
 import { distToPoly, insetPoly, isValidPoly, pointInPoly, polyArea, polyBBox, polyCentroid } from "@/geometry/polygon";
 import type { Polygon, Solid, Vec2 } from "@/world/types";
 import type { GenerateContext, ParamSpec, PlacementInput, PrimitiveDef } from "../types";
-import { frameOf, polyToWorld, rng, subFrame, toLocal, toWorld } from "../geometry/frame";
+import { polyToWorld, rng, subFrame, toLocal } from "../geometry/frame";
 import { C, hexToRgb, shade } from "../geometry/palette";
 import { benchSolids, binSolids, lampSolids, shrubSolids, treeSolids } from "../geometry/props";
 import { S, beam, box, cyl, moveSolids, type RGB } from "../geometry/solids";

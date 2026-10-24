@@ -14,7 +14,7 @@ import { HOUSING } from "./housing";
 import { rectL, parkingLot } from "./decor";
 import { Out } from "./make";
 import { parkInto } from "./parks";
-import { bool, choice, int, num, opts, reader, type Reader } from "./params";
+import { bool, choice, int, num, opts, reader } from "./params";
 import { PARKS, fountainSolids, statueSolids } from "./parks";
 import { CIVIC, EDUCATION } from "./civic";
 import { seedOf } from "./kinds";
