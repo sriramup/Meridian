@@ -75,6 +75,8 @@ export class ChunkLoader {
   /** chunks the loader has not finished (data or layers) */
   pending = true;
   private order: Chunk[] = [];
+  /** tier or visibility changes not yet published to useLod */
+  private unpublished = false;
   /** polygon vertices whose layers may be added per frame (deck.gl tessellates and uploads them) */
   vertexBudget = VERTEX_START;
   private lastVerts = 0;
@@ -120,8 +122,11 @@ export class ChunkLoader {
     return v;
   }
 
-  /** new camera: recompute tiers and visibility; true if any changed */
-  setCamera(cam: LodCamera): boolean {
+  /**
+   * New camera: recompute tiers and visibility; true if any changed. `notify` publishes the change
+   * to useLod (off when called while React renders; the work loop publishes then).
+   */
+  setCamera(cam: LodCamera, notify = true): boolean {
     this.cam = cam;
     let changed = false;
     const { near } = lodThresholds(cam);
@@ -151,7 +156,8 @@ export class ChunkLoader {
     const ck = this.scene.keyAt(cam.center[0], cam.center[1]);
     const z = Math.round(cam.zoom * 10) / 10;
     const st = useLod.getState();
-    if (changed || st.cameraChunk !== ck || st.zoom !== z) useLod.setState({ cameraChunk: ck, zoom: z, version: st.version + (changed ? 1 : 0) });
+    if (changed && !notify) this.unpublished = this.pending = true;
+    if (notify && (changed || st.cameraChunk !== ck || st.zoom !== z)) useLod.setState({ cameraChunk: ck, zoom: z, version: st.version + (changed ? 1 : 0) });
     return changed;
   }
 
@@ -192,6 +198,8 @@ export class ChunkLoader {
    */
   work(): boolean {
     if (!this.pending) return false;
+    const published = this.unpublished;
+    this.unpublished = false;
     const t0 = performance.now();
     const VERTEX_BUDGET = this.vertexBudget;
     let verts = 0;
@@ -254,7 +262,7 @@ export class ChunkLoader {
     if (builtAny) useLod.setState((s) => ({ loaded: s.loaded + 1 }));
     if (added && !this.stats.firstFrameAt) this.stats.firstFrameAt = performance.now();
     if (!remaining && !this.stats.completeAt) this.stats.completeAt = performance.now();
-    return added;
+    return added || published;
   }
 
   /** under memory pressure, forget hidden far markings (they are rebuilt if the chunk comes near) */
