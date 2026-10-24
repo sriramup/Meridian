@@ -149,7 +149,8 @@ export class Engine {
         const hours = (P.hours as number[]) ?? [7, 9, 11, 13, 15, 17, 19];
         const wx = (P.weather as { t: number[]; sw: number[] } | undefined) ?? meta.weather.hourly;
         const r = runHeat(lc, { t: wx.t, sw: wx.sw }, { date: (P.date as string) ?? meta.weather.date, deltaT: (P.deltaT as number) ?? 0, hours, lat: meta.origin.lat, lon: meta.origin.lon, utcOffset: (P.utcOffset as number) ?? this.init.utcOffset, masses: [], trees: [], ref }, progress);
-        return { result: { model, hours: r.hours, exposure: r.exposure, surface: r.surface, airTemp: r.airTemp, gridSpec: lc.grid }, transfer: [...r.exposure, ...r.surface].map((a) => a.buffer as ArrayBuffer) };
+        // the map shows surface temperature only: the surrounding city's feels-like rasters stay in the worker
+        return { result: { model, hours: r.hours, surface: r.surface, airTemp: r.airTemp, gridSpec: lc.grid }, transfer: r.surface.map((a) => a.buffer as ArrayBuffer) };
       }
       case "sun": {
         const { lc, masses, trees } = this.landcover();

@@ -9,6 +9,7 @@ import { TripsLayer } from "@deck.gl/geo-layers";
 import { offsetPath, polyLength } from "@/geometry/polyline";
 import { contextModel, useSims, type SimRecord } from "@/sim/client";
 import { dqT } from "@/sim/heat";
+import { bracket } from "@/sim/heatKpi";
 import { useImpact, type ImpactPin } from "@/sim/impact";
 import { gridMask, ringFade, studyFade } from "./edge";
 import { rtMaybe } from "@/state/runtime";
@@ -20,8 +21,6 @@ import { polyCentroid } from "@/geometry/polygon";
 import { dF, fmtDF, toF } from "@/lib/units";
 
 export interface OverlayState {
-  heatMode: "exposure" | "surface";
-
   accessCategory: string;
   densityMode: "residents" | "jobs";
   capacityMode: "added" | "limit";
@@ -29,7 +28,7 @@ export interface OverlayState {
   growthYear: number | null;
   particles: boolean;
 }
-export const overlayState: OverlayState = { heatMode: "exposure", accessCategory: "frequent_transit", densityMode: "residents", capacityMode: "added", growthYear: null, particles: true };
+export const overlayState: OverlayState = { accessCategory: "frequent_transit", densityMode: "residents", capacityMode: "added", growthYear: null, particles: true };
 
 /** the growth snapshot to draw: the chosen year, else the latest */
 export function growthSnapshot(r: { snapshots: { year: number; added: number[] }[] }) {
@@ -90,6 +89,72 @@ function rasterImage(key: string, grid: Grid, value: (i: number) => [number, num
   return canvas;
 }
 
+/**
+ * A raster of quantised values (heat: 0 = no data) coloured through a 256-entry RGBA lookup table:
+ * one table read per cell instead of a palette interpolation, ~10× cheaper than rasterImage, so a
+ * new run's first frame and the idle prewarm of the rest of the day cost little main-thread time.
+ */
+function quantImage(key: string, grid: Grid, arr: Uint8Array, lut: Uint8ClampedArray, edge: Fade = "study"): HTMLCanvasElement {
+  const hit = imgCache.get(key);
+  if (hit) {
+    imgCache.delete(key);
+    imgCache.set(key, hit);
+    return hit as HTMLCanvasElement;
+  }
+  const { nx, ny } = grid;
+  const fade = gridMask(edge, rtMaybe()!.meta.bounds, grid, FADES[edge]);
+  const img = new ImageData(nx, ny);
+  const d = img.data;
+  for (let j = 0; j < ny; j++) {
+    const row = (ny - 1 - j) * nx;
+    for (let i = 0; i < nx; i++) {
+      const c = j * nx + i;
+      const f = fade[c];
+      const q = arr[c];
+      if (!f || !q) continue;
+      const o = (row + i) * 4,
+        l = q * 4;
+      d[o] = lut[l];
+      d[o + 1] = lut[l + 1];
+      d[o + 2] = lut[l + 2];
+      d[o + 3] = lut[l + 3] * f;
+    }
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = nx;
+  canvas.height = ny;
+  canvas.getContext("2d")!.putImageData(img, 0, 0);
+  if (imgCache.size > 120) imgCache.delete(imgCache.keys().next().value!);
+  imgCache.set(key, canvas);
+  return canvas;
+}
+
+const heatLuts = new Map<string, Uint8ClampedArray>();
+/** surface temperature colours for quantised values (sim/heat qT) over the range lo–hi °C */
+function heatLut(lo: number, hi: number): Uint8ClampedArray {
+  const key = `${lo}:${hi}`;
+  let l = heatLuts.get(key);
+  if (!l) {
+    l = new Uint8ClampedArray(256 * 4);
+    for (let q = 1; q < 256; q++) {
+      const c = sample(HEAT, norm(dqT(q), lo, hi));
+      l.set([c[0], c[1], c[2], 205], q * 4);
+    }
+    heatLuts.set(key, l);
+  }
+  return l;
+}
+
+/** stands in for an hour whose image isn't built yet, so the layer list never changes shape */
+let blank: HTMLCanvasElement | null = null;
+function blankCanvas() {
+  if (!blank) {
+    blank = document.createElement("canvas");
+    blank.width = blank.height = 1;
+  }
+  return blank;
+}
+
 function bitmap(id: string, canvas: HTMLCanvasElement, opacity = 0.82, g: Grid = rtMaybe()!.meta.grid, visible = true): Layer {
   return new BitmapLayer({
     id,
@@ -122,9 +187,7 @@ export function legendFor(overlay: OverlayId | null): Legend | null {
     case "traffic":
       return { title: "Volume / capacity", unit: "v/c", palette: LOS, min: 0, max: 1.2, ticks: ["0", "0.6", "0.9", "1.2+"], model: "Static user-equilibrium assignment · BPR", note: "Link width ∝ modelled flow; moving vehicles travel at modelled congested speed" };
     case "heat":
-      return overlayState.heatMode === "exposure"
-        ? { title: "Street heat (feels like)", unit: "°F", palette: HEAT, min: Math.round(toF(heatRange()[0])), max: Math.round(toF(heatRange()[1])), model: "Simplified surface-energy model · shadow-cast" }
-        : { title: "Surface temperature", unit: "°F", palette: HEAT, min: Math.round(toF(heatRange()[0])), max: Math.round(toF(heatRange()[1])), model: "Simplified surface-energy model · shadow-cast" };
+      return { title: "Surface temperature", unit: "°F", palette: HEAT, min: Math.round(toF(heatRange()[0])), max: Math.round(toF(heatRange()[1])), model: "Simplified surface-energy model · shadow-cast" };
     case "sun":
       return { title: "Direct sun", unit: "hours", palette: SUN, min: 0, max: 12, model: "Shadow projection, 30-min steps" };
     case "runoff":
@@ -154,10 +217,10 @@ export function legendFor(overlay: OverlayId | null): Legend | null {
  */
 function heatRange(): [number, number] {
   const { rec } = shown("heat");
-  if (!rec) return overlayState.heatMode === "exposure" ? [30, 60] : [25, 70];
+  if (!rec) return [25, 70];
   // one scale for the whole day (anchored to its hottest hour), so playback has no colour jumps
   const air = Math.round(Math.max(...(rec.result.airTemp as number[])));
-  return overlayState.heatMode === "exposure" ? [air - 4, air + 14] : [air - 4, air + 30];
+  return [air - 4, air + 30];
 }
 
 const warmed = new Set<string>();
@@ -167,25 +230,16 @@ function prewarm(key: string, jobs: (() => unknown)[]) {
   warmed.add(key);
   const idle = (cb: () => void) => ("requestIdleCallback" in window ? window.requestIdleCallback(() => cb(), { timeout: 400 }) : setTimeout(cb, 16));
   const next = (k: number) => {
-    // once all are built, redraw so every hour joins the layer list (at opacity 0) ahead of time
-    if (k >= jobs.length) return useApp.getState().bumpOverlay();
+    if (k >= jobs.length) return;
     idle(() => {
       jobs[k]();
+      // redraw so the new hour's texture is uploaded now (at opacity 0), one per idle slice, rather
+      // than all at once or on the frame playback reaches it
+      useApp.getState().bumpOverlay();
       next(k + 1);
     });
   };
   next(0);
-}
-
-/** the two modelled hours around `h` (wrapping past midnight) and how far between them it is */
-function bracket(hours: number[], h: number): { i0: number; i1: number; t: number } {
-  const n = hours.length;
-  for (let k = 0; k < n; k++) {
-    const next = k + 1 < n ? hours[k + 1] : hours[0] + 24;
-    if (h >= hours[k] && h < next) return { i0: k, i1: (k + 1) % n, t: (h - hours[k]) / (next - hours[k]) };
-  }
-  const span = hours[0] + 24 - hours[n - 1];
-  return { i0: n - 1, i1: 0, t: Math.max(0, Math.min(1, (h + 24 - hours[n - 1]) / span)) };
 }
 
 /**
@@ -194,7 +248,7 @@ function bracket(hours: number[], h: number): { i0: number; i1: number; t: numbe
  * the hour mark) only changes opacity values: no layer is added, removed, hidden or reordered
  * (those structural changes showed as a white flash on the hour). Of the pair, the one drawn on top
  * (later in the list) gets its weight directly; the one beneath is scaled up to show through it.
- * Hours whose image isn't built yet are left out until the idle prewarm has made them.
+ * Hours whose image isn't built yet hold a 1×1 transparent stand-in until the idle prewarm makes them.
  */
 function crossfade(id: string, n: number, img: (k: number, build: boolean) => HTMLCanvasElement | null, i0: number, i1: number, t: number, alpha: number, g?: Grid): Layer[] {
   const w = new Map<number, number>([[i0, i0 === i1 ? 1 : 1 - t]]);
@@ -205,8 +259,7 @@ function crossfade(id: string, n: number, img: (k: number, build: boolean) => HT
   const out: Layer[] = [];
   for (let k = 0; k < n; k++) {
     const active = w.has(k);
-    const c = img(k, active);
-    if (!c) continue;
+    const c = img(k, active) ?? blankCanvas();
     const op = !active ? 0 : k === hi && i0 !== i1 ? upper : lower;
     out.push(bitmap(`${id}-${k}`, c, op, g));
   }
@@ -388,14 +441,13 @@ export function overlayLayers(overlay: OverlayId | null, hour: number, _theme: s
     if (rec) {
       const hours: number[] = rec.result.hours;
       const { i0, i1, t } = bracket(hours, hour);
-      const exp = overlayState.heatMode === "exposure";
       const [lo, hi2] = heatRange();
       const image = (hi: number, build = true) => {
-        const key = `heat:${rec.id}:${hi}:${overlayState.heatMode}:${cmp?.id ?? ""}:${lo}`;
+        const key = `heat:${rec.id}:${hi}:${cmp?.id ?? ""}:${lo}`;
         if (!build) return peekImage(key);
-        const arr: Uint8Array = exp ? rec.result.exposure[hi] : rec.result.surface[hi];
+        const arr: Uint8Array = rec.result.surface[hi];
         const ci = cmp ? cmp.result.hours.indexOf(hours[hi]) : -1;
-        const carr: Uint8Array | undefined = cmp && ci >= 0 ? (exp ? cmp.result.exposure[ci] : cmp.result.surface[ci]) : undefined;
+        const carr: Uint8Array | undefined = cmp && ci >= 0 ? cmp.result.surface[ci] : undefined;
         return rasterImage(key, g, (i) => {
           const q = arr[i];
           if (!q) return null;
@@ -407,22 +459,28 @@ export function overlayLayers(overlay: OverlayId | null, hour: number, _theme: s
           return rgba(sample(HEAT, norm(dqT(q), lo, hi2)), 205);
         });
       };
+      const lut = heatLut(lo, hi2);
+      const plain = (hi: number, build = true) => {
+        const key = `heat:${rec.id}:${hi}::${lo}`;
+        return build ? quantImage(key, g, rec.result.surface[hi], lut) : peekImage(key);
+      };
       // the surrounding city (unaffected by edits) continues the map outward
       const ctx = cmp ? null : surrounding("heat", rec.params);
       if (ctx?.model === "heat") {
         const cimage = (hi: number, build = true) => {
-          const ckey = `heatctx:${JSON.stringify(rec.params)}:${hi}:${overlayState.heatMode}:${lo}`;
+          const ckey = `heatctx:${JSON.stringify(rec.params)}:${hi}:${lo}`;
           if (!build) return peekImage(ckey);
           const ci = ctx.hours.indexOf(hours[hi]);
-          const arr = ci < 0 ? null : exp ? ctx.exposure[ci] : ctx.surface[ci];
-          return rasterImage(ckey, ctx.gridSpec, (i) => (arr?.[i] ? rgba(sample(HEAT, norm(dqT(arr[i]), lo, hi2)), 205) : null), "ring");
+          const arr = ci < 0 ? null : ctx.surface[ci];
+          return arr ? quantImage(ckey, ctx.gridSpec, arr, lut, "ring") : null;
         };
         ground.push(...crossfade("heatctx", hours.length, cimage, i0, i1, t, 0.6, ctx.gridSpec));
-        prewarm(`ctx:${rec.id}:${overlayState.heatMode}:${lo}`, hours.map((_, k) => () => cimage(k)));
-      }
-      ground.push(...crossfade("heat", hours.length, image, i0, i1, t, cmp ? 0.8 : 0.6));
+        prewarm(`ctx:${rec.id}:${lo}`, hours.map((_, k) => () => cimage(k)));
+      } else if (!cmp) ground.push(...crossfade("heatctx", hours.length, () => null, i0, i1, t, 0.6));
+      const img = cmp ? image : plain;
+      ground.push(...crossfade("heat", hours.length, img, i0, i1, t, cmp ? 0.8 : 0.6));
       // build the rest of the day's images in idle time so playback never stalls on one
-      prewarm(`heat:${rec.id}:${overlayState.heatMode}:${cmp?.id ?? ""}:${lo}`, hours.map((_, k) => () => image(k)));
+      prewarm(`heat:${rec.id}:${cmp?.id ?? ""}:${lo}`, hours.map((_, k) => () => img(k)));
     }
   } else if (overlay === "sun") {
     const { rec } = shown("sun");

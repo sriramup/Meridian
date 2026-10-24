@@ -341,12 +341,14 @@ export function simSummary(rec: SimRecord) {
       };
     case "heat":
       return {
+        // surface temperature is the primary heat figure (it is what the map shows); feels-like on foot is secondary
+        mean_surface_f: r1(toF(r.kpi.meanSurface)),
+        mean_surface_c: r1(r.kpi.meanSurface),
         peak_hour: r.kpi.peakHour,
+        hours: r.hours,
+        ...(r.kpi.meanSurfaceByHour ? { mean_surface_f_by_hour: r.kpi.meanSurfaceByHour.map((t: number) => r1(toF(t))) } : {}),
         air_temp_c: r.airTemp.map((t: number) => r1(t)),
         air_temp_f: r.airTemp.map((t: number) => r1(toF(t))),
-        hours: r.hours,
-        mean_surface_c: r1(r.kpi.meanSurface),
-        mean_surface_f: r1(toF(r.kpi.meanSurface)),
         mean_ped_exposure_c: r1(r.kpi.meanExposure),
         mean_ped_exposure_f: r1(toF(r.kpi.meanExposure)),
         ped_share_over_40c: Math.round(r.kpi.pedHotShare * 100) + "%",
@@ -641,14 +643,16 @@ function heatLocal(ra: SimRecord, rb: SimRecord) {
   if (ia < 0 || ib < 0) return null;
   const ea: Uint8Array = A.exposure[ia],
     eb: Uint8Array = B.exposure[ib];
+  const sa: Uint8Array = A.surface[ia],
+    sb: Uint8Array = B.surface[ib];
   const g = rt().meta.grid;
   let n = 0,
     sum = 0,
     cool = 0,
     warm = 0;
-  for (let i = 0; i < ea.length; i++) {
-    if (!ea[i] || !eb[i]) continue;
-    const d = dqT(eb[i]) - dqT(ea[i]);
+  for (let i = 0; i < sa.length; i++) {
+    if (!sa[i] || !sb[i]) continue;
+    const d = dqT(sb[i]) - dqT(sa[i]);
     if (Math.abs(d) < 0.25) continue;
     n++;
     sum += d;
@@ -666,7 +670,7 @@ function heatLocal(ra: SimRecord, rb: SimRecord) {
     max_warming_f: r1(dF(warm)),
     // where people walk: area-wide means count empty lots and rooftops as much as busy sidewalks
     people_weighted_sidewalk_c: { a: r1(peopleWeightedExposure(ea)), b: r1(peopleWeightedExposure(eb)) },
-    note: "pedestrian exposure difference (b − a) over cells that changed by ≥ 0.25 °C; people_weighted_sidewalk_c weights sidewalk exposure by the pedestrian-activity proxy (residents, jobs, transit riders nearby)",
+    note: "surface temperature difference (b − a) over cells that changed by ≥ 0.25 °C; people_weighted_sidewalk_c weights sidewalk exposure by the pedestrian-activity proxy (residents, jobs, transit riders nearby)",
   };
 }
 
@@ -1809,7 +1813,8 @@ export const TOOLS: Record<string, (i: In, ctx: ToolContext) => Promise<ToolOutp
           useSims.getState().setCompare("traffic", ra.id);
         }
       } else if (k === "heat") {
-        out.heat = { a: { mean_ped_exposure_c: sa.mean_ped_exposure_c, ped_share_over_40c: sa.ped_share_over_40c, canopy: sa.canopy_cover }, b: { mean_ped_exposure_c: sb.mean_ped_exposure_c, ped_share_over_40c: sb.ped_share_over_40c, canopy: sb.canopy_cover }, local: heatLocal(ra, rb) };
+        out.heat = { a: { mean_surface_c: sa.mean_surface_c, mean_ped_exposure_c: sa.mean_ped_exposure_c, ped_share_over_40c: sa.ped_share_over_40c, canopy: sa.canopy_cover }, b: { mean_surface_c: sb.mean_surface_c, mean_ped_exposure_c: sb.mean_ped_exposure_c, ped_share_over_40c: sb.ped_share_over_40c, canopy: sb.canopy_cover }, local: heatLocal(ra, rb) };
+        metrics!.push({ label: "surface temp °F", value: String(r1(toF(sb.mean_surface_c))), delta: `${r1(dF(sb.mean_surface_c - sa.mean_surface_c))}`, tone: sb.mean_surface_c > sa.mean_surface_c ? "bad" : "good" });
         metrics!.push({ label: "feels like on foot °F", value: String(r1(toF(sb.mean_ped_exposure_c))), delta: `${r1(dF(sb.mean_ped_exposure_c - sa.mean_ped_exposure_c))}`, tone: sb.mean_ped_exposure_c > sa.mean_ped_exposure_c ? "bad" : "good" });
         if (i.show_diff) {
           useSims.getState().setShown("heat", rb.id);
@@ -2162,7 +2167,8 @@ export const TOOLS: Record<string, (i: In, ctx: ToolContext) => Promise<ToolOutp
     if (i.overlay !== undefined) st.setOverlay(i.overlay === "none" ? null : (i.overlay as OverlayId));
     if (i.hour !== undefined) st.setHour(Math.max(0, Math.min(23.9, i.hour)));
     if (i.mode) {
-      if (i.overlay === "heat" || st.overlay === "heat") overlayState.heatMode = i.mode;
+      // heat always shows surface temperature: it has no modes
+      if (i.overlay === "heat" || st.overlay === "heat") void 0;
       else if (i.overlay === "density" || st.overlay === "density") overlayState.densityMode = i.mode;
       else if (i.overlay === "access" || st.overlay === "access") overlayState.accessCategory = i.mode;
       else if (i.overlay === "zoning" || st.overlay === "zoning") overlayState.capacityMode = i.mode;

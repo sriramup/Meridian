@@ -6,7 +6,10 @@
 
 import { create } from "zustand";
 import { rt } from "@/state/runtime";
+import { monthDate } from "@/state/store";
 import type { SimKind } from "./engine";
+import { adjacentMonths, evictLru, HEAT_CACHE_BYTES, heatBytes, staleRuns, stateKey } from "./heatCache";
+import { reportAssumptions } from "./telemetry";
 
 export interface SimRecord {
   id: string;
@@ -22,6 +25,12 @@ export interface SimRecord {
   result?: any;
   error?: string;
   label: string;
+  /** scenario state modelled (scenario id + applied changeset ids) */
+  state?: string;
+  /** last time this run was shown or reused (LRU) */
+  lastUsed?: number;
+  /** a prefetch: never replaces what is shown when it lands */
+  background?: boolean;
 }
 
 interface SimState {
@@ -68,18 +77,26 @@ export function initSimWorker(): Promise<void> {
       else if (m.type === "result" && ctxPending.has(m.id)) {
         ctxPending.get(m.id)!.resolve(m.result);
         ctxPending.delete(m.id);
+        jobDone(m.id);
       } else if (m.type === "error" && ctxPending.has(m.id)) {
         ctxPending.get(m.id)!.reject(new Error(m.error));
         ctxPending.delete(m.id);
+        jobDone(m.id);
       } else if (m.type === "result") {
-        update(m.id, { status: "done", progress: 1, result: m.result, ms: m.ms });
+        update(m.id, { status: "done", progress: 1, result: m.result, ms: m.ms, lastUsed: performance.now() });
         const rec = useSims.getState().records.find((r) => r.id === m.id)!;
-        // background runs of other scenarios (e.g. the baseline for a comparison) don't replace what's shown
-        if (rec.scenarioId === rt().scenarios.activeId) useSims.getState().setShown(rec.kind, rec.id);
-        if (rec.kind === "heat") pruneHeat();
+        // background runs of other scenarios (e.g. the baseline for a comparison) and prefetches don't replace what's shown
+        if (rec.scenarioId === rt().scenarios.activeId && !rec.background) useSims.getState().setShown(rec.kind, rec.id);
+        reportAssumptions(rec.kind, rt().cityId, m.result?.assumptions, rec.kind === "traffic" ? m.result?.calibration : undefined);
+        if (rec.kind === "heat") {
+          pruneHeat();
+          if (!rec.background) prefetchAround(rec);
+        }
+        jobDone(m.id);
         pending.get(m.id)?.resolve(rec);
         pending.delete(m.id);
       } else if (m.type === "error") {
+        if (m.id) jobDone(m.id);
         if (m.id) {
           update(m.id, { status: "error", error: m.error });
           pending.get(m.id)?.reject(new Error(m.error));
@@ -136,13 +153,88 @@ function inProcessWorker() {
   return w;
 }
 
-/** a full-day heat run is ~45 MB of rasters: keep the few most recent (and any shown / compared) */
-function pruneHeat(keep = 5) {
+/** runs on screen: the shown and compared heat, and the baseline the plan-impact pins compare against */
+function pinnedHeat(): Set<string> {
   const st = useSims.getState();
-  const pinned = new Set([st.shown.heat, st.compare.heat]);
+  const pinned = new Set<string>();
+  for (const id of [st.shown.heat, st.compare.heat]) if (id) pinned.add(id);
+  const shown = st.records.find((r) => r.id === st.shown.heat);
+  if (shown) {
+    const p = JSON.stringify(shown.params);
+    for (const r of st.records) if (r.kind === "heat" && r.scenarioId === "baseline" && JSON.stringify(r.params) === p) pinned.add(r.id);
+  }
+  return pinned;
+}
+
+/**
+ * A full-day heat run is ~48 MB of rasters. Runs of the active scenario's earlier states are dropped
+ * (an edit made them obsolete); the rest are kept under an LRU byte budget so revisited and
+ * prefetched months are instant.
+ */
+function pruneHeat(cap = HEAT_CACHE_BYTES) {
+  const st = useSims.getState();
+  const R = rt();
+  const pinned = pinnedHeat();
   const heat = st.records.filter((r) => r.kind === "heat" && r.status === "done");
-  const drop = new Set(heat.slice(0, Math.max(0, heat.length - keep)).filter((r) => !pinned.has(r.id)).map((r) => r.id));
+  const current = stateKey(R.scenarios.activeId, R.scenarios.appliedChangesets().map((c) => c.id));
+  const drop = new Set(staleRuns(heat.map((r) => ({ id: r.id, scenarioId: r.scenarioId, state: r.state ?? "" })), R.scenarios.activeId, current, pinned));
+  const live = heat.filter((r) => !drop.has(r.id));
+  for (const id of evictLru(live.map((r) => ({ id: r.id, bytes: heatBytes(r.result ?? {}), lastUsed: r.lastUsed ?? 0 })), cap, pinned)) drop.add(id);
   if (drop.size) useSims.setState({ records: st.records.filter((r) => !drop.has(r.id)) });
+}
+
+// ---- background prefetch: adjacent months, posted to the worker only while it has nothing else to do
+
+const inFlight = new Set<string>();
+let bgQueue: { kind: SimKind; params: Record<string, unknown>; sid: string; state: string; context?: boolean }[] = [];
+let bgTimer: ReturnType<typeof setTimeout> | null = null;
+
+function jobDone(id: string) {
+  inFlight.delete(id);
+  schedulePump();
+}
+
+function schedulePump(delay = 700) {
+  if (bgTimer || !bgQueue.length) return;
+  bgTimer = setTimeout(() => {
+    bgTimer = null;
+    const idle = (cb: () => void) => (typeof requestIdleCallback !== "undefined" ? requestIdleCallback(cb, { timeout: 1500 }) : cb());
+    idle(pump);
+  }, delay);
+}
+
+function pump() {
+  if (inFlight.size || !bgQueue.length) return schedulePump();
+  const R = rt();
+  const job = bgQueue.shift()!;
+  // the surrounding city is scenario-independent: cached by parameters alone
+  if (job.context) {
+    contextModel("heat", job.params, () => {});
+    return schedulePump();
+  }
+  // a prefetch for a state the user has since edited away from is pointless
+  if (job.state !== stateKey(job.sid, R.scenarios.appliedChangesets(job.sid).map((c) => c.id))) return pump();
+  runSim(job.kind, job.params, job.sid, { background: true }).catch(() => {});
+}
+
+/** after a heat run lands, model the neighbouring months in idle time (one at a time) */
+function prefetchAround(rec: SimRecord) {
+  const md = rec.params.date as string | undefined;
+  if (!md || !/^\d\d-\d\d$/.test(md) || rec.scenarioId !== rt().scenarios.activeId) return;
+  const ctx = !rt().meta.sandbox && rt().context.buildings.length > 0;
+  bgQueue = adjacentMonths(md, monthDate).flatMap((date) => {
+    const job = { kind: rec.kind, params: { ...rec.params, date }, sid: rec.scenarioId, state: rec.state ?? "" };
+    return ctx ? [job, { ...job, context: true }] : [job];
+  });
+  schedulePump();
+}
+
+/** test / debug: the finished heat runs held, with their months and sizes */
+export function heatCacheInfo() {
+  return useSims
+    .getState()
+    .records.filter((r) => r.kind === "heat" && r.status === "done")
+    .map((r) => ({ id: r.id, scenario: r.scenarioId, date: r.params.date, state: r.state, mb: Math.round(heatBytes(r.result ?? {}) / 1e5) / 10, background: !!r.background }));
 }
 
 function update(id: string, patch: Partial<SimRecord>) {
@@ -216,31 +308,47 @@ async function jobParams(kind: SimKind, params: Record<string, unknown>): Promis
 }
 
 let seq = 0;
-export async function runSim(kind: SimKind, params: Record<string, unknown> = {}, scenarioId?: string): Promise<SimRecord> {
+export async function runSim(kind: SimKind, params: Record<string, unknown> = {}, scenarioId?: string, opts: { background?: boolean } = {}): Promise<SimRecord> {
   await initSimWorker();
   const R = rt();
   const sid = scenarioId ?? R.scenarios.activeId;
   const sc = R.scenarios.scenarios.get(sid);
   if (!sc) throw new Error(`unknown scenario ${sid}`);
   const changesets = R.scenarios.appliedChangesets(sid);
-  // reuse an identical finished run
-  const same = useSims.getState().records.find((r) => r.kind === kind && r.scenarioId === sid && r.cursor === changesets.length && r.status === "done" && JSON.stringify(r.params) === JSON.stringify(params) && r.result && lastIds(r) === changesets.map((c) => c.id).join(","));
-  if (same) {
-    if (sid === R.scenarios.activeId) useSims.getState().setShown(kind, same.id);
-    return same;
+  const state = stateKey(sid, changesets.map((c) => c.id));
+  const pj = JSON.stringify(params);
+  // reuse an identical run: finished (a cache hit), or still running (e.g. a prefetch the user caught up with)
+  const same = useSims.getState().records.find((r) => r.kind === kind && r.state === state && (r.status === "done" ? !!r.result : r.status === "running") && JSON.stringify(r.params) === pj);
+  if (same?.status === "done") {
+    update(same.id, { lastUsed: performance.now(), ...(opts.background ? {} : { background: false }) });
+    if (sid === R.scenarios.activeId && !opts.background) useSims.getState().setShown(kind, same.id);
+    return useSims.getState().records.find((r) => r.id === same.id)!;
   }
+  if (same) {
+    // promote a running prefetch: it will be shown when it lands
+    if (!opts.background) update(same.id, { background: false });
+    return new Promise((resolve, reject) => {
+      const prev = pending.get(same.id);
+      pending.set(same.id, { resolve: (r) => (prev?.resolve(r), resolve(r)), reject: (e) => (prev?.reject(e), reject(e)) });
+    });
+  }
+  // a user-requested run goes first: anything not yet sent to the worker in the background waits
+  if (!opts.background) bgQueue = bgQueue.filter((j) => j.kind !== kind);
   const job = await jobParams(kind, params);
   const id = `sim${++seq}`;
-  const rec: SimRecord = { id, kind, scenarioId: sid, scenarioName: sc.name, cursor: changesets.length, params, status: "running", progress: 0, startedAt: Date.now(), label: LABEL[kind] };
-  (rec as SimRecord & { csIds: string }).csIds = changesets.map((c) => c.id).join(",");
-  useSims.setState((s) => ({ records: [...s.records.slice(-40), rec] }));
+  const rec: SimRecord = { id, kind, scenarioId: sid, scenarioName: sc.name, cursor: changesets.length, params, status: "running", progress: 0, startedAt: Date.now(), label: LABEL[kind], state, background: opts.background };
+  // heat runs are retained by pruneHeat's byte budget; other kinds by count
+  useSims.setState((s) => {
+    const other = s.records.filter((r) => r.kind !== "heat");
+    const drop = new Set(other.slice(0, Math.max(0, other.length - 40)).map((r) => r.id));
+    return { records: [...s.records.filter((r) => !drop.has(r.id)), rec] };
+  });
+  inFlight.add(id);
   return new Promise((resolve, reject) => {
     pending.set(id, { resolve, reject });
     worker!.postMessage({ type: "run", job: { id, kind, changesets, params: job } });
   });
 }
-
-const lastIds = (r: SimRecord) => (r as SimRecord & { csIds?: string }).csIds ?? "";
 
 export function latest(kind: SimKind, scenarioId?: string): SimRecord | undefined {
   const recs = useSims.getState().records.filter((r) => r.kind === kind && r.status === "done" && (!scenarioId || r.scenarioId === scenarioId));
@@ -249,7 +357,7 @@ export function latest(kind: SimKind, scenarioId?: string): SimRecord | undefine
 
 type Grid = { x0: number; y0: number; cell: number; nx: number; ny: number };
 export type ContextResult =
-  | { model: "heat"; hours: number[]; exposure: Uint8Array[]; surface: Uint8Array[]; airTemp: number[]; gridSpec: Grid }
+  | { model: "heat"; hours: number[]; surface: Uint8Array[]; airTemp: number[]; gridSpec: Grid }
   | { model: "sun"; grid: Float32Array; gridSpec: Grid }
   | { model: "runoff"; grid: Uint8Array; gridSpec: Grid };
 
@@ -273,6 +381,7 @@ export function contextModel(model: ContextResult["model"], params: Record<strin
       await initSimWorker();
       const job = model === "runoff" ? params : await jobParams(model, params);
       const id = `ctx${++seq}`;
+      inFlight.add(id);
       return new Promise<ContextResult>((resolve, reject) => {
         ctxPending.set(id, { resolve, reject });
         worker!.postMessage({ type: "run", job: { id, kind: "context", changesets: [], params: { ...job, model } } });

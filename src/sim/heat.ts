@@ -2,8 +2,9 @@
 // + absorbed shortwave × a class-specific heating coefficient, with sun/shade
 // from building and tree shadow projection, a thermal-storage lag for
 // impervious materials, and neighbourhood air-temperature adjustments for
-// canopy, imperviousness and water. A pedestrian heat-exposure index combines
-// air, ground radiant load and direct sun. Uncalibrated against Landsat LST:
+// canopy, imperviousness and water. Surface temperature is the shown figure; a
+// feels-like-on-foot index (air, ground radiant load and direct sun) backs the
+// pedestrian KPIs and the agent's shade ranking. Uncalibrated against Landsat LST:
 // use for relative comparison between scenarios and places.
 
 import type { Landcover } from "./landcover";
@@ -68,6 +69,11 @@ export interface HeatResult {
   /** shade mask at each hour (1 = shaded) */
   shade: Uint8Array[];
   airTemp: number[];
+  /** sun altitude (rad) at the middle of each modelled hour */
+  sunAlt: number[];
+  /** per-tile sums for area KPIs at any hour (sim/heatKpi) */
+  tiles: HeatTiles;
+  /** whole-area figures at the hour of highest mean surface temperature */
   kpi: {
     peakHour: number;
     meanSurface: number;
@@ -76,6 +82,8 @@ export interface HeatResult {
     canopy: number;
     impervious: number;
     shadedPedShare: number;
+    meanSurfaceByHour: number[];
+    meanExposureByHour: number[];
   };
   hottestBlocks: { id: string; exposure: number; surface: number; canopy: number; impervious: number }[];
   assumptions: string[];
@@ -104,7 +112,7 @@ export function shadeMask(lc: Landcover, _masses: HeatParams["masses"], _trees: 
   const n = nx * ny;
   const out = new Uint8Array(n);
   // below ~3.5° the direct beam is negligible: treat as diffuse-only
-  if (alt <= 0.06) {
+  if (alt <= SUN_MIN_ALT) {
     out.fill(1);
     return out;
   }
@@ -185,112 +193,207 @@ export function heatReference(lc: Landcover): HeatReference {
   return meanOf(boxBlur(imp, g.nx, g.ny, 12), boxBlur(lc.canopy, g.nx, g.ny, 7));
 }
 
+/** KPI tile edge in cells (32 m on the 4 m grid): area KPIs sum whole tiles, so any view aggregates in microseconds */
+export const KPI_TILE = 8;
+
+/**
+ * Per-tile sums the area KPIs are built from (sim/heatKpi). Static sums per tile, and per modelled
+ * hour three interleaved sums per tile. A "path" cell is walkable hard ground (sidewalk, plaza,
+ * carriageway) that is not under a roof.
+ */
+export interface HeatTiles {
+  size: number;
+  tx: number;
+  ty: number;
+  /** grid cells per tile */
+  cells: Float32Array;
+  /** path cells per tile */
+  paths: Float32Array;
+  /** canopy cover summed over the tile's cells */
+  canopy: Float32Array;
+  /** per modelled hour, per tile: [Σ surface °C, Σ feels-like °C over path cells, shaded path cells] */
+  hourly: Float32Array[];
+}
+
+/** sun below this altitude (rad, ≈ 3.5°) is treated as diffuse-only: no direct beam, nothing is "in sun" */
+export const SUN_MIN_ALT = 0.06;
+
 export function runHeat(lc: Landcover, weather: Weather, p: HeatParams, onProgress?: (f: number) => void): HeatResult {
   const g = lc.grid;
-  const n = g.nx * g.ny;
+  const { nx, ny } = g;
+  const n = nx * ny;
   // neighbourhood fractions
   const imp = new Float32Array(n),
-    can = new Float32Array(n),
     wat = new Float32Array(n);
   for (let i = 0; i < n; i++) {
     imp[i] = IMPERVIOUS.has(lc.ground[i]) ? 1 : 0;
-    can[i] = lc.canopy[i];
     wat[i] = lc.ground[i] === LC.WATER ? 1 : 0;
   }
-  const impL = boxBlur(imp, g.nx, g.ny, 12);
-  const canL = boxBlur(can, g.nx, g.ny, 7);
-  const watL = boxBlur(wat, g.nx, g.ny, 12);
+  const impL = boxBlur(imp, nx, ny, 12);
+  const canL = boxBlur(lc.canopy, nx, ny, 7);
+  const watL = boxBlur(wat, nx, ny, 12);
   const { imp: impMean, can: canMean } = p.ref ?? meanOf(impL, canL);
   const airAdj = new Float32Array(n);
   for (let i = 0; i < n; i++) airAdj[i] = 1.2 * (impL[i] - impMean) - 1.6 * (canL[i] - canMean) - 0.8 * watL[i];
 
+  // per-cell material constants, looked up once instead of every hour
+  const topK = new Float32Array(n), // (1 − albedo) × heating coefficient of the top surface
+    topSt = new Float32Array(n), // its storage weight
+    gK = new Float32Array(n),
+    gSt = new Float32Array(n);
+  // 1 = pedestrian ground (has a feels-like value), 2 = path cell, 4 = under tree canopy
+  const flag = new Uint8Array(n);
+  for (let i = 0; i < n; i++) {
+    const top = lc.cls[i],
+      ground = lc.ground[i];
+    const [a, k, st] = MAT[top] ?? MAT[LC.GRASS];
+    const [ga, gk, gst] = MAT[ground] ?? MAT[LC.GRASS];
+    topK[i] = (1 - a) * k;
+    topSt[i] = st;
+    gK[i] = (1 - ga) * gk;
+    gSt[i] = gst;
+    const ped = top !== LC.ROOF && top !== LC.GREENROOF && ground !== LC.WATER && ground !== LC.POOL;
+    flag[i] = (ped ? 1 : 0) | (ped && (ground === LC.PAVED || ground === LC.ROAD) ? 2 : 0) | (top === LC.CANOPY ? 4 : 0);
+  }
+
+  // KPI tiles
+  const T = KPI_TILE;
+  const tx = Math.ceil(nx / T),
+    ty = Math.ceil(ny / T);
+  const nt = tx * ty;
+  const tCells = new Float32Array(nt),
+    tPaths = new Float32Array(nt),
+    tCanopy = new Float32Array(nt);
+  for (let j = 0; j < ny; j++) {
+    const trow = ((j / T) | 0) * tx;
+    for (let i = 0; i < nx; i++) {
+      const c = j * nx + i,
+        t = trow + ((i / T) | 0);
+      tCells[t]++;
+      tCanopy[t] += lc.canopy[c];
+      if (flag[c] & 2) tPaths[t]++;
+    }
+  }
+
   const storage = new Float32Array(n);
   // the ground under a canopy stores the heat of its own (shaded) surface, not the crown's
   const gStorage = new Float32Array(n);
-  const exposure: Uint8Array[] = [];
-  const surface: Uint8Array[] = [];
-  const shades: Uint8Array[] = [];
-  const airTemp: number[] = [];
-  // spin up storage from 6:00 with the earliest requested hour
   const hours = p.hours.slice().sort((a, b) => a - b);
-  const start = Math.min(6, hours[0]);
-  const last = hours[hours.length - 1];
-  let peak = { hour: hours[0], mean: -Infinity };
-  const kpiAcc = { meanSurface: 0, meanExposure: 0, hot: 0, shadedPed: 0 };
-  let pedCount = 0;
-  for (let i = 0; i < n; i++) if (lc.ground[i] === LC.PAVED || lc.ground[i] === LC.ROAD) pedCount++;
-  for (let h = start; h <= last; h++) {
+  const slot = new Map(hours.map((h, k) => [h, k]));
+  const exposure: Uint8Array[] = new Array(hours.length);
+  const surface: Uint8Array[] = new Array(hours.length);
+  const shades: Uint8Array[] = new Array(hours.length);
+  const hourly: Float32Array[] = new Array(hours.length);
+  const airTemp: number[] = new Array(hours.length);
+  const sunAlt: number[] = new Array(hours.length);
+  // a day runs from 6:00 (storage spun up from sunrise) through the evening and the following night,
+  // so night-time pavement still carries the afternoon's stored heat; hours before 6:00 are that night
+  const start = 6;
+  const wrap = hours.some((h) => h < start);
+  const last = wrap ? Math.max(...hours.filter((h) => h < start)) + 24 : hours[hours.length - 1];
+  for (let hh = start; hh <= last; hh++) {
+    const h = hh % 24;
     const Tair = (weather.t[h] ?? weather.t[weather.t.length - 1]) + p.deltaT;
     const S = Math.max(0, weather.sw[h] ?? 0);
     const sun = sunAt(p.date, h + 0.5, p.lat, p.lon, p.utcOffset);
     const sh = shadeMask(lc, p.masses, p.trees, sun.alt, sun.az);
-    const want = hours.includes(h);
+    const k = slot.get(h);
+    const want = k !== undefined;
     const ex = want ? new Uint8Array(n) : null;
     const sf = want ? new Uint8Array(n) : null;
-    let sumS = 0,
-      sumE = 0,
-      cnt = 0,
-      hot = 0,
-      shadedPed = 0;
-    for (let i = 0; i < n; i++) {
-      const top = lc.cls[i];
-      const ground = lc.ground[i];
-      const [a, k, st] = MAT[top] ?? MAT[LC.GRASS];
-      const lit = !sh[i] && S > 0;
-      const dS = (1 - a) * S * k * (lit ? 1 : 0.18);
-      storage[i] = storage[i] * st + dS * (1 - st);
-      const dT = Math.max(dS, storage[i]);
-      const Tl = Tair + airAdj[i];
-      const Ts = Tl + dT;
-      // pedestrian ground: under canopy the ground is shaded
-      const [ga, gk, gst] = MAT[ground] ?? MAT[LC.GRASS];
-      const groundLit = lit && top !== LC.CANOPY;
-      const gS = (1 - ga) * S * gk * (groundLit ? 1 : 0.18);
-      gStorage[i] = gStorage[i] * gst + gS * (1 - gst);
-      const Tg = Tl + Math.max(gS, gStorage[i] * 0.6);
-      const pedestrian = top !== LC.ROOF && top !== LC.GREENROOF && ground !== LC.WATER && ground !== LC.POOL;
-      if (want) {
-        sf![i] = qT(Ts);
-        if (pedestrian) {
-          const E = Tl + 0.35 * (Tg - Tl) + (groundLit ? 0.0055 * S : 0);
-          ex![i] = qT(E);
-          if (ground === LC.PAVED || ground === LC.ROAD) {
-            sumE += E;
-            cnt++;
-            if (E > 40) hot++;
-            if (!groundLit) shadedPed++;
+    const th = want ? new Float32Array(nt * 3) : null;
+    const Sd = 0.18 * S; // diffuse share reaching shaded ground
+    for (let j = 0; j < ny; j++) {
+      const trow = ((j / T) | 0) * tx;
+      for (let x = 0; x < nx; x++) {
+        const i = j * nx + x;
+        const lit = S > 0 && !sh[i];
+        const dS = topK[i] * (lit ? S : Sd);
+        const st = topSt[i];
+        const sto = storage[i] * st + dS * (1 - st);
+        storage[i] = sto;
+        const Tl = Tair + airAdj[i];
+        const fl = flag[i];
+        let E = 0;
+        if (fl & 1) {
+          // pedestrian ground: under canopy the ground is shaded
+          const groundLit = lit && !(fl & 4);
+          const gS = gK[i] * (groundLit ? S : Sd);
+          const gst = gSt[i];
+          const gsto = gStorage[i] * gst + gS * (1 - gst);
+          gStorage[i] = gsto;
+          if (want) {
+            const Tg = Tl + Math.max(gS, gsto * 0.6);
+            E = Tl + 0.35 * (Tg - Tl) + (groundLit ? 0.0055 * S : 0);
+            const q = Math.round((E - 15) * 4);
+            ex![i] = q < 1 ? 1 : q > 255 ? 255 : q;
+            if (fl & 2) {
+              const t3 = (trow + ((x / T) | 0)) * 3;
+              th![t3 + 1] += E;
+              if (!groundLit) th![t3 + 2]++;
+            }
           }
         }
-        sumS += Ts;
+        if (want) {
+          const Ts = Tl + (dS > sto ? dS : sto);
+          const q = Math.round((Ts - 15) * 4);
+          sf![i] = q < 1 ? 1 : q > 255 ? 255 : q;
+          th![(trow + ((x / T) | 0)) * 3] += Ts;
+        }
       }
     }
     if (want) {
-      exposure.push(ex!);
-      surface.push(sf!);
-      shades.push(sh);
-      airTemp.push(Tair);
-      const meanE = cnt ? sumE / cnt : 0;
-      if (meanE > peak.mean) {
-        peak = { hour: h, mean: meanE };
-        kpiAcc.meanSurface = sumS / n;
-        kpiAcc.meanExposure = meanE;
-        kpiAcc.hot = cnt ? hot / cnt : 0;
-        kpiAcc.shadedPed = pedCount ? shadedPed / pedCount : 0;
-      }
+      exposure[k] = ex!;
+      surface[k] = sf!;
+      shades[k] = sh;
+      hourly[k] = th!;
+      airTemp[k] = Tair;
+      sunAlt[k] = sun.alt;
     }
-    onProgress?.((h - start + 1) / (last - start + 1));
+    onProgress?.((hh - start + 1) / (last - start + 1));
   }
-  // cover stats
+  const tiles: HeatTiles = { size: T, tx, ty, cells: tCells, paths: tPaths, canopy: tCanopy, hourly };
+
+  // whole-area figures per hour (sums of all tiles); the summary KPIs are those of the hottest hour
   let canopy = 0,
-    impv = 0;
-  for (let i = 0; i < n; i++) {
-    canopy += lc.canopy[i];
-    impv += imp[i];
+    impv = 0,
+    paths = 0;
+  for (let t = 0; t < nt; t++) {
+    canopy += tCanopy[t];
+    paths += tPaths[t];
+  }
+  for (let i = 0; i < n; i++) impv += imp[i];
+  let pi = 0,
+    peakS = -Infinity;
+  const meanSurfaceH: number[] = [],
+    meanExposureH: number[] = [],
+    shadedH: number[] = [];
+  hours.forEach((_, k) => {
+    let s = 0,
+      e = 0,
+      sd = 0;
+    const th = hourly[k];
+    for (let t = 0; t < nt; t++) {
+      s += th[t * 3];
+      e += th[t * 3 + 1];
+      sd += th[t * 3 + 2];
+    }
+    meanSurfaceH.push(s / n);
+    meanExposureH.push(paths ? e / paths : 0);
+    shadedH.push(paths ? sd / paths : 0);
+    if (s > peakS) {
+      peakS = s;
+      pi = k;
+    }
+  });
+  let hot = 0;
+  {
+    const ex = exposure[pi];
+    for (let i = 0; i < n; i++) if (flag[i] & 2 && dqT(ex[i]) > 40) hot++;
   }
   // hottest blocks at the peak hour
   const hottest: HeatResult["hottestBlocks"] = [];
-  const pi = hours.indexOf(peak.hour);
-  if (p.blocks && pi >= 0) {
+  if (p.blocks && hours.length) {
     const ex = exposure[pi],
       sf = surface[pi];
     for (const b of p.blocks) {
@@ -312,7 +415,7 @@ export function runHeat(lc: Landcover, weather: Weather, p: HeatParams, onProgre
       });
       if (c > 20) hottest.push({ id: b.id, exposure: se / c, surface: ss / m, canopy: cc / m, impervious: ii / m });
     }
-    hottest.sort((a, b) => b.exposure - a.exposure);
+    hottest.sort((a, b) => b.surface - a.surface);
   }
   return {
     hours,
@@ -320,18 +423,33 @@ export function runHeat(lc: Landcover, weather: Weather, p: HeatParams, onProgre
     surface,
     shade: shades,
     airTemp,
-    kpi: { peakHour: peak.hour, meanSurface: kpiAcc.meanSurface, meanExposure: kpiAcc.meanExposure, pedHotShare: kpiAcc.hot, canopy: canopy / n, impervious: impv / n, shadedPedShare: kpiAcc.shadedPed },
+    sunAlt,
+    tiles,
+    kpi: {
+      peakHour: hours[pi],
+      meanSurface: meanSurfaceH[pi],
+      meanExposure: meanExposureH[pi],
+      pedHotShare: paths ? hot / paths : 0,
+      canopy: canopy / n,
+      impervious: impv / n,
+      shadedPedShare: shadedH[pi],
+      meanSurfaceByHour: meanSurfaceH,
+      meanExposureByHour: meanExposureH,
+    },
     hottestBlocks: hottest.slice(0, 400),
-    assumptions: [
-      "Air temperature & shortwave: ERA5 reanalysis for the reference day (Open-Meteo), plus the scenario offset",
-      "Surface heating = (1−albedo) × shortwave × class coefficient; asphalt α=0.08, concrete 0.30, roof 0.22, lawn 0.24 (literature values)",
-      "Shadows cast by sun position (SunCalc) over a 4 m height raster of building masses, modelled tree crowns (60% of height) and the City of Austin 2022 measured canopy (taken as 9 m); proposals clear canopy under new buildings, hard surfaces and rebuilt carriageways; sun below 3.5° is treated as diffuse-only",
-      "Neighbourhood air adjustment: +2.2 °F per unit imperviousness (50 m), −2.9 °F per unit canopy (30 m), −1.4 °F near water, measured against the existing city's area means so new canopy cools without warming elsewhere",
-      "Pedestrian feels-like index ≈ air + 0.35 × (ground − air) + 9.9 °F per kW/m² of direct sun — an MRT-style proxy, not UTCI (modelled in °C, shown in °F)",
-      "Not calibrated to Landsat land-surface temperature; use for relative comparison",
-    ],
+    assumptions: HEAT_ASSUMPTIONS,
   };
 }
+
+const HEAT_ASSUMPTIONS = [
+  "Air temperature & shortwave: typical hourly weather for the modelled day (multi-year normals, else ERA5 for the pack's reference day), plus the scenario offset",
+  "Surface heating = (1−albedo) × shortwave × class coefficient; asphalt α=0.08, concrete 0.30, roof 0.22, lawn 0.24 (literature values); thermal storage carried hour to hour from 6:00 through the following night",
+  "Shadows cast by sun position (SunCalc) over a 4 m height raster of building masses, modelled tree crowns (60% of height) and the City of Austin 2022 measured canopy (taken as 9 m); proposals clear canopy under new buildings, hard surfaces and rebuilt carriageways; sun below 3.5° is treated as diffuse-only",
+  "Neighbourhood air adjustment: +2.2 °F per unit imperviousness (50 m), −2.9 °F per unit canopy (30 m), −1.4 °F near water, measured against the existing city's area means so new canopy cools without warming elsewhere",
+  "Feels like on foot ≈ air + 0.35 × (ground − air) + 9.9 °F per kW/m² of direct sun — an MRT-style proxy, not UTCI (modelled in °C, shown in °F)",
+  "Area KPIs: mean surface temperature of every cell in view; feels-like, shade share over walkable hard ground (sidewalks, plazas, carriageways) not under roofs; canopy share of all cells",
+  "Not calibrated to Landsat land-surface temperature; use for relative comparison",
+];
 
 /** sunlit hours per cell for a date (step in hours) */
 export function sunHours(lc: Landcover, masses: HeatParams["masses"], trees: HeatParams["trees"], date: string, lat: number, lon: number, utcOffset: number, step = 0.5): Float32Array {
