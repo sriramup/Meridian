@@ -1,8 +1,16 @@
-// Sky above the horizon, driven by the real sun altitude for the shown date and hour: flat, saturated
+// Sky above the horizon, driven by the real sun altitude for the hour (on LIGHTING_DATE): flat, saturated
 // bands like a blocky-game sunset — deep navy at night, purple and orange through twilight, a warm
 // band at golden hour and clear blue by day. Evening and morning share the same palette by altitude.
 
 import type { SkySpecification } from "maplibre-gl";
+
+/**
+ * The scene is lit for the hour on one fixed reference day, the September equinox, whatever month
+ * the analyses model: the sun rises due east and sets due west about twelve hours apart, a middle
+ * ground between June's high sun and December's long shadows. Changing the month therefore never
+ * re-lights or re-shades buildings, trees or the sky; only the modelled surface temperatures change.
+ */
+export const LIGHTING_DATE = "2025-09-22";
 
 type RGB = [number, number, number];
 interface Key {

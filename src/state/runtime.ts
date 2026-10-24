@@ -80,6 +80,13 @@ async function fetchWithProgress(url: string, onBytes: (n: number) => void): Pro
   return out.buffer;
 }
 
+/** chunk side (m): CHUNK_TARGET, or ?chunk=<m> to compare sizes */
+function chunkTarget(): number | undefined {
+  if (typeof window === "undefined") return undefined;
+  const v = Number(new URLSearchParams(window.location.search).get("chunk"));
+  return v >= 200 && v <= 5000 ? v : undefined;
+}
+
 /** half the side of the sandbox site (m) and its raster cell (m) */
 export const SANDBOX_HALF = 1500;
 const SANDBOX_CELL = 4;
@@ -126,7 +133,7 @@ export function sandboxRuntime(climateId: string, climate: CityMeta): Runtime {
   const world = new World(meta);
   world.load([]);
   const scenarios = new ScenarioManager(world, { baselineName: "Blank site", baselineDescription: "Empty site: everything here is designed", branchPrefix: "Design" });
-  const scene = new SceneCache(world, MODEL);
+  const scene = new SceneCache(world, MODEL, chunkTarget());
   world.takeDirty();
   return {
     cityId: "sandbox",
@@ -178,7 +185,7 @@ export async function loadCity(cityId: string, onProgress: (p: number, label: st
   onProgress(0.97, "Preparing scene");
   await new Promise((r) => setTimeout(r, 0));
   const scenarios = new ScenarioManager(world);
-  const scene = new SceneCache(world, MODEL);
+  const scene = new SceneCache(world, MODEL, chunkTarget());
   world.takeDirty();
   const b = meta.bounds;
   const fadeAt = (pts: [number, number][]) => {

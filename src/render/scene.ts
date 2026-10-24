@@ -1,8 +1,10 @@
-// Converts the world model into chunked, render-ready arrays. Each chunk keeps
-// a version; edits only rebuild the chunks whose entities (or derived street
-// geometry) changed, so deck.gl re-tessellates a small slice of the city.
-// Theme and change-highlight switches only repaint: colours are rewritten in
-// place and `paint` is bumped, so layers refresh their colour attribute alone.
+// Converts the world model into chunked, render-ready arrays. The study area is cut into a grid of
+// chunks (about 800 m; see CHUNK_TARGET). Chunks are built lazily, in the order the chunk loader
+// (chunkLoader.ts) asks for them: the camera's chunk first, then outward. Each chunk tracks which
+// of its parts (buildings, street surfaces, kerbs, markings, areas, trees, paths) an edit touched,
+// and a rebuild replaces only those arrays, so deck.gl re-tessellates only the layers whose data
+// changed. Theme and change-highlight switches only repaint: colours are rewritten in place and
+// `paint` is bumped, so layers refresh their colour attribute alone.
 
 import { PED_REALM } from "@/geometry/crossSection";
 import { polyCentroid } from "@/geometry/polygon";
@@ -14,7 +16,26 @@ import type { World } from "@/world/world";
 import { FACADE, facadeAlpha } from "./FacadeLayer";
 import type { RGB, RGBA, Theme } from "./theme";
 
-const CH = 1100;
+/**
+ * Target chunk side (m). Measured on Austin (10,900 buildings over 4.0 x 4.3 km) and dense sandbox
+ * designs: ~800 m chunks hold ~350-700 buildings, build in a few ms and initialise on the GPU in
+ * well under a frame's worth of long task each, while keeping the layer count (and so per-frame
+ * draw overhead) near 150 for the whole city. Smaller chunks multiplied layers and per-layer
+ * overhead; larger ones made each edit and each border crossing re-tessellate more.
+ */
+export const CHUNK_TARGET = 800;
+
+/** a part of a chunk with its own deck.gl layer */
+export type ChunkPart = "masses" | "surfaces" | "kerbs" | "marks" | "areas" | "trees" | "paths";
+const PARTS_OF: Record<string, ChunkPart[]> = {
+  building: ["masses"],
+  street: ["surfaces", "kerbs", "marks"],
+  node: ["surfaces", "kerbs", "marks"],
+  area: ["areas"],
+  tree: ["trees"],
+  path: ["paths"],
+};
+const ALL_PARTS: ChunkPart[] = ["masses", "surfaces", "kerbs", "marks", "areas", "trees", "paths"];
 
 /** a theme colour picker, shared by every datum painted the same way */
 type Tone = (T: Theme) => RGB;
@@ -62,10 +83,19 @@ export interface TreeDatum {
   seed: number;
 }
 
-interface Chunk {
+export interface Chunk {
   key: string;
+  /** grid cell */
+  ix: number;
+  iy: number;
+  /** cell bounds padded by a margin for entities that overhang it [x0, y0, x1, y1] (m) */
+  box: [number, number, number, number];
+  /** tallest roof in the chunk (m), for frustum tests */
+  top: number;
   version: number;
   built: number;
+  /** parts whose entities changed since they were last built */
+  dirty: Set<ChunkPart>;
   ids: Set<string>;
   masses: MassDatum[];
   surfaces: SurfaceDatum[];
@@ -76,7 +106,19 @@ interface Chunk {
   paths: PathDatum[];
 }
 
-const chunkKey = (x: number, y: number) => `${Math.floor(x / CH)}:${Math.floor(y / CH)}`;
+/** the chunk grid over a city's bounds: whole cells of about CHUNK_TARGET, anchored at the bounds' corner */
+export interface ChunkGrid {
+  x0: number;
+  y0: number;
+  cw: number;
+  chh: number;
+}
+export function chunkGrid(b: readonly number[], target = CHUNK_TARGET): ChunkGrid {
+  const nx = Math.max(1, Math.round((b[2] - b[0]) / target)),
+    ny = Math.max(1, Math.round((b[3] - b[1]) / target));
+  return { x0: b[0], y0: b[1], cw: (b[2] - b[0]) / nx || target, chh: (b[3] - b[1]) / ny || target };
+}
+const OVERHANG = 80;
 
 function entityAnchor(e: Entity): [number, number] | null {
   switch (e.kind) {
@@ -142,29 +184,62 @@ const areaTone = (type: string) => tone(`area:${type}`, (T) => T.area[type as ke
 export class SceneCache {
   private chunks = new Map<string, Chunk>();
   private entityChunk = new Map<string, string>();
+  readonly grid: ChunkGrid;
   theme: Theme;
   showChanges = true;
   version = 0;
   /** bumped when colours are repainted in place (layers use it as their colour update trigger) */
   paint = 0;
+  /** build timings (ms) for diagnostics: window.__meridian.scene.stats */
+  stats = { builds: 0, buildMs: 0, maxBuildMs: 0 };
 
-  constructor(private world: World, theme: Theme) {
+  constructor(private world: World, theme: Theme, target = CHUNK_TARGET) {
     this.theme = theme;
+    this.grid = chunkGrid(world.meta?.bounds ?? [-1500, -1500, 1500, 1500], target);
     for (const e of world.entities.values()) this.place(e);
+  }
+
+  /** key of the chunk holding (x, y) */
+  keyAt(x: number, y: number): string {
+    const g = this.grid;
+    return `${Math.floor((x - g.x0) / g.cw)}:${Math.floor((y - g.y0) / g.chh)}`;
   }
 
   private place(e: Entity) {
     if (!RENDERED.has(e.kind)) return;
     const a = entityAnchor(e);
     if (!a) return;
-    const k = chunkKey(a[0], a[1]);
+    const k = this.keyAt(a[0], a[1]);
     let c = this.chunks.get(k);
     if (!c) {
-      c = { key: k, version: 1, built: 0, ids: new Set(), masses: [], surfaces: [], kerbs: [], marks: [], areas: [], trees: [], paths: [] };
+      const g = this.grid;
+      const ix = Math.floor((a[0] - g.x0) / g.cw),
+        iy = Math.floor((a[1] - g.y0) / g.chh);
+      const x0 = g.x0 + ix * g.cw,
+        y0 = g.y0 + iy * g.chh;
+      c = {
+        key: k,
+        ix,
+        iy,
+        box: [x0 - OVERHANG, y0 - OVERHANG, x0 + g.cw + OVERHANG, y0 + g.chh + OVERHANG],
+        top: 320,
+        version: 1,
+        built: 0,
+        dirty: new Set(ALL_PARTS),
+        ids: new Set(),
+        masses: [],
+        surfaces: [],
+        kerbs: [],
+        marks: [],
+        areas: [],
+        trees: [],
+        paths: [],
+      };
       this.chunks.set(k, c);
     }
     c.ids.add(e.id);
     c.version++;
+    for (const p of PARTS_OF[e.kind] ?? ALL_PARTS) c.dirty.add(p);
     this.entityChunk.set(e.id, k);
   }
 
@@ -174,13 +249,15 @@ export class SceneCache {
     if (!dirty.size) return false;
     for (const id of dirty) {
       const old = this.entityChunk.get(id);
+      const e = this.world.get(id);
       if (old) {
         const c = this.chunks.get(old)!;
         c.ids.delete(id);
         c.version++;
+        // the entity's kind is gone with it when it was deleted: rebuild every part
+        for (const p of (e && PARTS_OF[e.kind]) || ALL_PARTS) c.dirty.add(p);
         this.entityChunk.delete(id);
       }
-      const e = this.world.get(id);
       if (e) this.place(e);
     }
     this.version++;
@@ -202,7 +279,8 @@ export class SceneCache {
   private repaint() {
     const T = this.theme;
     for (const c of this.chunks.values()) {
-      if (c.built !== c.version) continue;
+      // every built chunk, current or not: a later partial rebuild keeps its untouched parts
+      if (!c.built) continue;
       const bld = new Map<Building, RGBA>();
       for (const d of c.masses) {
         if (d.roof) d.color = [...T.area.park, 255];
@@ -222,27 +300,66 @@ export class SceneCache {
     this.version++;
   }
 
+  /** every chunk, built (synchronously) and current; prefer built() on the render path */
   list(): Chunk[] {
     for (const c of this.chunks.values()) if (c.built !== c.version) this.build(c);
     return [...this.chunks.values()];
   }
 
+  /** every chunk, built or not (no work) */
+  all(): IterableIterator<Chunk> {
+    return this.chunks.values();
+  }
+
+  /** chunks that have been built at least once (their arrays may lag an edit until rebuilt) */
+  built(): Chunk[] {
+    const out: Chunk[] = [];
+    for (const c of this.chunks.values()) if (c.built > 0) out.push(c);
+    return out;
+  }
+
+  get(key: string): Chunk | undefined {
+    return this.chunks.get(key);
+  }
+
+  isCurrent(c: Chunk): boolean {
+    return c.built === c.version;
+  }
+
+  /** build (or rebuild the edited parts of) one chunk; returns the time it took (ms) */
+  ensure(c: Chunk): number {
+    if (c.built === c.version) return 0;
+    const t0 = performance.now();
+    this.build(c);
+    const ms = performance.now() - t0;
+    this.stats.builds++;
+    this.stats.buildMs += ms;
+    this.stats.maxBuildMs = Math.max(this.stats.maxBuildMs, ms);
+    return ms;
+  }
+
   private build(c: Chunk) {
     const T = this.theme;
     const w = this.world;
-    c.masses = [];
-    c.surfaces = [];
-    c.kerbs = [];
-    c.marks = [];
-    c.areas = [];
-    c.trees = [];
-    c.paths = [];
+    const d = c.dirty;
+    // only the parts an edit touched get new arrays; the others (and their GPU buffers) are kept
+    if (d.has("masses")) c.masses = [];
+    if (d.has("surfaces")) c.surfaces = [];
+    if (d.has("kerbs")) c.kerbs = [];
+    if (d.has("marks")) c.marks = [];
+    if (d.has("areas")) c.areas = [];
+    if (d.has("trees")) c.trees = [];
+    if (d.has("paths")) c.paths = [];
+    const streets = d.has("surfaces") || d.has("kerbs") || d.has("marks");
     for (const id of c.ids) {
       const e = w.get(id);
       if (!e) continue;
-      if (e.kind === "building") this.buildBuilding(c, e);
-      else if (e.kind === "street") this.buildStreet(c, e);
-      else if (e.kind === "node") {
+      if (e.kind === "building") {
+        if (d.has("masses")) this.buildBuilding(c, e);
+      } else if (e.kind === "street") {
+        if (streets) this.buildStreet(c, e);
+      } else if (e.kind === "node") {
+        if (!streets) continue;
         const g = w.nodeGeom.get(e.id);
         if (!g) continue;
         if (g.carriageway && g.carriageway.length > 2) {
@@ -252,10 +369,20 @@ export class SceneCache {
         for (const r of g.corners) if (r.length > 2) c.kerbs.push({ id: e.id, polygon: r, color: rgba(T.kerbTop), kind: "corner", tone: T_KERB });
         if (g.island) c.kerbs.push({ id: e.id, polygon: g.island, color: rgba(T.island), kind: "island", tone: T_ISLAND });
         for (const m of g.markings) c.marks.push(this.mark(m));
-      } else if (e.kind === "area") this.buildArea(c, e);
-      else if (e.kind === "tree") this.buildTree(c, e);
-      else if (e.kind === "path") this.buildPath(c, e);
+      } else if (e.kind === "area") {
+        if (d.has("areas")) this.buildArea(c, e);
+      } else if (e.kind === "tree") {
+        if (d.has("trees")) this.buildTree(c, e);
+      } else if (e.kind === "path") {
+        if (d.has("paths")) this.buildPath(c, e);
+      }
     }
+    if (d.has("masses")) {
+      let top = 0;
+      for (const m of c.masses) top = Math.max(top, m.base + m.height);
+      c.top = top;
+    }
+    d.clear();
     c.built = c.version;
   }
 

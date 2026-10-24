@@ -628,7 +628,8 @@ const kerbCache = new WeakMap<object, { path: Position[]; f: number }[]>();
 export function kerbLines(opacity = 1): Layer[] {
   const R = rtMaybe()!;
   const out: Layer[] = [];
-  for (const c of R.scene.list()) {
+  // built chunks only: the chunk loader streams the rest in (listing all would build them all now)
+  for (const c of R.scene.built()) {
     const b = R.meta.bounds;
     let data = kerbCache.get(c.kerbs);
     if (!data) {
