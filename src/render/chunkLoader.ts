@@ -18,8 +18,12 @@ import type { Position } from "@deck.gl/core";
 import type { Chunk, ChunkPart, SceneCache } from "./scene";
 import { FAR, MID, NEAR, chunkTiers, eyeDistance, inFrustum, lodThresholds, setLodGrid, tierAt, useLod, type LodCamera, type Tier } from "./lod";
 
-/** polygon vertices whose layers may be added per frame (deck.gl tessellates and uploads them) */
-const VERTEX_BUDGET = 40000;
+/** time a frame may spend initialising new layers (ms); the vertex budget adapts to hit it */
+const FRAME_TARGET = 12;
+/** starting vertex budget per frame, and its bounds while it adapts to the machine */
+const VERTEX_START = 20000;
+const VERTEX_MIN = 3000;
+const VERTEX_MAX = 120000;
 /** main-thread time for building chunk data per frame (ms) */
 const BUILD_BUDGET = 6;
 /** detail is prepared (hidden) this far out, as a multiple of the NEAR distance */
@@ -71,6 +75,9 @@ export class ChunkLoader {
   /** chunks the loader has not finished (data or layers) */
   pending = true;
   private order: Chunk[] = [];
+  /** polygon vertices whose layers may be added per frame (deck.gl tessellates and uploads them) */
+  vertexBudget = VERTEX_START;
+  private lastVerts = 0;
   private orderDirty = true;
   /** layers added and data built, for diagnostics */
   stats = { admitted: 0, frames: 0, firstFrameAt: 0, completeAt: 0 };
@@ -168,12 +175,25 @@ export class ChunkLoader {
   }
 
   /**
+   * The frame after an admission took `ms` (rAF to rAF): fit the vertex budget so deck.gl's
+   * initialisation of new layers stays near FRAME_TARGET on this machine.
+   */
+  noteFrame(ms: number) {
+    if (this.lastVerts < 2000) return;
+    const perVert = Math.max(1e-5, (ms - 8) / this.lastVerts);
+    const fit = Math.max(VERTEX_MIN, Math.min(VERTEX_MAX, FRAME_TARGET / perVert));
+    this.vertexBudget = Math.round(this.vertexBudget * 0.5 + fit * 0.5);
+    this.lastVerts = 0;
+  }
+
+  /**
    * One frame's work: build chunk data and admit layers in priority order within the budgets.
    * Returns true when layers were added (the caller re-stacks them).
    */
   work(): boolean {
     if (!this.pending) return false;
     const t0 = performance.now();
+    const VERTEX_BUDGET = this.vertexBudget;
     let verts = 0;
     let added = false;
     let builtAny = false;
@@ -229,6 +249,7 @@ export class ChunkLoader {
     // anything still wanted beyond this frame?
     if (!remaining) remaining = order.some((c) => [...BASE, "marks" as ChunkPart].some((p) => !this.view(c.key).parts.has(p) && this.wants(c, this.view(c.key), p)));
     this.pending = remaining;
+    this.lastVerts = verts;
     this.stats.frames++;
     if (builtAny) useLod.setState((s) => ({ loaded: s.loaded + 1 }));
     if (added && !this.stats.firstFrameAt) this.stats.firstFrameAt = performance.now();
