@@ -325,7 +325,7 @@ function detail(e: Entity) {
 
 // ---------------------------------------------------------------- simulations formatting
 
-function simSummary(rec: SimRecord) {
+export function simSummary(rec: SimRecord) {
   const r = rec.result;
   switch (rec.kind) {
     case "traffic":
