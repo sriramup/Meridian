@@ -180,7 +180,7 @@ export const CIVIC: PrimitiveDef[] = [
     tags: ["art museum", "gallery", "exhibition hall", "cultural center", "science center"],
     description: "Museum with top-lit galleries and a sculpture forecourt.",
     icon: "frame",
-    defaults: { ...civ, shape: "plus", width: 70, depth: 60, wing: 22, wing2: 22, floors: 3, groundFloorHeight: 7, floorHeight: 6, facade: "precast_white", fitToSite: false, roofType: "sawtooth", teeth: 6, roofPitch: 25 },
+    defaults: { ...civ, shape: "plus", width: 70, depth: 60, wing: 22, wing2: 22, floors: 3, groundFloorHeight: 7, floorHeight: 6, facade: "precast_white", fitToSite: false, roofType: "flat", parapetHeight: 1.5, solar: false },
   }),
   buildingType({
     id: "civic.performing_arts",
