@@ -2,7 +2,7 @@
 
 import * as DM from "@radix-ui/react-dropdown-menu";
 import { Bike, Car, Check, ChevronLeft, ChevronRight, ChevronUp, CloudRain, Droplets, Ellipsis, Footprints, LayoutGrid, LoaderCircle, Pause, Play, RefreshCw, Sun, Thermometer, TramFront, TreeDeciduous, TrendingUp, Users, GitCompare } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { runSim, useSims, type SimRecord } from "@/sim/client";
 import { DIVERGE, cssGradient } from "@/render/palettes";
 import { growthSnapshot, legendFor, overlayState } from "@/render/overlays";
@@ -50,8 +50,8 @@ function currentRecord(kind: SimKind | undefined, records: SimRecord[], shown: P
 
 export function AnalysisDock() {
   const overlay = useApp((s) => s.overlay);
-  const setOverlay = useApp((s) => s.setOverlay);
-  const hour = useApp((s) => s.hour);
+  // the clock is read by the small components that show it (HourSlider, KpiBlock), so playback
+  // re-renders those, not the whole dock
   const setHour = useApp((s) => s.setHour);
   const playing = useApp((s) => s.playing);
   const setPlaying = useApp((s) => s.setPlaying);
@@ -126,13 +126,6 @@ export function AnalysisDock() {
   const scenarios = [...R.scenarios.scenarios.values()];
   const cmpRec = chip?.sim ? records.find((r) => r.id === compare[chip.sim!]) : undefined;
   const kpisStatic = useMemo(() => (rec?.status === "done" && rec.kind !== "heat" ? kpiFor(rec) : []), [rec]);
-  const heatKpis = useHeatKpis(rec?.kind === "heat" && rec.status === "done" ? rec : undefined, hour);
-  const kpis = rec?.kind === "heat" ? heatKpis : kpisStatic;
-  usePlanImpact();
-  const avail = availableOverlays();
-  const primary = avail.filter((c) => !c.more);
-  const extra = avail.filter((c) => c.more);
-  const extraOn = extra.find((c) => c.id === overlay);
 
   return (
     <div className="pointer-events-none flex w-full flex-col items-center gap-2 px-3">
@@ -216,8 +209,7 @@ export function AnalysisDock() {
                 <button onClick={() => setPlaying(!playing)} className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-accent text-on-accent hover:brightness-110" title={playing ? "Pause" : "Play the day"}>
                   {playing ? <Pause size={11} fill="currentColor" /> : <Play size={11} fill="currentColor" className="ml-px" />}
                 </button>
-                <Slider size="sm" min={0} max={24} step={1 / 12} value={[hour]} onValueChange={([v]) => setHour(v % 24)} thumbLabels={["Time of day"]} className="min-w-0 flex-1" />
-                <span className="tabular w-[66px] shrink-0 text-right text-[12px] font-medium text-ink">{clock(hour)}</span>
+                <HourSlider />
                 {overlay === "traffic" && (
                   <Segmented
                     size="xs"
@@ -236,46 +228,11 @@ export function AnalysisDock() {
             )}
           </div>
           {/* KPIs */}
-          {kpis.length > 0 && (
-            <div className="grid grid-cols-[repeat(2,max-content)] content-center gap-x-5 gap-y-1 border-l border-line px-3 py-2 @max-[480px]:gap-x-3" title={rec?.kind === "heat" ? "For the area in view, at the time shown" : undefined}>
-              {kpis.slice(0, 4).map((k) => (
-                <div key={k.label} className="whitespace-nowrap">
-                  <div className="text-[10px] text-ink-4">{k.label}</div>
-                  <div className="tabular text-[13px] font-semibold text-ink">{k.value}</div>
-                </div>
-              ))}
-            </div>
-          )}
+          {rec?.kind === "heat" ? <HeatKpiBlock rec={rec.status === "done" ? rec : undefined} /> : <KpiGrid kpis={kpisStatic} />}
         </div>
       )}
-      <div className="chrome scroll-ends flex items-center gap-0.5 px-1.5 py-1">
-        {primary.map((c) => (
-          <Chip key={c.id} c={c} on={overlay === c.id} busy={!!c.sim && records.some((r) => r.kind === c.sim && r.status === "running")} onClick={() => setOverlay(overlay === c.id ? null : c.id)} />
-        ))}
-        <span className="mx-0.5 h-5 w-px bg-line" />
-        <DM.Root>
-          <DM.Trigger asChild>
-            <button className={cx("flex h-8 items-center gap-1.5 rounded-[6px] px-2.5 text-[12px] font-medium transition-colors outline-none", extraOn ? "bg-accent text-on-accent" : "text-ink-3 hover:bg-paper-3 hover:text-ink")}>
-              {extraOn ? <extraOn.icon size={13} strokeWidth={1.8} /> : <Ellipsis size={14} />}
-              <span>{extraOn ? extraOn.label : "More"}</span>
-              <ChevronUp size={12} className="opacity-70" />
-            </button>
-          </DM.Trigger>
-          <DM.Portal>
-            <DM.Content side="top" align="end" sideOffset={8} className="chrome z-50 w-60 p-1">
-              <div className="px-2 pt-1.5 pb-1 font-legend text-[12.5px] leading-none text-ink-3">Other analyses</div>
-              {extra.map((c) => (
-                <DM.Item key={c.id} onSelect={() => setOverlay(overlay === c.id ? null : c.id)} className="flex cursor-default items-center gap-2 rounded-[5px] px-2 py-1.5 text-[12.5px] text-ink outline-none data-[highlighted]:bg-paper-3">
-                  <c.icon size={13} strokeWidth={1.8} className="text-ink-3" />
-                  <span className="flex-1">{c.label}</span>
-                  <span className="truncate text-[10.5px] text-ink-4">{c.hint}</span>
-                  {overlay === c.id && <Check size={13} className="shrink-0 text-rose" />}
-                </DM.Item>
-              ))}
-            </DM.Content>
-          </DM.Portal>
-        </DM.Root>
-      </div>
+      <PlanImpactSync />
+      <ChipBar overlay={overlay} busy={records.filter((r) => r.status === "running" && !r.background).map((r) => r.kind).sort().join(",")} />
     </div>
   );
 }
@@ -472,26 +429,35 @@ function useHeatKpis(rec: SimRecord | undefined, hour: number): { label: string;
   useEffect(() => {
     let map = rt().map;
     let t: ReturnType<typeof setTimeout> | null = null;
-    const update = () => setScope(viewScope());
+    let last = 0;
+    const update = () => {
+      last = performance.now();
+      t = null;
+      setScope(viewScope());
+    };
+    // throttled while the camera moves (a long flight still updates), and once more where it stops
     const onMove = () => {
-      if (t) clearTimeout(t);
-      t = setTimeout(update, 120);
+      if (t) return;
+      t = setTimeout(update, Math.max(0, 300 - (performance.now() - last)));
     };
     // the map can attach after the dock mounts
     const poll = setInterval(() => {
       if (map || !rt().map) return;
       map = rt().map;
       map!.on("move", onMove);
+      map!.on("moveend", onMove);
       update();
     }, 500);
     if (map) {
       map.on("move", onMove);
+      map.on("moveend", onMove);
       update();
     }
     return () => {
       clearInterval(poll);
       if (t) clearTimeout(t);
       map?.off("move", onMove);
+      map?.off("moveend", onMove);
     };
   }, []);
   const tiles = rec?.result?.tiles;
@@ -502,9 +468,85 @@ function useHeatKpis(rec: SimRecord | undefined, hour: number): { label: string;
   const pct = (x: number, d = 0) => `${(x * 100).toFixed(d)}%`;
   const none = "—";
   return [
-    { label: "Surface temp", value: k.surface === null ? none : fmtF(k.surface, 0) },
-    { label: "Feels like on foot", value: k.feels === null ? none : fmtF(k.feels, 0) },
+    { label: "Surface temp", value: k.surface === null ? none : fmtF(k.surface) },
+    { label: "Feels like on foot", value: k.feels === null ? none : fmtF(k.feels) },
     { label: "Canopy", value: k.cells ? pct(k.canopy, 1) : none },
     { label: "Shaded paths", value: k.feels === null ? none : k.shaded === null ? "Night" : pct(k.shaded) },
   ];
 }
+
+function KpiGrid({ kpis, title }: { kpis: { label: string; value: string }[]; title?: string }) {
+  if (!kpis.length) return null;
+  return (
+    <div className="grid grid-cols-[repeat(2,max-content)] content-center gap-x-5 gap-y-1 border-l border-line px-3 py-2 @max-[480px]:gap-x-3" title={title}>
+      {kpis.slice(0, 4).map((k) => (
+        <div key={k.label} className="whitespace-nowrap">
+          <div className="text-[10px] text-ink-4">{k.label}</div>
+          <div className="tabular text-[13px] font-semibold text-ink">{k.value}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function HeatKpiBlock({ rec }: { rec: SimRecord | undefined }) {
+  const hour = useApp((s) => s.hour);
+  return <KpiGrid kpis={useHeatKpis(rec, hour)} title="For the area in view, at the time shown" />;
+}
+
+function HourSlider() {
+  const hour = useApp((s) => s.hour);
+  const setHour = useApp((s) => s.setHour);
+  return (
+    <>
+      <Slider size="sm" min={0} max={24} step={1 / 12} value={[hour]} onValueChange={([v]) => setHour(v % 24)} thumbLabels={["Time of day"]} className="min-w-0 flex-1" />
+      <span className="tabular w-[66px] shrink-0 text-right text-[12px] font-medium text-ink">{clock(hour)}</span>
+    </>
+  );
+}
+
+/** keeps the plan-impact pins current (it follows the clock, so it lives outside the dock's render) */
+function PlanImpactSync() {
+  usePlanImpact();
+  return null;
+}
+
+/** the analysis chips; memoised so clock ticks and overlay redraws don't re-render them */
+const ChipBar = memo(function ChipBar({ overlay, busy }: { overlay: OverlayId | null; busy: string }) {
+  const setOverlay = useApp((s) => s.setOverlay);
+  const running = new Set(busy.split(","));
+  const avail = availableOverlays();
+  const primary = avail.filter((c) => !c.more);
+  const extra = avail.filter((c) => c.more);
+  const extraOn = extra.find((c) => c.id === overlay);
+  return (
+    <div className="chrome scroll-ends flex items-center gap-0.5 px-1.5 py-1">
+      {primary.map((c) => (
+        <Chip key={c.id} c={c} on={overlay === c.id} busy={!!c.sim && running.has(c.sim)} onClick={() => setOverlay(overlay === c.id ? null : c.id)} />
+      ))}
+      <span className="mx-0.5 h-5 w-px bg-line" />
+      <DM.Root>
+        <DM.Trigger asChild>
+          <button className={cx("flex h-8 items-center gap-1.5 rounded-[6px] px-2.5 text-[12px] font-medium transition-colors outline-none", extraOn ? "bg-accent text-on-accent" : "text-ink-3 hover:bg-paper-3 hover:text-ink")}>
+            {extraOn ? <extraOn.icon size={13} strokeWidth={1.8} /> : <Ellipsis size={14} />}
+            <span>{extraOn ? extraOn.label : "More"}</span>
+            <ChevronUp size={12} className="opacity-70" />
+          </button>
+        </DM.Trigger>
+        <DM.Portal>
+          <DM.Content side="top" align="end" sideOffset={8} className="chrome z-50 w-60 p-1">
+            <div className="px-2 pt-1.5 pb-1 font-legend text-[12.5px] leading-none text-ink-3">Other analyses</div>
+            {extra.map((c) => (
+              <DM.Item key={c.id} onSelect={() => setOverlay(overlay === c.id ? null : c.id)} className="flex cursor-default items-center gap-2 rounded-[5px] px-2 py-1.5 text-[12.5px] text-ink outline-none data-[highlighted]:bg-paper-3">
+                <c.icon size={13} strokeWidth={1.8} className="text-ink-3" />
+                <span className="flex-1">{c.label}</span>
+                <span className="truncate text-[10.5px] text-ink-4">{c.hint}</span>
+                {overlay === c.id && <Check size={13} className="shrink-0 text-rose" />}
+              </DM.Item>
+            ))}
+          </DM.Content>
+        </DM.Portal>
+      </DM.Root>
+    </div>
+  );
+});

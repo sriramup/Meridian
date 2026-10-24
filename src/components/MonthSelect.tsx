@@ -2,12 +2,13 @@
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/kit";
+import { memo } from "react";
 import { monthDate, useApp } from "@/state/store";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /** the modelled month (sun path and typical weather of its mean day), with month-by-month steppers */
-export function MonthSelect() {
+export const MonthSelect = memo(function MonthSelect() {
   const date = useApp((s) => s.date);
   const setDate = useApp((s) => s.setDate);
   const m = +date.slice(0, 2) - 1;
@@ -35,4 +36,4 @@ export function MonthSelect() {
       </button>
     </div>
   );
-}
+});
