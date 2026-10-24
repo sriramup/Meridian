@@ -12,7 +12,7 @@ import { eyeState, eyeView, isWalking, look, onEyeChange, pedestrianAt, restore,
 import { rt } from "@/state/runtime";
 import { useApp, type CameraMode } from "@/state/store";
 import { facadeLayers, groundLayers, useStreetView, type GroundCursor } from "./pedestrian/layers";
-import { alongStreet, blockedAt, chevronAt, chevronDirs, chevronLayout, CLEAR, hopTarget, jumpTarget, sightAt, STEP, type Chevron, type Sight } from "./pedestrian/walk";
+import { alongStreet, blockedAt, chevronAt, chevronDirs, chevronLayout, CLEAR, firstWall, hopTarget, jumpTarget, sightAt, STEP, type Chevron, type Sight } from "./pedestrian/walk";
 import type { Vec2 } from "@/world/types";
 
 /** pointer travel (px) that turns a press into a look-around drag */
@@ -43,6 +43,7 @@ export function usePedestrianControls(mode: CameraMode) {
     // ── the cursor and chevrons (recomputed at most once a frame) ──
     let chevKey = "";
     let dirs: Vec2[] = [];
+    let lastLayout: { key: string; chevs: Chevron[] } = { key: "", chevs: [] };
     const chevrons = (): Chevron[] => {
       if (!env || streetPhase() !== "on" || isWalking()) return [];
       const e = eyeState();
@@ -51,7 +52,19 @@ export function usePedestrianControls(mode: CameraMode) {
         chevKey = key;
         dirs = chevronDirs(env, e.eye);
       }
-      return chevronLayout(e.eye, e.bearing, dirs);
+      // the same layout while the eye stays put (a zoom, a still frame) keeps the layers as they are
+      const layoutKey = `${key},${Math.round(e.bearing * 4)},${dirs.length}`;
+      if (layoutKey !== lastLayout.key) {
+        // facing a wall close by, the ring comes nearer so it stays on the sidewalk
+        const b = (e.bearing * Math.PI) / 180;
+        const wall = firstWall(env, e.eye, [e.eye[0] + Math.sin(b) * 8, e.eye[1] + Math.cos(b) * 8]);
+        const ahead = wall ? Math.max(2.4, Math.hypot(wall.p[0] - e.eye[0], wall.p[1] - e.eye[1]) - 1.5) : 5.6;
+        const ring = chevronLayout(e.eye, e.bearing, dirs, ahead);
+        // an arrow that would lie under a wall (a narrow sidewalk) tucks in toward the ring's centre, or is left out
+        const clear = ring.map((c) => (blockedAt(env, c.at, 0) ? (chevronLayout(e.eye, e.bearing, [c.dir], ahead, 0.55)[0] ?? c) : c)).filter((c) => !blockedAt(env, c.at, 0));
+        lastLayout = { key: layoutKey, chevs: clear };
+      }
+      return lastLayout.chevs;
     };
     const sight = (x: number, y: number) => {
       const v = eyeView();
@@ -80,7 +93,9 @@ export function usePedestrianControls(mode: CameraMode) {
         raf = 0;
         const chevs = chevrons();
         const { cursor, hot } = pointer && !drag?.moved ? cursorAt(pointer.x, pointer.y, chevs) : { cursor: null, hot: null };
-        useStreetView.getState().set({ chevrons: chevs, cursor, hot });
+        const cur = useStreetView.getState();
+        // only what changed (each change re-stacks the map's layers)
+        if (cur.chevrons !== chevs || cur.hot !== hot || !sameCursor(cur.cursor, cursor)) cur.set({ chevrons: chevs, cursor, hot });
         if (!drag) setCss(hot != null ? "pointer" : "grab");
       });
     };
@@ -263,6 +278,9 @@ export function usePedestrianControls(mode: CameraMode) {
     };
   }, [mode]);
 }
+
+const sameCursor = (a: GroundCursor | null, b: GroundCursor | null) =>
+  a === b || (!!a && !!b && a.kind === b.kind && Math.abs(a.p[0] - b.p[0]) < 0.02 && Math.abs(a.p[1] - b.p[1]) < 0.02 && (a.kind !== "facade" || (b.kind === "facade" && Math.abs(a.z - b.z) < 0.02)));
 
 /** the ground cursor and chevrons, contributed to the map's layer slots */
 function useStreetViewLayers(on: boolean) {

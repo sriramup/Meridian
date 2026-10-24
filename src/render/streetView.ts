@@ -181,6 +181,13 @@ export function pedestrianAt(p: Vec2, bearing?: number) {
   };
   c.map.once("moveend", arrive);
   c.map.flyTo({ ...target, duration: 2600, curve: 1.5, essential: true });
+  // a slow machine (or a flight cut short without a moveend) still arrives
+  setTimeout(() => {
+    if (S.phase !== "entering") return;
+    c.map.stop();
+    c.map.jumpTo(target);
+    arrive();
+  }, 6000);
 }
 
 /** ease the field of view to `fov` with the eye held in place */
@@ -252,7 +259,7 @@ export function walkTo(to: Vec2, opts: { bearing?: number; ms?: number } = {}) {
     const t = Math.min(1, (performance.now() - t0) / ms);
     const k = ease(t);
     S.eye = [from[0] + (to[0] - from[0]) * k, from[1] + (to[1] - from[1]) * k];
-    if (db) S.bearing = b0 + db * k;
+    if (db) S.bearing = (b0 + db * k + 360) % 360;
     apply();
     moveRaf = t < 1 ? requestAnimationFrame(step) : 0;
   };
