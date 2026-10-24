@@ -141,7 +141,7 @@ export const WATER: PrimitiveDef[] = [
           rr = Math.sqrt(rand()) * d * 0.42;
         s.push(S("cone", [Math.cos(a) * rr, Math.sin(a) * rr, 0.04], [0.25, 0.25, 0.8 + rand() * 1.4], [210, 232, 244], "water"));
       }
-      if (r.b("arches")) for (const sg of [-1, 1]) s.push(S("torus", [sg * d * 0.25, 0, 0], [3, 0.2, 3], C.blue, "plastic", 0, [90, 0]));
+      if (r.b("arches")) for (const sg of [-1, 1]) s.push(S("torus", [sg * d * 0.25, 0.1, 0], [3, 3, 0.2], C.blue, "plastic", 0, [90, 0]));
       if (r.b("bucket")) s.push(box(0, d * 0.3, 0, 0.2, 0.2, 3.2, C.yellow, "metal"), S("cone", [0, d * 0.3, 3.2], [1.2, 1.2, 0.8], C.red, "plastic"));
       return { solids: s, cover: "water" };
     },

@@ -144,7 +144,7 @@ export function bikeRackSolids(style: RackStyle, hoops = 5, color: RGB = C.steel
   for (let i = 0; i < n; i++) {
     const x = (i - (n - 1) / 2) * pitch;
     if (style === "post_ring") {
-      out.push(cyl(x, 0, 0, 0.06, 0.95, color, "metal"), S("torus", [x, 0, 0.6], [0.4, 0.4, 0.04], color, "metal"));
+      out.push(cyl(x, 0, 0, 0.06, 0.95, color, "metal"), S("torus", [x, 0.02, 0.62], [0.4, 0.4, 0.04], color, "metal", 0, [90, 0]));
     } else if (style === "wave" || style === "grid") {
       out.push(box(x, 0, 0, 0.05, 0.05, style === "grid" ? 0.5 : 0.85, color, "metal"));
       out.push(box(x, 0.3, 0, 0.05, 0.05, style === "grid" ? 0.5 : 0.85, color, "metal"));
@@ -473,7 +473,7 @@ export function quadrupedSolids(q: QuadrupedSpec): Solid[] {
   const hx = nx + Math.cos(na) * nl,
     hz = nz + Math.sin(na) * nl;
   const hs = (q.head ?? 0.3) * L;
-  out.push(S("sphere", [hx, 0, hz - hs * 0.35], [hs * 1.2, hs * 0.75, hs * 0.75], q.accent ?? q.color, "fur"));
+  out.push(S("sphere", [hx, 0, hz - hs * 0.35], [hs * 1.2, hs * 0.75, hs * 0.75], q.color, "fur"));
   out.push(S("sphere", [hx + hs * 0.55, 0, hz - hs * 0.45], [hs * 0.6, hs * 0.45, hs * 0.45], q.accent ?? shade(q.color, 1.1), "fur"));
   out.push(sphere(hx + hs * 0.86, 0, hz - hs * 0.32, Math.max(0.01, hs * 0.14), C.black));
   const ear = q.ears ?? "pointed";

@@ -331,7 +331,7 @@ export const PARKS: PrimitiveDef[] = [
       }
       const c = polyCentroid(poly);
       const f = { c, a: 0, siteW: 0, siteD: 0 };
-      if (r.b("agility")) out.prop("parks.dog_park", subFrame(f, [4, 0]), [S("wedge", [0, 0, 0], [3.6, 1.0, 0.9], C.orange, "plastic", 90), ...[0, 1, 2, 3, 4].map((i) => cyl(-3 + i * 0.6, -3, 0, 0.05, 1.0, C.yellow, "plastic")), S("torus", [3, -3, 0.3], [0.9, 0.1, 0.9], C.blue, "plastic", 0, [90, 0]), cyl(3, -3, 0, 0.08, 0.3, C.steel, "metal")], { primary: false });
+      if (r.b("agility")) out.prop("parks.dog_park", subFrame(f, [4, 0]), [S("wedge", [0, 0, 0], [3.6, 1.0, 0.9], C.orange, "plastic", 90), ...[0, 1, 2, 3, 4].map((i) => cyl(-3 + i * 0.6, -3, 0, 0.05, 1.0, C.yellow, "plastic")), S("torus", [3, -2.95, 0.75], [0.9, 0.9, 0.1], C.blue, "plastic", 0, [90, 0]), cyl(3, -3, 0, 0.08, 0.3, C.steel, "metal")], { primary: false });
       out.prop("streetscape.drinking_fountain", subFrame(f, [-4, 3]), [box(0, 0, 0, 0.35, 0.35, 0.95, C.blue, "metal"), cyl(0, 0.45, 0, 0.4, 0.12, C.steel, "metal")], { primary: false });
       const ins = insetPoly(poly, 2.5);
       if (ins && isValidPoly(ins)) for (const s of stations([...ins[0], ins[0][0]], pathLength([...ins[0], ins[0][0]]) / Math.max(1, r.n("benches")), 3, false).slice(0, r.n("benches"))) out.prop("streetscape.bench", { c: s.p, a: ((s.rot + 180) * Math.PI) / 180, siteW: 0, siteD: 0 }, benchSolids("backless", 1.8), { primary: false });
@@ -591,7 +591,7 @@ export function statueSolids(figure: number, pedestal: number, metal: RGB, base:
       s.push(S("sphere", [0, 0, z], [H * 0.5, H * 0.3, H * 0.4], metal, "metal"), sphereAt(0, 0, z + H * 0.35, H * 0.3, metal));
       break;
     case "abstract":
-      s.push(S("torus", [0, 0, z], [H * 0.8, H * 0.8, H * 0.18], metal, "metal", 0, [90, 0]));
+      s.push(S("torus", [0, H * 0.09, z + H * 0.4], [H * 0.8, H * 0.8, H * 0.18], metal, "metal", 0, [90, 0]));
       break;
     default:
       for (const y of [-0.08, 0.08]) s.push(cyl(0, y * H, z, H * 0.09, H * 0.47, metal, "metal"));

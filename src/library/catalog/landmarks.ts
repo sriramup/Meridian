@@ -166,10 +166,10 @@ export const LANDMARKS: PrimitiveDef[] = [
           s.push(S("sphere", [0, 0, b], [z * 0.6, z * 0.6, z * 0.6], c, "metal"));
           break;
         case "arc":
-          s.push(S("torus", [0, -z * 0.04, b - z * 0.45], [z, 0.3 + z * 0.06, z], c, "metal", 0, [90, 0]));
+          s.push(S("torus", [0, (0.3 + z * 0.06) / 2, b], [z, z, 0.3 + z * 0.06], c, "metal", 0, [90, 0]));
           break;
         default:
-          s.push(S("torus", [0, -z * 0.05, b], [z, 0.4 + z * 0.08, z], c, "metal", 0, [90, 0]));
+          s.push(S("torus", [0, (0.4 + z * 0.08) / 2, b + z / 2], [z, z, 0.4 + z * 0.08], c, "metal", 0, [90, 0]));
       }
       return { solids: s };
     },
