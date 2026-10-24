@@ -9,7 +9,8 @@ import { ensureLibrary, getPrimitive, type PlacementInput, type PrimitiveDef } f
 import { applyOp } from "@/state/actions";
 import { rt } from "@/state/runtime";
 import { useApp } from "@/state/store";
-import { placePrimitive } from "@/world/ops/library";
+import { instanceOf, placePrimitive } from "@/world/ops/library";
+import { anchorOf, moveBy } from "./instanceOps";
 import type { Entity, Vec2 } from "@/world/types";
 import { armedParams, useLibrary } from "./libraryStore";
 
@@ -80,6 +81,23 @@ export function currentPlacement(def: PrimitiveDef, final = false): PlacementInp
   }
 }
 
+/**
+ * Parameters for the current placement: the armed values, with a dragged rectangle's size written
+ * into the definition's width / depth parameters when it has them (so the form and the generator agree).
+ */
+export function placementParams(def: PrimitiveDef, place: PlacementInput): Record<string, unknown> {
+  const params = { ...armedParams() };
+  if (def.placement !== "rect" || !place.site) return params;
+  const r = place.site[0];
+  const w = Math.hypot(r[1][0] - r[0][0], r[1][1] - r[0][1]);
+  const d = Math.hypot(r[2][0] - r[1][0], r[2][1] - r[1][1]);
+  for (const [keys, v] of [[["width", "length", "frontage"], w], [["depth"], d]] as const) {
+    const spec = def.params.find((p) => (keys as readonly string[]).includes(p.key) && (p.type === "number" || p.type === "integer"));
+    if (spec && (spec.type === "number" || spec.type === "integer")) params[spec.key] = Math.min(spec.max ?? Infinity, Math.max(spec.min ?? 0, spec.type === "integer" ? Math.round(v) : Math.round(v * 10) / 10));
+  }
+  return params;
+}
+
 export interface Preview {
   ok: boolean;
   /** why it can't go there */
@@ -90,12 +108,48 @@ export interface Preview {
   place: PlacementInput;
 }
 
+/** the offset a move would apply (cursor minus the instance's anchor) */
+function moveDelta(): { id: string; by: Vec2; at: Vec2 } | null {
+  const s = useLibrary.getState();
+  if (!s.moving || !s.cursor) return null;
+  const info = instanceOf(rt().world, s.moving);
+  const a = info ? anchorOf(info.placement) : null;
+  if (!info || !a) return null;
+  return { id: info.primary, by: [s.cursor[0] - a[0], s.cursor[1] - a[1]], at: s.cursor };
+}
+
+/** dry-run moving the picked-up instance to the cursor */
+export function computeMovePreview(): Preview | null {
+  const m = moveDelta();
+  if (!m) return null;
+  const res = moveBy(m.id, m.by);
+  const place = { at: m.at };
+  if (!res.ok || !res.changeset) return { ok: false, error: res.error ?? "Can't move it here", warnings: [], entities: [], place };
+  const entities: Entity[] = [];
+  for (const op of res.changeset.ops) if (op.type !== "remove") entities.push(op.type === "add" ? op.entity : op.after);
+  return { ok: true, warnings: res.report.warnings, entities, place };
+}
+
+/** put the picked-up instance down at the cursor */
+export function commitMove(): boolean {
+  const m = moveDelta();
+  const s = useLibrary.getState();
+  if (!m) return false;
+  const ok = applyOp(moveBy(m.id, m.by));
+  if (ok) {
+    const info = instanceOf(rt().world, m.id);
+    if (info) useApp.getState().setSelection([info.primary]);
+    s.endMove();
+  }
+  return ok;
+}
+
 /** dry-run the real op at the current placement (nothing is committed) */
 export function computePreview(def: PrimitiveDef): Preview | null {
   const place = currentPlacement(def);
   if (!place) return null;
   const R = rt();
-  const params = armedParams();
+  const params = placementParams(def, place);
   let res: ReturnType<typeof placePrimitive>;
   try {
     res = placePrimitive(R.world, { def, params, ...place }, user);
@@ -111,13 +165,12 @@ export function computePreview(def: PrimitiveDef): Preview | null {
     }
     return { ok: true, warnings: res.report.warnings, entities, place };
   }
-  return { ok: false, error: res.error ?? "Can't be placed here", warnings: [], entities: ghost(def, place), place };
+  return { ok: false, error: res.error ?? "Can't be placed here", warnings: [], entities: ghost(def, place, params), place };
 }
 
 /** the generator's raw output (no conflict handling), drawn in red where a placement is refused */
-function ghost(def: PrimitiveDef, place: PlacementInput): Entity[] {
+function ghost(def: PrimitiveDef, place: PlacementInput, params: Record<string, unknown>): Entity[] {
   let n = 0;
-  const params = armedParams();
   try {
     const g = def.generate(params, place, {
       id: (p) => `ghost:${p}${n++}`,
@@ -137,7 +190,7 @@ export function commitPlacement(): boolean {
   const place = currentPlacement(def, true);
   if (!place) return false;
   const R = rt();
-  const res = placePrimitive(R.world, { def, params: armedParams(), ...place }, user);
+  const res = placePrimitive(R.world, { def, params: placementParams(def, place), ...place }, user);
   if (!applyOp(res)) return false;
   const primary = (res.data?.primary as string | undefined) ?? res.created[0];
   if (primary) useApp.getState().setSelection([primary]);

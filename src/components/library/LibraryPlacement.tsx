@@ -21,14 +21,15 @@ import { useApp } from "@/state/store";
 import { LocalProjection } from "@/world/projection";
 import type { Building, Entity, Prop, Street, Tree, Vec2 } from "@/world/types";
 import { useLibrary } from "./libraryStore";
-import { armedDef, commitPlacement, computePreview, currentPlacement, DRAG_MIN, type Preview } from "./placement";
+import { armedDef, commitMove, commitPlacement, computeMovePreview, computePreview, currentPlacement, DRAG_MIN, type Preview } from "./placement";
 
 const RED: [number, number, number] = [214, 70, 60];
 const BLUE: [number, number, number] = [52, 92, 190];
 const FLAT = { depthCompare: "always", depthWriteEnabled: false } as const;
 
-/** is the library tool armed with a definition? */
-const armed = () => useApp.getState().tool === "library" && !!useLibrary.getState().defId;
+/** is the library tool armed with a definition (or carrying an instance being moved)? */
+const armed = () => useApp.getState().tool === "library" && (!!useLibrary.getState().defId || !!useLibrary.getState().moving);
+const moving = () => useApp.getState().tool === "library" && !!useLibrary.getState().moving;
 
 function useMapPointer() {
   useEffect(() => {
@@ -59,7 +60,7 @@ function useMapPointer() {
         });
       };
       const down = (e: { lngLat: { lng: number; lat: number }; originalEvent: MouseEvent }) => {
-        if (!armed() || space || e.originalEvent.button !== 0) return;
+        if (!armed() || moving() || space || e.originalEvent.button !== 0) return;
         const def = armedDef();
         if (def?.placement !== "point" && def?.placement !== "rect") return;
         const p = at(e);
@@ -74,6 +75,11 @@ function useMapPointer() {
       };
       const click = (e: { lngLat: { lng: number; lat: number } }) => {
         if (!armed() || space) return;
+        if (moving()) {
+          useLibrary.setState({ cursor: at(e) });
+          commitMove();
+          return;
+        }
         const def = armedDef();
         if (!def || def.placement === "point" || def.placement === "rect") return;
         const p = at(e);
@@ -112,6 +118,16 @@ function useMapPointer() {
       if (def && currentPlacement(def, true)) commitPlacement();
     };
     const key = (e: KeyboardEvent) => {
+      // G picks up the selected library instance to move it
+      if (!armed() && e.type === "keydown" && e.key.toLowerCase() === "g" && !e.metaKey && !e.ctrlKey && !(e.target as HTMLElement)?.closest("input,textarea,select,[contenteditable]")) {
+        const app = useApp.getState();
+        const sel = app.selection.length === 1 ? rt().world.get(app.selection[0]) : undefined;
+        if (sel && "lib" in sel && sel.lib) {
+          e.preventDefault();
+          useLibrary.getState().startMove(sel.id);
+        }
+        return;
+      }
       if (!armed()) return;
       const t = e.target as HTMLElement;
       if (t?.closest("input,textarea,select,[contenteditable],[role=combobox],[role=slider]")) return;
@@ -131,6 +147,9 @@ function useMapPointer() {
         space = true;
         syncPan();
         stop();
+      } else if (e.key === "Escape" && s.moving) {
+        stop();
+        s.endMove();
       } else if (e.key === "Escape") {
         stop();
         if (s.points.length || s.drag) useLibrary.setState({ points: [], drag: null, tick: s.tick + 1 });
@@ -151,12 +170,12 @@ function useMapPointer() {
       const map = rt().map;
       if (!map) return;
       const p = armedDef()?.placement;
-      const capture = armed() && !space && (p === "point" || p === "rect");
+      const capture = armed() && !moving() && !space && (p === "point" || p === "rect");
       if (capture) map.dragPan.disable();
       else map.dragPan.enable();
     };
     const unsubA = useApp.subscribe((s, prev) => s.tool !== prev.tool && syncPan());
-    const unsubL = useLibrary.subscribe((s, prev) => s.defId !== prev.defId && syncPan());
+    const unsubL = useLibrary.subscribe((s, prev) => (s.defId !== prev.defId || s.moving !== prev.moving) && syncPan());
     window.addEventListener("keydown", key, true);
     window.addEventListener("keyup", key, true);
     let tries = 0;
@@ -246,10 +265,8 @@ function previewLayers(pv: Preview | null, defPlacement: string | undefined, nig
           getPolygon: (d: { polygon: Position[] }) => d.polygon,
           extruded: true,
           getElevation: (d: { h: number }) => d.h,
-          getFillColor: ok ? [236, 232, 222, 200] : [...RED, 150],
-          getLineColor: [...tone, 255],
+          getFillColor: ok ? [232, 226, 212, 235] : [...RED, 200],
           material: { ambient: 0.6, diffuse: 0.5, shininess: 0, specularColor: [0, 0, 0] },
-          parameters: { depthWriteEnabled: false },
         }),
       );
     if (solidsOf.length) {
@@ -304,14 +321,16 @@ export function LibraryPlacement() {
   const theme = useApp((s) => s.theme);
   const tick = useLibrary((s) => s.tick);
   const defId = useLibrary((s) => s.defId);
+  const movingId = useLibrary((s) => s.moving);
   const worldVersion = useApp((s) => s.worldVersion);
   const [preview, setPreview] = useState<Preview | null>(null);
   useEffect(() => {
-    if (tool !== "library" || !defId) return setPreview(null);
+    if (tool !== "library" || (!defId && !movingId)) return setPreview(null);
+    if (movingId) return setPreview(computeMovePreview());
     const def = armedDef();
     setPreview(def ? computePreview(def) : null);
-  }, [tool, defId, tick, worldVersion]);
-  const layers = useMemo(() => (tool === "library" && defId ? previewLayers(preview, armedDef()?.placement, theme === "night") : null), [preview, tool, defId, theme, tick]);
+  }, [tool, defId, movingId, tick, worldVersion]);
+  const layers = useMemo(() => (tool === "library" && (defId || movingId) ? previewLayers(preview, movingId ? "point" : armedDef()?.placement, theme === "night") : null), [preview, tool, defId, movingId, theme, tick]);
   useLayerSlot("library-placement", "top", layers);
   return null;
 }

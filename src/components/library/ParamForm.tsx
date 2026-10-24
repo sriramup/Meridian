@@ -4,11 +4,11 @@
 // parameters folded under "More options", `when` conditions hiding what doesn't apply. Used by the
 // library palette (before placing) and the inspector (live re-configuration).
 
-import { ChevronRight, RotateCcw } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import { useState } from "react";
+import { Collapsible, CollapsibleContent, CollapsibleHeader, Segmented, cn as cx } from "@/components/ui/kit";
 import type { NumberParam, ParamSpec, ParamValues, PrimitiveDef } from "@/library";
-import { Segmented, cx } from "../ui";
-import { ChipsInput, ColorInput, NumberInput, ScrubLabel, SelectInput, SliderInput, SwitchInput, TextInput } from "./fields";
+import { ChipsInput, ColorInput, NumberInput, SelectInput, SliderInput, SwitchInput, TextInput } from "./fields";
 import { changedKeys, coerce, formatValue, layoutForm, stepOf, widgetFor, type FormSection } from "./formModel";
 
 export interface ParamFormProps {
@@ -31,13 +31,16 @@ export function ParamForm({ def, values, onChange, onReset }: ParamFormProps) {
         <Section key={s.title || i} s={s} values={values} set={set} first={i === 0} />
       ))}
       {layout.advanced.length > 0 && (
-        <div className="mt-1 border-t border-line">
-          <button type="button" aria-expanded={more} onClick={() => setMore(!more)} className="flex w-full items-center gap-1 px-3 py-2 text-[11.5px] font-medium text-ink-3 hover:text-ink">
-            <ChevronRight size={13} className={cx("transition-transform", more && "rotate-90")} />
-            More options <span className="text-ink-4">({layout.advancedCount})</span>
-          </button>
-          {more && layout.advanced.map((s, i) => <Section key={s.title || i} s={s} values={values} set={set} first={false} />)}
-        </div>
+        <Collapsible open={more} onOpenChange={setMore} className="mt-2 border-t border-line px-1.5 pt-1">
+          <CollapsibleHeader>
+            More options <span className="font-normal text-ink-4">({layout.advancedCount})</span>
+          </CollapsibleHeader>
+          <CollapsibleContent className="-mx-1.5">
+            {layout.advanced.map((s, i) => (
+              <Section key={s.title || i} s={s} values={values} set={set} first={i === 0} />
+            ))}
+          </CollapsibleContent>
+        </Collapsible>
       )}
       {changed > 0 && onReset && (
         <div className="flex justify-end px-3 pt-1">
@@ -97,13 +100,10 @@ function Field({ p, value, set }: { p: ParamSpec; value: unknown; set: (p: Param
         <div className="w-full max-w-[150px]">
           <NumberInput value={v} onChange={(x, f) => set(p, x, f)} min={n.min} max={n.max} step={stepOf(n)} unit={n.unit} label={p.label} integer={n.type === "integer"} />
         </div>,
-        <ScrubLabel value={v} step={stepOf(n)} onChange={(x, f) => set(p, x, f)}>
-          {label}
-        </ScrubLabel>,
       );
     }
     case "segmented":
-      return row(<Segmented size="xs" value={String(value)} onChange={(v) => set(p, v)} options={(p.type === "enum" ? p.options : []).map((o) => ({ value: o.value, label: o.label, title: o.description }))} />);
+      return row(<Segmented size="xs" value={String(value)} onChange={(v) => set(p, v)} aria-label={p.label} options={(p.type === "enum" ? p.options : []).map((o) => ({ value: o.value, label: o.label, title: o.description }))} />);
     case "select":
       return row(<SelectInput value={String(value)} onChange={(v) => set(p, v)} options={p.type === "enum" ? p.options : []} label={p.label} />);
     case "switch":
@@ -113,7 +113,7 @@ function Field({ p, value, set }: { p: ParamSpec; value: unknown; set: (p: Param
     case "text":
       return row(<TextInput value={String(value ?? "")} onChange={(v) => set(p, v)} maxLength={p.type === "text" ? p.maxLength : undefined} label={p.label} />);
     case "multi":
-      return stacked(<ChipsInput value={Array.isArray(value) ? (value as string[]) : []} onChange={(v) => set(p, v)} options={p.type === "multi" ? p.options : []} />);
+      return stacked(<ChipsInput value={Array.isArray(value) ? (value as string[]) : []} onChange={(v) => set(p, v)} options={p.type === "multi" ? p.options : []} label={p.label} />);
     case "json":
       return stacked(<pre className="max-h-24 overflow-auto rounded-[5px] border border-line bg-paper-2 px-2 py-1 font-mono text-[10.5px] text-ink-3">{formatValue(p, value)}</pre>);
   }

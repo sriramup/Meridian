@@ -38,7 +38,7 @@ function treeCandidates(tool: "single" | "row", pts: Vec2[], r: number): { p: Ve
 export function toolLayers(): { ground: Layer[]; top: Layer[] } {
   const R = rtMaybe();
   const tool = useApp.getState().tool;
-  if (!R || (tool === "select" && !draw.pending)) return { ground: [], top: [] };
+  if (!R || ((tool === "select" || tool === "library") && !draw.pending)) return { ground: [], top: [] };
   const common = { coordinateSystem: COORDINATE_SYSTEM.METER_OFFSETS, coordinateOrigin: [R.meta.origin.lon, R.meta.origin.lat, 0] as [number, number, number] };
   const planting = useApp.getState().planting;
   const closing = finishPoint(draw.cursor);
