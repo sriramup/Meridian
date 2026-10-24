@@ -110,7 +110,7 @@ export const ZONE_COLORS: [number, number, number][] = [
   [176, 116, 22], // ochre
   [36, 118, 116], // verdigris
   [168, 58, 96], // crimson lake
-  [92, 84, 60], // umber grey
+  [70, 74, 150], // indigo
 ];
 
 export function sessionColor(id: string): [number, number, number] {

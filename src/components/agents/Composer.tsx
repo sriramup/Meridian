@@ -2,7 +2,7 @@
 
 import { Button, Textarea, ToggleGroup, ToggleGroupItem, Tooltip } from "@/components/ui/kit";
 import { ArrowUp, Square, X } from "lucide-react";
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 import type { AgentMode, Zone } from "@/agent/types";
 import { entityName } from "@/agent/resolve";
 import { rtMaybe } from "@/state/runtime";
@@ -67,7 +67,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer({ dr
     },
   }));
   // switching sessions swaps in that session's draft (and takes the focus when asked to)
-  useEffect(() => {
+  useLayoutEffect(() => {
     let t = drafts.get(draftKey) ?? "";
     const want = focusPending;
     focusPending = null;
@@ -76,12 +76,11 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer({ dr
       drafts.set(draftKey, t);
     }
     setTextState(t);
-    if (want !== null)
-      requestAnimationFrame(() => {
-        const el = ta.current;
-        el?.focus();
-        el?.setSelectionRange(t.length, t.length);
-      });
+    if (want !== null) {
+      const el = ta.current;
+      el?.focus();
+      el?.setSelectionRange(t.length, t.length);
+    }
   }, [draftKey]);
 
   const canSend = !!text.trim() && !running && !disabled;

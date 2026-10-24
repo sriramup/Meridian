@@ -55,7 +55,7 @@ export function zoneLayers(R: Runtime, zones: ZoneDatum[], preview: ZonePreview 
         ...common,
         data: zs,
         getPolygon: (d) => d.poly as unknown as Position[][],
-        getFillColor: (d) => [...d.color, d.emphasis ? 34 : 18],
+        getFillColor: (d) => [...d.color, d.emphasis ? 26 : 14],
         parameters: FLAT,
       }),
     );
