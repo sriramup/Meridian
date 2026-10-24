@@ -275,12 +275,7 @@ function CityMenu() {
   const R = rt();
   const file = useRef<HTMLInputElement>(null);
   const item = "flex cursor-default items-center gap-2 rounded-[5px] px-2 py-1.5 text-[12.5px] text-ink outline-none data-[highlighted]:bg-paper-3 data-[disabled]:opacity-40";
-  const go = (id: string) => {
-    if (id === R.cityId) return;
-    // the canvas saves itself; edits to a measured city live only in this session
-    if (!R.meta.sandbox && R.scenarios.scenarios.size > 1 && !window.confirm(`Leave ${R.meta.name}? Scenario edits here are not saved.`)) return;
-    switchCity(id);
-  };
+  const go = (id: string) => void switchCity(id);
   return (
     <DM.Root>
       <Tip label="Change city, or save and open designs">
