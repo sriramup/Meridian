@@ -233,9 +233,9 @@ function prewarm(key: string, jobs: (() => unknown)[]) {
     if (k >= jobs.length) return;
     idle(() => {
       jobs[k]();
-      // redraw so the new hour's texture is uploaded now (at opacity 0), one per idle slice, rather
-      // than all at once or on the frame playback reaches it
-      useApp.getState().bumpOverlay();
+      // redraw so new hours' textures are uploaded now (at opacity 0), a few per idle slice, rather
+      // than all at once or on the frame playback reaches them
+      if (k % 4 === 3 || k === jobs.length - 1) useApp.getState().bumpOverlay();
       next(k + 1);
     });
   };

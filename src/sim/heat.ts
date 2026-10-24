@@ -261,7 +261,8 @@ export function dirtyWindow(a: Landcover, b: Landcover, minAlt: number): CellWin
       if (i > i1) i1 = i;
       if (j < j0) j0 = j;
       if (j > j1) j1 = j;
-      hMax = Math.max(hMax, a.height[c], b.height[c]);
+      // only a change of height casts a different shadow; other changes act on the cell and its blur radius
+      if (a.height[c] !== b.height[c]) hMax = Math.max(hMax, a.height[c], b.height[c]);
     }
   if (i1 < 0) return null;
   const m = Math.ceil(Math.max(12, hMax / Math.tan(Math.max(minAlt, SUN_MIN_ALT)) / cell)) + 1;
