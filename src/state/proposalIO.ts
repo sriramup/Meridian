@@ -837,6 +837,17 @@ export function importProposalCSV(R: Runtime, text: string, fallbackName = "Impo
         else note("props whose library definition is not available here were skipped (CSV does not carry their shape)");
         break;
       }
+      case "parcel": {
+        // measured lots are only ever reshaped (right-of-way strips taken by a widening)
+        if (was?.kind === "parcel" && g?.type === "Polygon") put({ ...was, poly: g.coordinates as Polygon, area: Math.round(polyArea(g.coordinates as Polygon)) });
+        else note("parcel features cannot be re-created from CSV (use the JSON export)");
+        break;
+      }
+      case "utility": {
+        if (was?.kind === "utility" && g?.type === "LineString") put({ ...was, path: g.coordinates as Vec2[] });
+        else note("utility features cannot be re-created from CSV (use the JSON export)");
+        break;
+      }
       default: {
         if (was && "name" in was) put({ ...was, name: p.name } as Entity);
         else note(`${p.kind} features cannot be re-created from CSV (use the JSON export)`);
