@@ -143,7 +143,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer({ dr
               </Tooltip>
             ))}
           </ToggleGroup>
-          <ZonePicker value={zone} onChange={onZone} colorKey={colorKey} />
+          <ZonePicker value={zone} onChange={onZone} colorKey={colorKey} onClosed={() => ta.current?.focus()} />
           <div className="ml-auto flex items-center">
             {running ? (
               <Tooltip content="Stop" kbd="Esc" side="top">
