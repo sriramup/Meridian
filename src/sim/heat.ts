@@ -66,13 +66,15 @@ export interface HeatResult {
   exposure: Uint8Array[];
   /** surface temperature per hour, quantised the same way */
   surface: Uint8Array[];
-  /** shade mask at each hour (1 = shaded) */
+  /** not retained (kept for the result's shape) */
   shade: Uint8Array[];
   airTemp: number[];
   /** sun altitude (rad) at the middle of each modelled hour */
   sunAlt: number[];
   /** per-tile sums for area KPIs at any hour (sim/heatKpi) */
   tiles: HeatTiles;
+  /** share of the grid computed (1 = full run; less when an edit re-ran only its window) */
+  computedShare: number;
   /** whole-area figures at the hour of highest mean surface temperature */
   kpi: {
     peakHour: number;
@@ -218,7 +220,79 @@ export interface HeatTiles {
 /** sun below this altitude (rad, ≈ 3.5°) is treated as diffuse-only: no direct beam, nothing is "in sun" */
 export const SUN_MIN_ALT = 0.06;
 
-export function runHeat(lc: Landcover, weather: Weather, p: HeatParams, onProgress?: (f: number) => void): HeatResult {
+/**
+ * A previous run of the same day and parameters on an earlier version of the land cover. runHeat
+ * then recomputes only the window the edit can reach (sim/heat dirtyWindow) and copies the rest:
+ * every cell's temperature depends only on its own cover, its neighbourhood (≤ 12 cells, the air
+ * adjustment blur) and the shadows cast on it, so cells beyond the edit's blur radius and shadow
+ * reach are unchanged. The previous result's rasters must be the caller's own copies (they are
+ * reused, not modified).
+ */
+export interface HeatPrev {
+  lc: Landcover;
+  result: Pick<HeatResult, "hours" | "surface" | "exposure" | "tiles">;
+}
+
+/** cell rectangle [i0, i1) × [j0, j1) */
+export interface CellWindow {
+  i0: number;
+  j0: number;
+  i1: number;
+  j1: number;
+}
+
+/**
+ * The cells an edit (land cover a → b) can change, aligned to KPI tiles; null when nothing changed.
+ * Margin = the air-adjustment blur radius, or the longest shadow the changed heights can cast at
+ * the lowest sun that still casts one (`minAlt`), whichever is larger.
+ */
+export function dirtyWindow(a: Landcover, b: Landcover, minAlt: number): CellWindow | null {
+  const { nx, ny, cell } = b.grid;
+  let i0 = nx,
+    j0 = ny,
+    i1 = -1,
+    j1 = -1,
+    hMax = 0;
+  for (let j = 0; j < ny; j++)
+    for (let i = 0; i < nx; i++) {
+      const c = j * nx + i;
+      if (a.cls[c] === b.cls[c] && a.ground[c] === b.ground[c] && a.canopy[c] === b.canopy[c] && a.height[c] === b.height[c]) continue;
+      if (i < i0) i0 = i;
+      if (i > i1) i1 = i;
+      if (j < j0) j0 = j;
+      if (j > j1) j1 = j;
+      hMax = Math.max(hMax, a.height[c], b.height[c]);
+    }
+  if (i1 < 0) return null;
+  const m = Math.ceil(Math.max(12, hMax / Math.tan(Math.max(minAlt, SUN_MIN_ALT)) / cell)) + 1;
+  const T = KPI_TILE;
+  return {
+    i0: Math.max(0, Math.floor((i0 - m) / T) * T),
+    j0: Math.max(0, Math.floor((j0 - m) / T) * T),
+    i1: Math.min(nx, Math.ceil((i1 + 1 + m) / T) * T),
+    j1: Math.min(ny, Math.ceil((j1 + 1 + m) / T) * T),
+  };
+}
+
+/** shade over window w only: the shadow sweep runs on w grown by the longest shadow anything can cast at this sun */
+function shadeIn(lc: Landcover, w: CellWindow, alt: number, az: number, hGlobal: number): Uint8Array | null {
+  const { nx, ny, cell } = lc.grid;
+  if (alt <= SUN_MIN_ALT) return null; // all diffuse: shaded everywhere
+  const r = Math.ceil(hGlobal / Math.tan(alt) / cell) + 1;
+  const c = { i0: Math.max(0, w.i0 - r), j0: Math.max(0, w.j0 - r), i1: Math.min(nx, w.i1 + r), j1: Math.min(ny, w.j1 + r) };
+  if ((c.i1 - c.i0) * (c.j1 - c.j0) > 0.6 * nx * ny) return shadeMask(lc, [], [], alt, az);
+  const sx = c.i1 - c.i0,
+    sy = c.j1 - c.j0;
+  const height = new Float32Array(sx * sy);
+  for (let j = 0; j < sy; j++) height.set(lc.height.subarray((c.j0 + j) * nx + c.i0, (c.j0 + j) * nx + c.i1), j * sx);
+  const sub = shadeMask({ grid: { x0: 0, y0: 0, cell, nx: sx, ny: sy }, height } as Landcover, [], [], alt, az);
+  // back onto the full grid (only w is read)
+  const out = new Uint8Array(nx * ny);
+  for (let j = w.j0; j < w.j1; j++) out.set(sub.subarray((j - c.j0) * sx + (w.i0 - c.i0), (j - c.j0) * sx + (w.i1 - c.i0)), j * nx + w.i0);
+  return out;
+}
+
+export function runHeat(lc: Landcover, weather: Weather, p: HeatParams, onProgress?: (f: number) => void, prev?: HeatPrev | null): HeatResult {
   const g = lc.grid;
   const { nx, ny } = g;
   const n = nx * ny;
@@ -282,7 +356,6 @@ export function runHeat(lc: Landcover, weather: Weather, p: HeatParams, onProgre
   const slot = new Map(hours.map((h, k) => [h, k]));
   const exposure: Uint8Array[] = new Array(hours.length);
   const surface: Uint8Array[] = new Array(hours.length);
-  const shades: Uint8Array[] = new Array(hours.length);
   const hourly: Float32Array[] = new Array(hours.length);
   const airTemp: number[] = new Array(hours.length);
   const sunAlt: number[] = new Array(hours.length);
@@ -291,23 +364,60 @@ export function runHeat(lc: Landcover, weather: Weather, p: HeatParams, onProgre
   const start = 6;
   const wrap = hours.some((h) => h < start);
   const last = wrap ? Math.max(...hours.filter((h) => h < start)) + 24 : hours[hours.length - 1];
+  const suns: { alt: number; az: number }[] = [];
+  for (let hh = start; hh <= last; hh++) suns.push(sunAt(p.date, (hh % 24) + 0.5, p.lat, p.lon, p.utcOffset));
+
+  // incremental: only the window the edit can reach, the rest copied from the previous run
+  let win: CellWindow = { i0: 0, j0: 0, i1: nx, j1: ny };
+  let partial = false;
+  if (prev && p.ref && prev.lc.grid.nx === nx && prev.lc.grid.ny === ny && prev.result.hours.join() === hours.join() && prev.result.tiles?.size === T) {
+    const lowest = Math.min(...suns.map((s) => (s.alt > SUN_MIN_ALT ? s.alt : Infinity)));
+    const w = dirtyWindow(prev.lc, lc, lowest);
+    if (!w) win = { i0: 0, j0: 0, i1: 0, j1: 0 };
+    if (!w || (w.i1 - w.i0) * (w.j1 - w.j0) < 0.4 * n) {
+      partial = true;
+      if (w) win = w;
+    }
+  }
+  let hGlobal = 0;
+  if (partial) for (let i = 0; i < n; i++) if (lc.height[i] > hGlobal) hGlobal = lc.height[i];
+  const inWin = (t: number) => {
+    const ti = (t % tx) * T,
+      tj = Math.floor(t / tx) * T;
+    return ti >= win.i0 && ti < win.i1 && tj >= win.j0 && tj < win.j1;
+  };
+  const shadeAll = new Uint8Array(0);
   for (let hh = start; hh <= last; hh++) {
     const h = hh % 24;
     const Tair = (weather.t[h] ?? weather.t[weather.t.length - 1]) + p.deltaT;
     const S = Math.max(0, weather.sw[h] ?? 0);
-    const sun = sunAt(p.date, h + 0.5, p.lat, p.lon, p.utcOffset);
-    const sh = shadeMask(lc, p.masses, p.trees, sun.alt, sun.az);
+    const sun = suns[hh - start];
+    // null = the whole window is shaded (sun down)
+    const sh = win.i1 <= win.i0 ? shadeAll : partial ? shadeIn(lc, win, sun.alt, sun.az, hGlobal) : sun.alt <= SUN_MIN_ALT ? null : shadeMask(lc, p.masses, p.trees, sun.alt, sun.az);
     const k = slot.get(h);
     const want = k !== undefined;
-    const ex = want ? new Uint8Array(n) : null;
-    const sf = want ? new Uint8Array(n) : null;
-    const th = want ? new Float32Array(nt * 3) : null;
+    let ex: Uint8Array | null = null,
+      sf: Uint8Array | null = null,
+      th: Float32Array | null = null;
+    if (want) {
+      if (partial) {
+        const pk = k!;
+        ex = prev!.result.exposure[pk].slice();
+        sf = prev!.result.surface[pk].slice();
+        th = prev!.result.tiles.hourly[pk].slice();
+        for (let t = 0; t < nt; t++) if (inWin(t)) th[t * 3] = th[t * 3 + 1] = th[t * 3 + 2] = 0;
+      } else {
+        ex = new Uint8Array(n);
+        sf = new Uint8Array(n);
+        th = new Float32Array(nt * 3);
+      }
+    }
     const Sd = 0.18 * S; // diffuse share reaching shaded ground
-    for (let j = 0; j < ny; j++) {
+    for (let j = win.j0; j < win.j1; j++) {
       const trow = ((j / T) | 0) * tx;
-      for (let x = 0; x < nx; x++) {
+      for (let x = win.i0; x < win.i1; x++) {
         const i = j * nx + x;
-        const lit = S > 0 && !sh[i];
+        const lit = S > 0 && sh !== null && !sh[i];
         const dS = topK[i] * (lit ? S : Sd);
         const st = topSt[i];
         const sto = storage[i] * st + dS * (1 - st);
@@ -333,7 +443,7 @@ export function runHeat(lc: Landcover, weather: Weather, p: HeatParams, onProgre
               if (!groundLit) th![t3 + 2]++;
             }
           }
-        }
+        } else if (want) ex![i] = 0; // (a reused raster may hold an old value here)
         if (want) {
           const Ts = Tl + (dS > sto ? dS : sto);
           const q = Math.round((Ts - 15) * 4);
@@ -345,7 +455,6 @@ export function runHeat(lc: Landcover, weather: Weather, p: HeatParams, onProgre
     if (want) {
       exposure[k] = ex!;
       surface[k] = sf!;
-      shades[k] = sh;
       hourly[k] = th!;
       airTemp[k] = Tair;
       sunAlt[k] = sun.alt;
@@ -421,7 +530,8 @@ export function runHeat(lc: Landcover, weather: Weather, p: HeatParams, onProgre
     hours,
     exposure,
     surface,
-    shade: shades,
+    shade: [],
+    computedShare: ((win.i1 - win.i0) * Math.max(0, win.j1 - win.j0)) / n,
     airTemp,
     sunAlt,
     tiles,
