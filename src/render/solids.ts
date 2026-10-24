@@ -12,7 +12,7 @@ import { COORDINATE_SYSTEM, type Layer, type PickingInfo } from "@deck.gl/core";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import { SimpleMeshLayer } from "@deck.gl/mesh-layers";
 import type { Building, Entity, Prop, Solid, SolidMaterial, SolidShape } from "@/world/types";
-import { SOLID_SHAPES, unitMesh } from "./solidMeshes";
+import { SOLID_SHAPES, unitMesh, type MeshLod } from "./solidMeshes";
 
 /** how a material is lit: matte (most things), glossy (metal, glass, water, plastic), light (emissive at night) */
 export type Shading = "matte" | "gloss" | "light";
@@ -83,6 +83,15 @@ export function detailTier(e: Prop | Building): 0 | 1 | 2 {
   return 0;
 }
 
+/** mesh detail at a zoom level: fewer facets, and the smallest parts of things dropped, when far */
+export function meshLodAt(zoom: number): MeshLod {
+  return zoom >= 17.4 ? 2 : zoom >= 15.6 ? 1 : 0;
+}
+/** parts smaller than this (largest extent, m) are left out at each mesh detail level */
+const MIN_PART: Record<MeshLod, number> = { 0: 0.9, 1: 0.18, 2: 0 };
+/** a prop keeps only its largest parts (by volume) when far: the crown masses of a tree, a shelter's roof and posts */
+const MAX_PARTS: Record<MeshLod, number> = { 0: 3, 1: 6, 2: Infinity };
+
 /** the most detailed tier drawn at a zoom level */
 export function maxTierAt(zoom: number): 0 | 1 | 2 {
   return zoom >= 15.6 ? 2 : zoom >= 14.4 ? 1 : 0;
@@ -91,7 +100,8 @@ export function maxTierAt(zoom: number): 0 | 1 | 2 {
 interface Entry {
   src: Prop | Building;
   tier: 0 | 1 | 2;
-  parts: Map<LayerKey, { data: Float32Array; colors: Uint8Array; n: number }>;
+  /** per instance: largest extent (m) and rank by volume within its entity (0 = largest; buildings 0) */
+  parts: Map<LayerKey, { data: Float32Array; colors: Uint8Array; n: number; ext: Float32Array; rank: Uint16Array }>;
 }
 
 export interface PackedLayer {
@@ -105,6 +115,8 @@ export interface PackedLayer {
   colors: Uint8Array;
   /** owning entity id per instance (picking) */
   owners: string[];
+  /** mesh detail to draw it with */
+  lod: MeshLod;
   /** bumped whenever the arrays are replaced */
   version: number;
 }
@@ -115,6 +127,9 @@ function entityWithSolids(e: Entity): e is Prop | Building {
 
 function buildEntry(e: Prop | Building): Entry {
   const groups = new Map<LayerKey, Solid[]>();
+  const vol = (s: Solid) => Math.abs(s.size[0] * s.size[1] * s.size[2]);
+  const rankOf = new Map<Solid, number>();
+  if (e.kind === "prop") [...e.solids].sort((a, b) => vol(b) - vol(a)).forEach((s, i) => rankOf.set(s, i));
   for (const s of e.solids ?? []) {
     const k = keyOf(s);
     let g = groups.get(k);
@@ -126,7 +141,11 @@ function buildEntry(e: Prop | Building): Entry {
   for (const [k, list] of groups) {
     const data = new Float32Array(list.length * STRIDE);
     const colors = new Uint8Array(list.length * 4);
+    const ext = new Float32Array(list.length);
+    const rank = new Uint16Array(list.length);
     list.forEach((s, i) => {
+      rank[i] = Math.min(65535, rankOf.get(s) ?? 0);
+      ext[i] = Math.max(Math.abs(s.size[0]), Math.abs(s.size[1]), Math.abs(s.size[2]));
       if (isProp) writeInstance(data, i * STRIDE, s, e.p[0], e.p[1], e.rot);
       else writeInstance(data, i * STRIDE, s, 0, 0, 0);
       colors[i * 4] = s.color[0];
@@ -134,7 +153,7 @@ function buildEntry(e: Prop | Building): Entry {
       colors[i * 4 + 2] = s.color[2];
       colors[i * 4 + 3] = 255;
     });
-    parts.set(k, { data, colors, n: list.length });
+    parts.set(k, { data, colors, n: list.length, ext, rank });
   }
   return { src: e, tier: detailTier(e), parts };
 }
@@ -146,6 +165,7 @@ export class SolidInstances {
   private packed = new Map<LayerKey, PackedLayer>();
   private dirtyKeys = new Set<LayerKey>();
   private maxTier: 0 | 1 | 2 = 2;
+  private lod: MeshLod = 2;
   private version = 0;
   /** entities (re)computed by the last update, for diagnostics and tests */
   lastRebuilt = 0;
@@ -154,7 +174,7 @@ export class SolidInstances {
    * Bring the cache in line with the current entities. `source` yields every prop and building
    * (only ones with solids are kept); unchanged records are skipped by reference.
    */
-  update(source: Iterable<Entity>, maxTier: 0 | 1 | 2 = 2): boolean {
+  update(source: Iterable<Entity>, maxTier: 0 | 1 | 2 = 2, lod: MeshLod = 2): boolean {
     const seen = new Set<string>();
     let rebuilt = 0;
     for (const e of source) {
@@ -174,8 +194,9 @@ export class SolidInstances {
       rebuilt++;
     }
     for (const [id, cur] of this.entries) if (!seen.has(id)) this.drop(id, cur);
-    if (maxTier !== this.maxTier) {
+    if (maxTier !== this.maxTier || lod !== this.lod) {
       this.maxTier = maxTier;
+      this.lod = lod;
       for (const k of this.members.keys()) this.dirtyKeys.add(k);
     }
     this.lastRebuilt = rebuilt;
@@ -195,11 +216,18 @@ export class SolidInstances {
 
   private pack(k: LayerKey) {
     const ids = this.members.get(k);
+    const min = MIN_PART[this.lod];
+    const cap = MAX_PARTS[this.lod];
+    const keep = (p: Entry["parts"] extends Map<LayerKey, infer P> ? P : never, j: number) => p.ext[j] >= min && p.rank[j] < cap;
     let n = 0;
-    if (ids) for (const id of ids) {
-      const e = this.entries.get(id)!;
-      if (e.tier <= this.maxTier) n += e.parts.get(k)!.n;
-    }
+    if (ids)
+      for (const id of ids) {
+        const e = this.entries.get(id)!;
+        if (e.tier > this.maxTier) continue;
+        const p = e.parts.get(k)!;
+        if (!min && cap === Infinity) n += p.n;
+        else for (let j = 0; j < p.n; j++) if (keep(p, j)) n++;
+      }
     if (!n) {
       this.packed.delete(k);
       return;
@@ -213,18 +241,20 @@ export class SolidInstances {
       const e = this.entries.get(id)!;
       if (e.tier > this.maxTier) continue;
       const p = e.parts.get(k)!;
-      colors.set(p.colors, i * 4);
-      for (let j = 0; j < p.n; j++, i++) {
+      for (let j = 0; j < p.n; j++) {
+        if (!keep(p, j)) continue;
         const o = j * STRIDE;
         positions[i * 3] = p.data[o];
         positions[i * 3 + 1] = p.data[o + 1];
         positions[i * 3 + 2] = p.data[o + 2];
         matrices.set(p.data.subarray(o + 3, o + 12), i * 12);
+        colors.set(p.colors.subarray(j * 4, j * 4 + 4), i * 4);
         owners[i] = id;
+        i++;
       }
     }
     const [shape, shading] = k.split(":") as [SolidShape, Shading];
-    this.packed.set(k, { key: k, shape, shading, n, positions, matrices, colors, owners, version: ++this.version });
+    this.packed.set(k, { key: k, shape, shading, n, positions, matrices, colors, owners, lod: this.lod, version: ++this.version });
   }
 
   layers(): PackedLayer[] {
@@ -244,8 +274,10 @@ export class SolidInstances {
   instancesOf(id: string): number {
     const e = this.entries.get(id);
     if (!e || e.tier > this.maxTier) return 0;
+    const min = MIN_PART[this.lod];
+    const cap = MAX_PARTS[this.lod];
     let n = 0;
-    for (const p of e.parts.values()) n += p.n;
+    for (const p of e.parts.values()) for (let j = 0; j < p.n; j++) if (p.ext[j] >= min && p.rank[j] < cap) n++;
     return n;
   }
 }
@@ -257,7 +289,13 @@ class SolidMeshLayer extends SimpleMeshLayer<unknown, { owners: string[] }> {
   static layerName = "SolidMeshLayer";
   getShaders() {
     const s = super.getShaders();
-    const fix = (src: string) => src.split("project_normal(instanceModelMatrix * normals)").join("project_normal(transpose(inverse(instanceModelMatrix)) * normals)");
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("solidsfix") === "0") return s;
+    // M = R·S (a rotation times a per-axis scale), so the inverse-transpose is R·S⁻¹ = M·S⁻²: divide
+    // the normal by each column's squared length instead of inverting a matrix per vertex
+    const fix = (src: string) =>
+      src
+        .split("project_normal(instanceModelMatrix * normals)")
+        .join("project_normal(instanceModelMatrix * (normals / vec3(dot(instanceModelMatrixCol0, instanceModelMatrixCol0), dot(instanceModelMatrixCol1, instanceModelMatrixCol1), dot(instanceModelMatrixCol2, instanceModelMatrixCol2))))");
     return { ...s, vs: fix(s.vs) };
   }
   getPickingInfo({ info }: { info: PickingInfo }): PickingInfo {
@@ -344,7 +382,7 @@ export function solidLayers(packed: PackedLayer[], opt: SolidLayerOptions): Laye
         id: `${prefix}-${p.key}`,
         coordinateSystem: COORDINATE_SYSTEM.METER_OFFSETS,
         coordinateOrigin: opt.origin,
-        mesh: unitMesh(p.shape) as never,
+        mesh: unitMesh(p.shape, p.lod) as never,
         data: binaryData(p) as never,
         owners: p.owners,
         pickable: opt.pickable ?? true,

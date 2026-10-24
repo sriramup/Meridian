@@ -15,9 +15,8 @@ import { Button, IconButton, Tip, cx } from "./ui";
 
 const TOOLS: { id: Tool; icon: typeof Building2; label: string; key: string; group: number }[] = [
   { id: "select", icon: MousePointer2, label: "Select", key: "V", group: 0 },
-  { id: "library", icon: LibraryBig, label: "Library: buildings, homes, trees, furniture… (B buildings, T trees)", key: "L", group: 0 },
+  { id: "library", icon: LibraryBig, label: "Library: buildings, parks, trees, furniture… (B buildings, A parks, T trees)", key: "L", group: 0 },
   { id: "street", icon: Spline, label: "Street", key: "S", group: 1 },
-  { id: "area", icon: Square, label: "Park, plaza or water", key: "A", group: 1 },
   { id: "district", icon: LayoutGrid, label: "District", key: "D", group: 2 },
   { id: "transit", icon: TramFront, label: "Transit line", key: "R", group: 2 },
   { id: "measure", icon: Ruler, label: "Measure", key: "M", group: 3 },
@@ -38,7 +37,7 @@ export function Toolbar() {
             <Tip label={x.label} kbd={x.key} side="right">
               <IconButton
                 aria-label={x.label}
-                active={tool === x.id || (x.id === "library" && (tool === "building" || tool === "tree"))}
+                active={tool === x.id || (x.id === "library" && (tool === "building" || tool === "tree" || tool === "area"))}
                 onClick={() => {
                   resetDraw();
                   setTool(x.id);

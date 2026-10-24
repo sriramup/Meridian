@@ -165,9 +165,9 @@ export function deleteSelection(): boolean {
   return ok;
 }
 
-// B and T open the library on buildings / trees (the footprint and planting tools stay in the search)
-const TOOL_KEYS: Record<string, Tool> = { v: "select", l: "library", s: "street", a: "area", d: "district", r: "transit", m: "measure" };
-const LIBRARY_KEYS: Record<string, string> = { b: "buildings", t: "flora" };
+// B, A and T open the library on buildings / parks / trees (the footprint, area and planting tools stay in the search)
+const TOOL_KEYS: Record<string, Tool> = { v: "select", l: "library", s: "street", d: "district", r: "transit", m: "measure" };
+const LIBRARY_KEYS: Record<string, string> = { b: "buildings", a: "parks", t: "flora" };
 const OVERLAY_KEYS: Record<string, OverlayId> = { "1": "traffic", "2": "heat", "3": "density", "4": "access", "5": "zoning", "6": "transit", "7": "flood", "8": "runoff", "9": "sun", "0": "change" };
 
 function useShortcuts() {

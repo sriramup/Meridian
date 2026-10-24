@@ -147,3 +147,34 @@ describe("solid instances", () => {
   });
 
 });
+
+describe("mesh detail", () => {
+  it("drops small parts and uses coarser meshes when far", () => {
+    const c = new SolidInstances();
+    const lampProp: Prop = { id: "prop:l", kind: "prop", type: "lamp", p: [0, 0], rot: 0, height: 9, source: "t", provenance: "proposed", solids: [
+      { shape: "cylinder", at: [0, 0, 0], size: [0.2, 0.2, 9], color: [1, 1, 1] },
+      { shape: "sphere", at: [0, 0, 9], size: [0.1, 0.1, 0.1], color: [1, 1, 1] },
+    ] };
+    c.update([lampProp], 2, 2);
+    expect(c.count).toBe(2);
+    c.update([lampProp], 2, 1);
+    expect(c.count).toBe(1);
+    expect(c.layers()[0].lod).toBe(1);
+    expect(unitMesh("sphere", 0).attributes.POSITION.value.length).toBeLessThan(unitMesh("sphere", 2).attributes.POSITION.value.length / 2);
+  });
+});
+
+describe("far detail caps", () => {
+  it("keeps a prop's largest parts when far", () => {
+    const c = new SolidInstances();
+    const solids = Array.from({ length: 10 }, (_, i) => ({ shape: "sphere" as const, at: [i, 0, 3] as [number, number, number], size: [1 + i, 1 + i, 1 + i] as [number, number, number], color: [1, 1, 1] as [number, number, number] }));
+    const crown: Prop = { id: "prop:t", kind: "prop", type: "tree", p: [0, 0], rot: 0, height: 12, source: "t", provenance: "proposed", solids };
+    c.update([crown], 2, 2);
+    expect(c.count).toBe(10);
+    c.update([crown], 2, 0);
+    expect(c.count).toBe(3);
+    // the three largest survive
+    const xs = Array.from(c.layers()[0].positions.filter((_, i) => i % 3 === 0)).sort();
+    expect(xs).toEqual([7, 8, 9]);
+  });
+});

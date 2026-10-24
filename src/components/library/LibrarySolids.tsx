@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLayerSlot } from "@/render/layerSlots";
-import { SolidInstances, maxTierAt, solidLayers } from "@/render/solids";
+import { SolidInstances, maxTierAt, meshLodAt, solidLayers } from "@/render/solids";
 import { rt } from "@/state/runtime";
 import { useApp } from "@/state/store";
 import type { Entity } from "@/world/types";
@@ -15,9 +15,9 @@ function* propsAndBuildings(): Iterable<Entity> {
   for (const k of ["prop", "building"] as const) for (const id of w.byKind.get(k)!) yield w.entities.get(id)!;
 }
 
-/** the current map zoom, rounded to the renderer's detail tier so panning never re-renders */
-function useDetailTier(): 0 | 1 | 2 {
-  const [tier, setTier] = useState<0 | 1 | 2>(2);
+/** the current map zoom as the renderer's detail level (tier · mesh detail), so panning never re-renders */
+function useDetailTier(): string {
+  const [tier, setTier] = useState("2:2");
   useEffect(() => {
     let map = rt().map;
     let detach: (() => void) | null = null;
@@ -25,7 +25,7 @@ function useDetailTier(): 0 | 1 | 2 {
       map = rt().map;
       if (!map) return false;
       const m = map;
-      const on = () => setTier(maxTierAt(m.getZoom()));
+      const on = () => setTier(`${maxTierAt(m.getZoom())}:${meshLodAt(m.getZoom())}`);
       on();
       m.on("zoom", on);
       detach = () => m.off("zoom", on);
@@ -50,7 +50,8 @@ export function LibrarySolids() {
   const packed = useMemo(() => {
     const c = (cache.current ??= new SolidInstances());
     const t0 = performance.now();
-    if (c.update(propsAndBuildings(), tier) || !packedRef.current.length) packedRef.current = c.layers();
+    const [t, l] = tier.split(":").map(Number) as [0 | 1 | 2, 0 | 1 | 2];
+    if (c.update(propsAndBuildings(), t, l) || !packedRef.current.length) packedRef.current = c.layers();
     const R = rt() as unknown as { solidsStats?: object };
     R.solidsStats = { ms: +(performance.now() - t0).toFixed(2), rebuilt: c.lastRebuilt, instances: c.count, entities: c.entityCount, layers: packedRef.current.length };
     return packedRef.current;
@@ -58,6 +59,8 @@ export function LibrarySolids() {
   }, [worldVersion, tier]);
   const layers = useMemo(() => {
     const R = rt();
+    // ?solids=0 leaves the library geometry out (performance comparisons)
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("solids") === "0") return null;
     return packed.length ? solidLayers(packed, { origin: [R.meta.origin.lon, R.meta.origin.lat, 0], night: theme === "night" }) : null;
   }, [packed, theme]);
   useLayerSlot("library-solids", "solid", layers);
