@@ -10,6 +10,7 @@ import { S, box, cyl } from "../geometry/solids";
 import { buildingType, type DecorateArgs } from "./building";
 import { areaL, canopySolids, parkingLot, rectL } from "./decor";
 import { bool, color, int, num } from "./params";
+import { propDef } from "./kinds";
 import type { Reader } from "./params";
 
 const CM = "commercial" as const;
@@ -320,7 +321,97 @@ export const COMMERCIAL: PrimitiveDef[] = [
     layout: atRear,
     decorate: (a) => frontParking(a),
   }),
+  buildingType({
+    id: "commercial.pub",
+    name: "Bar / pub",
+    category: CM,
+    tags: ["bar", "tavern", "brewery", "taproom", "brewpub", "beer garden", "nightlife"],
+    description: "Neighbourhood bar or brewpub with a beer garden.",
+    icon: "beer",
+    defaults: { ...shop, width: 16, depth: 22, floors: 2, roofType: "gable", roofPitch: 35, ridge: "short", roofMaterial: "slate", facade: "brick_brown", awningColor: "#2a5a3c", fitToSite: false },
+    extra: [bool("patio", "Beer garden", true, { group: SITE }), int("patioTables", "Tables", 6, { group: SITE, min: 1, max: 30, when: { key: "patio", in: [true] } }), color("umbrellaColor", "Umbrella colour", "#c43a30", { group: SITE, when: { key: "patio", in: [true] } })],
+    decorate: (a) => COMMERCIAL_DECOR.patio(a),
+  }),
+  buildingType({
+    id: "commercial.food_hall",
+    name: "Market hall / food hall",
+    category: CM,
+    tags: ["market hall", "food hall", "public market", "covered market", "halles"],
+    description: "Tall single-volume market hall with a barrel-vaulted glass roof.",
+    icon: "store",
+    defaults: { ...shop, width: 60, depth: 30, floors: 1, groundFloorHeight: 9, roofType: "barrel", roofRise: 0.5, roofMaterial: "glass", facade: "brick_red", awning: false, jobs: 80, fitToSite: false },
+  }),
+  buildingType({
+    id: "commercial.live_work",
+    name: "Live-work units",
+    category: CM,
+    tags: ["live work", "studio", "artist lofts", "flex units", "maker housing"],
+    description: "Ground-floor workspace with a home above, in a two- to three-storey building.",
+    icon: "home",
+    defaults: { use: "residential", groundUse: "office", width: 24, depth: 14, floors: 3, groundFloorHeight: 4.8, roofType: "flat", facade: "metal_dark", awning: true, units: 4, fitToSite: false },
+  }),
+  propDef({
+    id: "commercial.food_truck",
+    name: "Food truck",
+    category: CM,
+    tags: ["food cart", "street food", "taco truck", "mobile vendor", "ice cream truck"],
+    description: "Food truck (≈ 7 × 2.4 m) with a serving hatch and awning.",
+    icon: "truck",
+    params: [num("length", "Length", 7, { group: SITE, unit: "m", min: 3, max: 12, step: 0.1 }), color("color", "Livery", "#e8c440", { group: SITE }), bool("awning", "Awning", true, { group: SITE })],
+    build: (r) => {
+      const L = r.n("length");
+      const c = hexToRgb(r.c("color"));
+      const s: Solid[] = [box(0, 0, 0.45, L, 2.4, 2.6, c, "metal"), box(L / 2 - 0.9, 0, 0.45, 1.8, 2.3, 1.6, C.white, "metal"), box(-0.5, 1.21, 1.4, L * 0.45, 0.05, 1.0, C.steelDark, "glass")];
+      for (const x of [-L / 2 + 1.2, L / 2 - 1.2]) for (const y of [-1.1, 1.1]) s.push(S("cylinder", [x, y, 0.45], [0.9, 0.9, 0.3], C.black, "plastic", 0, [y > 0 ? -90 : 90, 0]));
+      if (r.b("awning")) s.push(S("box", [-0.5, 1.9, 2.6], [L * 0.5, 1.4, 0.06], C.white, "fabric", 0, [-10, 0]));
+      return { solids: s };
+    },
+  }),
+  propDef({
+    id: "commercial.market_stalls",
+    name: "Market stalls",
+    category: CM,
+    tags: ["farmers market", "flea market", "night market", "vendor tents", "pop-up market", "bazaar"],
+    description: "Rows of 3 × 3 m canopy tents with tables (farmers market, pop-up market).",
+    icon: "tent",
+    params: [int("stalls", "Stalls", 8, { group: SITE, min: 1, max: 60 }), int("rows", "Rows", 2, { group: SITE, min: 1, max: 6 }), num("aisle", "Aisle width", 5, { group: SITE, unit: "m", min: 2, max: 15, step: 0.5 }), bool("varied", "Varied canopy colours", true, { group: SITE })],
+    build: (r) => {
+      const n = r.n("stalls"),
+        rows = r.n("rows");
+      const per = Math.ceil(n / rows);
+      const cols: [number, number, number][] = [[240, 240, 236], [196, 58, 48], [60, 108, 168], [64, 126, 84], [232, 196, 64]];
+      const s: Solid[] = [];
+      for (let k = 0; k < n; k++) {
+        const i = k % per,
+          j = Math.floor(k / per);
+        const x = (i - (per - 1) / 2) * 3.2,
+          y = (j - (rows - 1) / 2) * (3 + r.n("aisle"));
+        const cc = r.b("varied") ? cols[k % cols.length] : cols[0];
+        for (const [dx, dy] of [[-1.45, -1.45], [1.45, -1.45], [1.45, 1.45], [-1.45, 1.45]]) s.push(box(x + dx, y + dy, 0, 0.05, 0.05, 2.4, C.steel, "metal"));
+        s.push(S("pyramid", [x, y, 2.4], [3.1, 3.1, 0.7], cc, "fabric"), box(x, y + (j % 2 ? -0.9 : 0.9), 0.75, 2.6, 0.8, 0.05, C.white, "plastic"));
+      }
+      return { solids: s, shade: { r: Math.max(per * 1.6, rows * 3), h: 3 } };
+    },
+  }),
 ];
+
+const COMMERCIAL_DECOR = {
+  patio({ r, out, info }: DecorateArgs) {
+    if (!r.b("patio")) return;
+    const [x0, , x1, y1] = info.bbox;
+    const n = r.n("patioTables");
+    const per = Math.max(1, Math.min(n, Math.floor((x1 - x0) / 2.4)));
+    const rows = Math.ceil(n / per);
+    areaL(out, info.frame, "plaza", rectL((x0 + x1) / 2, y1 + 0.5 + rows * 1.2, x1 - x0, rows * 2.4 + 1));
+    const s: Solid[] = [];
+    for (let k = 0; k < n; k++) {
+      const x = x0 + 1.4 + (k % per) * 2.4,
+        y = y1 + 1.8 + Math.floor(k / per) * 2.4;
+      s.push(cyl(x, y, 0, 0.08, 0.72, C.black, "metal"), cyl(x, y, 0.72, 0.8, 0.04, C.white, "plastic"), cyl(x, y, 0.76, 0.04, 1.5, C.wood, "wood"), S("cone", [x, y, 1.95], [2.1, 2.1, 0.4], hexToRgb(r.c("umbrellaColor")), "fabric"));
+    }
+    info.addSolids(s);
+  },
+};
 
 /** classical portico of columns with a pediment on the front facade (banks, civic buildings) */
 export function portico(info: DecorateArgs["info"], cols: number, on = true, color: [number, number, number] = [236, 230, 216]): void {

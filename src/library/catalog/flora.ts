@@ -87,7 +87,7 @@ const SEASONS = [
 function treeParams(sp: SpeciesPreset, withSpecies: boolean): ParamSpec[] {
   return [
     ...(withSpecies ? [choice("species", "Species", sp.id, SPECIES_PRESETS.map((s) => ({ value: s.id, label: `${s.name} (${s.latin})`, description: s.note })), { group: T, description: "Sets the crown shape, size and colours below unless overridden" })] : []),
-    bool("customize", "Override species form", !withSpecies ? false : false, { group: T, description: "Use the shape / size / colour values below instead of the species defaults" }),
+    bool("customize", "Override species form", false, { group: T, description: "Use the shape / size / colour values below instead of the species defaults" }),
     choice("crownShape", "Crown shape", sp.shape, opts("round", "oval", "spreading", "vase", "conical", "layered", "columnar", "weeping", "multistem", "palm", "fan_palm"), { group: T, when: { key: "customize", in: [true] } }),
     num("height", "Height", sp.height, { group: D, unit: "m", min: 1, max: 60, step: 0.5, when: { key: "customize", in: [true] } }),
     num("crown", "Crown spread", sp.crown, { group: D, unit: "m", min: 0.5, max: 40, step: 0.5, description: "Crown diameter", when: { key: "customize", in: [true] } }),
