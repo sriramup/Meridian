@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useApp } from "@/state/store";
 import { focusComposerNext, type ComposerHandle } from "./Composer";
-import { SessionList } from "./SessionList";
+import { DeleteAgentDialog, SessionList } from "./SessionList";
 import { SessionView } from "./SessionView";
 import { agents, checkAgent, getSessions, useAgents, useSession, useSessions, useViewing } from "./store";
 
@@ -54,6 +54,7 @@ export function AgentsPane({ onClose }: { onClose: () => void }) {
   return (
     <aside aria-label="Agents" className="agent-sheet flex h-full w-full flex-col border-l border-line-2">
       {session ? <SessionView ref={composer} session={session} onBack={() => agents.view(null)} onClose={onClose} /> : <SessionList sessions={sessions} onNew={() => open()} onClose={onClose} />}
+      <DeleteAgentDialog sessions={sessions} />
     </aside>
   );
 }
