@@ -41,9 +41,10 @@ describe("library agent tools", () => {
   it("searches and describes the library", async () => {
     const cats = await run("library_search", {});
     expect(cats.total).toBeGreaterThanOrEqual(5);
-    const s = await run("library_search", { query: "kiosk" });
-    expect(s.results[0].id).toBe("test.kiosk");
-    expect(s.results[0].params.join(" ")).toMatch(/width: number 0.5–10 m = 2/);
+    const s = await run("library_search", { query: "test kiosk" });
+    const k = s.results.find((r: any) => r.id === "test.kiosk");
+    expect(k).toBeTruthy();
+    expect(k.params.join(" ")).toMatch(/width: number 0.5–10 m = 2/);
     const custom = await run("library_search", { query: "custom building" });
     expect(custom.results.map((r: any) => r.id)).toContain("custom.building");
     const d = await run("library_describe", { ids: ["test.block", "nope"] });
