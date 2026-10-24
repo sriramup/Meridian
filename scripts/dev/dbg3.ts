@@ -1,0 +1,12 @@
+import { loadWorld } from "./load";
+import { obb, polyArea } from "@/geometry/polygon";
+import { clearSite } from "@/world/ops/buildings";
+import { generateMassing } from "@/geometry/massing";
+const w = loadWorld();
+const a = w.get("a:w1317135862") as any;
+const o = obb(a.poly[0]);
+const s = clearSite(w, a.poly)!;
+const o2 = obb(s[0]);
+console.log("area", polyArea(a.poly), "obb", o.length.toFixed(1), o.width.toFixed(1), "site", polyArea(s).toFixed(0), o2.length.toFixed(1), o2.width.toFixed(1));
+const g = generateMassing(s, { typology: "tower_podium", floors: 30, use: "mixed" });
+console.log(g.notes, g.masses.map((m) => [m.role, polyArea(m.poly).toFixed(0), m.top.toFixed(0)]));

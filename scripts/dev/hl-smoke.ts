@@ -1,0 +1,10 @@
+import { loadHeadless } from "./headless";
+const t0 = performance.now();
+loadHeadless();
+const { executeTool } = await import("@/agent/tools");
+const ctx = { requestApproval: async () => true, approvals: false };
+const run = async (n: string, i: any) => { const t = performance.now(); const r: any = await executeTool(n, i, ctx); console.log(`\n## ${n} ${(performance.now() - t).toFixed(0)} ms ${r.isError ? "ERROR" : ""}`, JSON.stringify(r.content).slice(0, 600)); return r; };
+console.log("load", (performance.now() - t0).toFixed(0), "ms");
+await run("resolve_place", { query: "Congress Avenue & 6th Street" });
+await run("run_simulation", { kind: "traffic", params: { period: "pm" } });
+await run("get_context", {});

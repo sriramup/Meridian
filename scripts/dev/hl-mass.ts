@@ -1,0 +1,13 @@
+import { loadHeadless } from "./headless";
+loadHeadless();
+const { executeTool } = await import("@/agent/tools");
+const ctx = { requestApproval: async () => true, approvals: false };
+const run = async (n: string, i: any) => ((await executeTool(n, i, ctx)) as any).content;
+const ps = await run("find_features", { kind: "parcel", where: { landUse: "vacant", minArea: 3000 }, sort: "area", limit: 1 });
+console.log(ps.rows[0]);
+const r = await run("create_building", { site: ps.rows[0].id, typology: "courtyard", floors: 5, use: "residential", name: "C" });
+const id = r.created.find((x: string) => x.startsWith("b"));
+const f = (await run("get_feature", { ids: [id] }))[0];
+console.log(f.floors, f.height_m, f.gfa_m2, f.height_limit_m, f.footprint_m2);
+const o = await run("optimize_massing", { id });
+console.log(JSON.stringify(o.variants.map((v: any) => [v.label, v.sun_h, v.gfa_m2, v.height_m, v.note?.slice(0, 80)])));
