@@ -274,13 +274,13 @@ export const TOOL_DEFS: ToolDef[] = [
   },
   {
     name: "undo",
-    description: "Undo the last N edits in the active scenario (simulation settings are untouched). redo:true re-applies instead.",
-    input_schema: { type: "object", properties: { steps: { type: "number" }, redo: { type: "boolean" } } },
+    description: "Undo this session's last N edits in the active scenario (other agents' and the user's edits are kept; simulation settings are untouched). redo:true re-applies instead. any_author:true undoes the last N edits whoever made them — only when the user explicitly asks for that.",
+    input_schema: { type: "object", properties: { steps: { type: "number" }, redo: { type: "boolean" }, any_author: { type: "boolean" } } },
   },
   {
     name: "revert_change",
-    description: "Revert one specific earlier changeset while keeping the later ones that still apply (e.g. 'keep the original intersection').",
-    input_schema: { type: "object", properties: { changeset_id: { type: "string" } }, required: ["changeset_id"] },
+    description: "Revert one specific earlier changeset while keeping the later ones that still apply (e.g. 'keep the original intersection'). Changesets made by another agent session or the user need any_author:true, which you set only when the user explicitly asks.",
+    input_schema: { type: "object", properties: { changeset_id: { type: "string" }, any_author: { type: "boolean" } }, required: ["changeset_id"] },
   },
   {
     name: "borrow_changes",
@@ -324,6 +324,13 @@ export const TOOL_DEFS: ToolDef[] = [
     description: "Economic / social estimates with explicit assumptions. what: costs (capital cost of the active scenario's changes from unit costs; unit_costs override) | schools (students and schools needed for units) | growth (logistic population path over years with rate and capacity, allocated year by year to lots by remaining zoned capacity × redevelopment likelihood from the appraisal roll × frequent-transit access; turns on the Growth map overlay with 5-year snapshots and returns totals by area) | budget_fit (which soft sites deliver the most homes for a public-infrastructure budget: utility capacity, school seats, frontage and new streets, greedy by cost per unit; budget, within).",
     input_schema: { type: "object", properties: { what: { type: "string" }, within: area, units: { type: "number" }, years: { type: "number" }, rate: { type: "number" }, capacity: { type: "number" }, budget: { type: "number" }, unit_costs: { type: "object" } }, required: ["what"] },
   },
+  // ------------------------------------------------------------------ session
+  {
+    name: "set_zone",
+    description:
+      "Set or clear this session's work zone: the area your edits must stay inside, for this and later requests (reads are never limited). Use it when the user says e.g. 'only work between 5th and 7th', 'stick to the block at Lamar & 6th', 'within 300 m of Republic Square' or 'work anywhere again'. zone: street bounds ('between 5th and 7th from Congress to Lavaca', '24th St & West Ave block'), a place or district name, 'within N m of X', 'selection', or a polygon ring. clear:true removes the zone. Returns the resolved zone (label, area, bbox) or candidates when the words are ambiguous.",
+    input_schema: { type: "object", properties: { zone: { anyOf: [{ type: "string" }, polygon] }, clear: { type: "boolean" } } },
+  },
   // ------------------------------------------------------------------ communicate
   {
     name: "camera",
@@ -344,5 +351,25 @@ export const TOOL_DEFS: ToolDef[] = [
 
 const MUTATING = new Set(["create_building", "modify_buildings", "merge_buildings", "remove_features", "green_roofs", "edit_streets", "set_junction", "create_street", "move_streets", "realign_streets", "remove_streets", "set_street_attributes", "create_area", "convert_areas", "plant_trees", "create_transit_route", "optimize_stops", "generate_district", "optimize_emergency"]);
 for (const t of TOOL_DEFS) if (MUTATING.has(t.name)) (t.input_schema.properties as Record<string, unknown>).dry_run = dryRun;
+
+// what each tool does to the world: gates plan mode and zones (tools not listed default to "edit")
+const EFFECT: Record<string, NonNullable<ToolDef["effect"]>> = {
+  get_context: "read", resolve_place: "read", find_features: "read", get_feature: "read", describe_area: "read", make_polygon: "read", measure: "read", find_route: "read",
+  history: "read", run_simulation: "read", compare_scenarios: "read", validate: "read", rank_sites: "read", estimate: "read",
+  camera: "view", show: "view", annotate: "view", set_zone: "view",
+};
+for (const t of TOOL_DEFS) t.effect ??= EFFECT[t.name] ?? "edit";
+
+/** effect of one call: a few tools are read-only for some inputs (scenario list) */
+export function effectOf(name: string, input?: Record<string, unknown>): NonNullable<ToolDef["effect"]> {
+  if (name === "scenario" && (input?.action === "list" || input?.action === undefined)) return "read";
+  return TOOL_DEFS.find((t) => t.name === name)?.effect ?? "edit";
+}
+
+/** edit tools that accept dry_run (plan mode turns their calls into previews) */
+export function supportsDryRun(name: string): boolean {
+  const def = TOOL_DEFS.find((t) => t.name === name);
+  return !!(def?.input_schema.properties as Record<string, unknown> | undefined)?.dry_run;
+}
 
 export const TOOL_NAMES = TOOL_DEFS.map((t) => t.name);
