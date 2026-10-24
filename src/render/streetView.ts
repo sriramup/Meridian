@@ -5,6 +5,7 @@
 
 import { MapView as DeckMapView } from "@deck.gl/core";
 import { rtMaybe, type Runtime } from "@/state/runtime";
+import { useApp } from "@/state/store";
 import { LocalProjection } from "@/world/projection";
 import type { World } from "@/world/world";
 import type { Polygon, Street, Vec2 } from "@/world/types";
@@ -160,6 +161,8 @@ export function pedestrianAt(p: Vec2, bearing?: number) {
   stopOrbit();
   cancelAnimationFrame(moveRaf);
   cancelAnimationFrame(fovRaf);
+  // street level from the first frame of the flight (the map's own tilt limits stand aside)
+  if (useApp.getState().cameraMode !== "pedestrian") useApp.getState().setCameraMode("pedestrian");
   const env = worldEnv(c.R.world);
   const spot = nearestSidewalk(env, p) ?? p;
   if (!S.saved) S.saved = { maxZoom: c.map.getMaxZoom(), maxPitch: c.map.getMaxPitch(), fov: c.map.getVerticalFieldOfView() };
@@ -235,7 +238,8 @@ export function restore() {
   syncDeckView(c.R, null);
   // limits wait until any flight away from the street has finished (clamping mid-flight would jolt)
   const limits = () => {
-    c.map.setMaxPitch(saved.maxPitch);
+    // (unless the map has already put its own tilt limit back)
+    if (Math.abs(c.map.getMaxPitch() - PITCH.max) < 0.01) c.map.setMaxPitch(saved.maxPitch);
     c.map.setMaxZoom(saved.maxZoom);
   };
   if (c.map.isMoving()) c.map.once("moveend", limits);

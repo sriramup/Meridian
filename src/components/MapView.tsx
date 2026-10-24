@@ -160,11 +160,13 @@ export function MapView() {
       return 60 + 25 * t;
     };
     const applyPitchLimit = () => {
+      // street level sets (and afterwards restores) its own limits
+      if (useApp.getState().cameraMode === "pedestrian") return;
       const lim = pitchLimit();
       if (Math.abs(map.getMaxPitch() - lim) > 0.5) map.setMaxPitch(lim);
     };
     map.on("movestart", () => {
-      if (map.isEasing()) map.setMaxPitch(85);
+      if (map.isEasing() && useApp.getState().cameraMode !== "pedestrian") map.setMaxPitch(85);
     });
     map.on("zoomend", applyPitchLimit);
     map.on("moveend", applyPitchLimit);
