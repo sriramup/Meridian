@@ -236,6 +236,9 @@ export function usePedestrianControls(mode: CameraMode) {
     el.addEventListener("pointerleave", leave);
     el.addEventListener("dblclick", dbl);
     el.addEventListener("wheel", wheel, { passive: false });
+    // the eye's height depends on the canvas size: re-place the camera when it changes
+    const resize = () => look(0, 0);
+    map.on("resize", resize);
     refresh();
 
     return () => {
@@ -249,6 +252,7 @@ export function usePedestrianControls(mode: CameraMode) {
       el.removeEventListener("pointerleave", leave);
       el.removeEventListener("dblclick", dbl);
       el.removeEventListener("wheel", wheel);
+      map.off("resize", resize);
       handlers.forEach((h, i) => wasOn[i] && h.enable());
       // double-click zoom stays off while a drawing tool is in hand (it finishes shapes)
       if (useApp.getState().tool !== "select") map.doubleClickZoom.disable();
