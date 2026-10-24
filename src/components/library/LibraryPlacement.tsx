@@ -271,7 +271,7 @@ function previewLayers(pv: Preview | null, defPlacement: string | undefined, nig
       );
     if (solidsOf.length) {
       ghostCache.update(solidsOf, 2);
-      layers.push(...solidLayers(tinted(ghostCache.layers(), ok), { origin, night, pickable: false, idPrefix: "lib-ghost" }));
+      layers.push(...solidLayers(tinted(ghostCache.visibleLayers(), ok), { origin, night, pickable: false, idPrefix: "lib-ghost" }));
     }
   }
   // drawing aids: the clicked points and rubber band, a drag's heading
@@ -302,7 +302,9 @@ function previewLayers(pv: Preview | null, defPlacement: string | undefined, nig
         background: true,
         getBackgroundColor: [176, 77, 74, 240],
         backgroundPadding: [7, 4],
-        getPixelOffset: [0, -30],
+        // beside the cursor (not centred on it), so the palette never covers the start of the reason
+        getTextAnchor: "start",
+        getPixelOffset: [14, -22],
         fontFamily: "Geist, system-ui, sans-serif",
         fontWeight: 600,
         characterSet: "auto",

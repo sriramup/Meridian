@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SolidInstances, detailTier, maxTierAt, shadingOf, writeInstance } from "@/render/solids";
+import { SolidInstances, detailTier, shadingOf, writeInstance } from "@/render/solids";
 import { SOLID_SHAPES, unitMesh } from "@/render/solidMeshes";
 import type { Building, Prop, Solid } from "@/world/types";
 
@@ -64,7 +64,7 @@ describe("solid instances", () => {
     const l = lamp("prop:l");
     c.update([a, b, l]);
     expect(c.lastRebuilt).toBe(3);
-    const keys = c.layers().map((p) => p.key);
+    const keys = c.visibleLayers().map((p) => p.key);
     expect(keys).toEqual(["box:gloss:2", "box:matte:2", "cylinder:gloss:2", "sphere:light:2"]);
     expect(c.count).toBe(8);
     const boxMetal = c.layers().find((p) => p.key === "box:gloss:2")!;
@@ -97,9 +97,9 @@ describe("solid instances", () => {
     expect(detailTier(lamp("y"))).toBe(1);
     expect(detailTier(roof)).toBe(0);
     const c = new SolidInstances();
-    c.update([bench("prop:a", 0), lamp("prop:l"), roof], maxTierAt(16));
+    c.update([bench("prop:a", 0), lamp("prop:l"), roof], 2);
     expect(c.count).toBe(6);
-    c.update([bench("prop:a", 0), lamp("prop:l"), roof], maxTierAt(13));
+    c.update([bench("prop:a", 0), lamp("prop:l"), roof], 0);
     expect(c.instancesOf("prop:a")).toBe(0);
     expect(c.instancesOf("bld:1")).toBe(1);
   });
@@ -155,11 +155,11 @@ describe("mesh detail", () => {
       { shape: "cylinder", at: [0, 0, 0], size: [0.2, 0.2, 9], color: [1, 1, 1] },
       { shape: "sphere", at: [0, 0, 9], size: [0.1, 0.1, 0.1], color: [1, 1, 1] },
     ] };
-    c.update([lampProp], 2, 2);
+    c.update([lampProp], 2);
     expect(c.count).toBe(2);
-    c.update([lampProp], 2, 1);
+    c.update([lampProp], 1);
     expect(c.count).toBe(1);
-    expect(c.layers()[0].lod).toBe(1);
+    expect(c.visibleLayers()[0].lod).toBe(1);
     expect(unitMesh("sphere", 0).attributes.POSITION.value.length).toBeLessThan(unitMesh("sphere", 2).attributes.POSITION.value.length / 2);
   });
 });
@@ -169,32 +169,44 @@ describe("far detail caps", () => {
     const c = new SolidInstances();
     const solids = Array.from({ length: 10 }, (_, i) => ({ shape: "sphere" as const, at: [i, 0, 3] as [number, number, number], size: [1 + i, 1 + i, 1 + i] as [number, number, number], color: [1, 1, 1] as [number, number, number] }));
     const crown: Prop = { id: "prop:t", kind: "prop", type: "tree", p: [0, 0], rot: 0, height: 12, source: "t", provenance: "proposed", solids };
-    c.update([crown], 2, 2);
+    c.update([crown], 2);
     expect(c.count).toBe(10);
-    c.update([crown], 2, 0);
+    c.update([crown], 0);
     expect(c.count).toBe(3);
     // the three largest survive
-    const xs = Array.from(c.layers()[0].positions.filter((_, i) => i % 3 === 0)).sort();
+    const xs = Array.from(c.visibleLayers()[0].positions.filter((_, i) => i % 3 === 0)).sort();
     expect(xs).toEqual([7, 8, 9]);
   });
 });
 
 describe("cells", () => {
+  const view = (key: string) => (key === "c0:0" ? { visible: true, lod: 2 as const } : key.startsWith("c-") ? { visible: false, lod: 0 as const } : { visible: true, lod: 0 as const });
   it("draws each cell by its own state: hidden, coarse or full", () => {
     const c = new SolidInstances();
     const near = bench("prop:near", 10);
-    const far = { ...lamp("prop:far"), p: [1000, 1000] as [number, number] };
+    const far = { ...lamp("prop:far"), p: [1000, 1000] as [number, number], height: 12 };
     const off = { ...lamp("prop:off"), p: [-2000, 0] as [number, number] };
-    c.update([near, far, off], (key) => (key === "0:0" ? { visible: true, lod: 2, maxTier: 2 } : key.startsWith("-") ? { visible: false, lod: 0, maxTier: 0 } : { visible: true, lod: 0, maxTier: 1 }));
+    c.update([near, far, off], view);
     expect(c.instancesOf("prop:near")).toBe(3);
     expect(c.instancesOf("prop:off")).toBe(0);
-    // the far lamp: coarse meshes, the tiny lamp head (0.4 m) dropped
+    // the far (tall) lamp: coarse meshes, its small head dropped
     expect(c.instancesOf("prop:far")).toBe(1);
-    expect(c.layers().some((p) => p.key === "cylinder:gloss:0")).toBe(true);
-    expect(c.cells().map((b) => b.key).sort()).toEqual(["-7:0", "0:0", "3:3"]);
-    // a view change that alters nothing re-packs nothing
-    const v = c.layers().map((p) => p.version);
-    expect(c.setView((key) => (key === "0:0" ? { visible: true, lod: 2, maxTier: 2 } : key.startsWith("-") ? { visible: false, lod: 0, maxTier: 0 } : { visible: true, lod: 0, maxTier: 1 }))).toBe(false);
-    expect(c.layers().map((p) => p.version)).toEqual(v);
+    expect(c.visibleLayers().some((p) => p.key === "cylinder:gloss:0")).toBe(true);
+    expect(c.cells().map((b) => b.key).sort()).toEqual(["c-3:0", "c0:0", "c1:1"]);
+    // the same view again: nothing to do
+    expect(c.setView(view)).toBe(false);
+    expect(c.lastPacked).toBe(0);
+  });
+  it("keeps buffers across camera moves: going back to a detail level reuses them", () => {
+    const c = new SolidInstances();
+    const a = bench("prop:a", 10);
+    c.update([a], 2);
+    const full = c.visibleLayers()[0];
+    c.setView(() => ({ visible: false, lod: 2 }));
+    expect(c.count).toBe(0);
+    expect(c.lastPacked).toBe(0);
+    c.setView(() => ({ visible: true, lod: 2 }));
+    expect(c.lastPacked).toBe(0);
+    expect(c.visibleLayers()[0].positions).toBe(full.positions);
   });
 });
