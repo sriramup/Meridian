@@ -182,7 +182,7 @@ export function buildingGFA(b: Building): number {
     const v0 = b.existing.volume;
     return v0 > 0 ? b.existing.gfa * (massVolume(b) / v0) : b.existing.gfa;
   }
-  if (b.createdBy || b.masses.length > 1) return massesGFA(b.masses, b.use === "mixed" ? "residential" : b.use);
+  if (b.createdBy || b.masses.length > 1) return massesGFA(b.masses, b.use === "mixed" ? "residential" : b.use, b.storeys);
   return existingGFA(polyArea(b.footprint), b.floors);
 }
 

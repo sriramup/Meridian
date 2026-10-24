@@ -389,6 +389,7 @@ export function buildBuilding(out: Out, r: Reader, frame: Frame, o: BuildOverrid
       use: bUse,
       program: Object.fromEntries(shares.map(([k2, v]) => [k2, Math.round((v ?? 0) * 1000) / 1000])) as Partial<Record<Use, number>>,
       style: { facade: fp.facade, color: wall, tint },
+      storeys: { ground: st.groundH, typical: st.typH },
       solids: solidsToWorld(frame, solids),
       greenRoof: green || undefined,
       notes: `${floors} floors, ${fmt.m(height)}, GFA ${fmt.m2(gfa)}${units ? `, ${units} units` : ""}${jobs ? `, ${jobs} jobs` : ""}`,

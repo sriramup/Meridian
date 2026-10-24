@@ -68,6 +68,11 @@ export interface Building {
   /** free-form design notes recorded by the generator / agent */
   notes?: string;
   style?: BuildingStyle;
+  /**
+   * explicit storey heights (library primitives with a set floor-to-floor height); floor area counts
+   * storeys with these instead of the use's typical heights
+   */
+  storeys?: { ground: number; typical: number };
   /** extra geometry drawn with the masses: roofs, canopies, balconies, spires (absolute local metres) */
   solids?: Solid[];
   lib?: LibraryRef;

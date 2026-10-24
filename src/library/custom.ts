@@ -247,6 +247,7 @@ function buildCustomBuilding(p: ParamValues, place: { at?: Vec2; rotation?: numb
     useSource: "proposed",
     source: "",
     style: { facade: p.facade as NonNullable<Building["style"]>["facade"], color: hexToRgb(p.color as string) },
+    storeys: { ground: gnd, typical: typ },
     ...(solids.length ? { solids } : {}),
     notes: notes.length ? notes.join("; ") : undefined,
   };
