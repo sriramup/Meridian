@@ -1,0 +1,338 @@
+{
+ "id": "austin",
+ "name": "Austin",
+ "region": "Downtown, Central & East Austin",
+ "origin": {
+  "lon": -97.741,
+  "lat": 30.2725
+ },
+ "bounds": [
+  -2020.654703515065,
+  -2161.7120353901178,
+  2020.654703515065,
+  2161.7120353901178
+ ],
+ "contextBounds": [
+  -3945.087754481338,
+  -3824.5674472286696,
+  4137.531059578922,
+  3935.4244746843106
+ ],
+ "timezone": "America/Chicago",
+ "waterLevel": 130.6,
+ "sources": [
+  {
+   "id": "osm",
+   "name": "OpenStreetMap (BBBike extract 2026-10-17)",
+   "url": "https://www.openstreetmap.org/copyright",
+   "license": "ODbL",
+   "retrieved": "2026-10-22",
+   "kind": "mapped"
+  },
+  {
+   "id": "coa-footprints",
+   "name": "City of Austin Building Footprints 2023 (LiDAR heights)",
+   "url": "https://maps.austintexas.gov/arcgis/rest/services/Shared/PlanimetricsSurvey_1/MapServer/0",
+   "license": "Public domain",
+   "retrieved": "2026-10-22",
+   "kind": "measured"
+  },
+  {
+   "id": "coa-impervious",
+   "name": "City of Austin Impervious Cover 2023",
+   "url": "https://maps.austintexas.gov/arcgis/rest/services/Shared/PlanimetricsSurvey_1/MapServer/1",
+   "license": "Public domain",
+   "retrieved": "2026-10-22",
+   "kind": "measured"
+  },
+  {
+   "id": "coa-canopy",
+   "name": "City of Austin Tree Canopy 2022",
+   "url": "https://services.arcgis.com/0L95CJ0VTaxqcmED/arcgis/rest/services/tree_canopy_2022/FeatureServer",
+   "license": "Public domain",
+   "retrieved": "2026-10-22",
+   "kind": "measured"
+  },
+  {
+   "id": "coa-npa",
+   "name": "City of Austin Neighborhood Planning Areas & Downtown Austin Plan districts",
+   "url": "https://maps.austintexas.gov/arcgis/rest/services/Shared/Zoning_2/MapServer/20",
+   "license": "Public domain",
+   "retrieved": "2026-10-22",
+   "kind": "measured"
+  },
+  {
+   "id": "coa-zoning",
+   "name": "City of Austin Zoning, Density Bonus & Capitol View Corridors",
+   "url": "https://maps.austintexas.gov/arcgis/rest/services/Shared/Zoning_1/MapServer",
+   "license": "Public domain",
+   "retrieved": "2026-10-22",
+   "kind": "measured"
+  },
+  {
+   "id": "coa-lots",
+   "name": "City of Austin Lot Lines",
+   "url": "https://maps.austintexas.gov/arcgis/rest/services/Shared/LotLines/MapServer/0",
+   "license": "Public domain",
+   "retrieved": "2026-10-22",
+   "kind": "measured"
+  },
+  {
+   "id": "coa-sidewalks",
+   "name": "City of Austin Sidewalk Network & Curb Ramp inventory (Public Works; presence, A–F condition, width)",
+   "url": "https://maps.austintexas.gov/arcgis/rest/services/Shared/Transportation_1/MapServer/15",
+   "license": "Public domain",
+   "retrieved": "2026-10-22",
+   "kind": "measured"
+  },
+  {
+   "id": "tcad",
+   "name": "Travis Central Appraisal District parcels (land & improvement values; public owners only), Travis County TNR monthly snapshot",
+   "url": "https://services1.arcgis.com/HGcSYZ5bvjRswoCb/arcgis/rest/services/TCAD_Parcels_Dec_2025/FeatureServer",
+   "license": "Public record",
+   "retrieved": "2026-10-22",
+   "kind": "measured"
+  },
+  {
+   "id": "coa-etod",
+   "name": "City of Austin ETOD overlay (LDC 25-2-653)",
+   "url": "https://maps.austintexas.gov/arcgis/rest/services/Shared/Zoning_2/MapServer/14",
+   "license": "Public domain",
+   "retrieved": "2026-10-22",
+   "kind": "measured"
+  },
+  {
+   "id": "coa-asmp",
+   "name": "Austin Strategic Mobility Plan street network (existing lanes, ROW)",
+   "url": "https://maps.austintexas.gov/arcgis/rest/services/Shared/Transportation_1/MapServer/7",
+   "license": "Public domain",
+   "retrieved": "2026-10-22",
+   "kind": "measured"
+  },
+  {
+   "id": "capmetro",
+   "name": "Capital Metro routes & stops",
+   "url": "https://maps.austintexas.gov/arcgis/rest/services/Shared/Transportation_1/MapServer",
+   "license": "Public domain",
+   "retrieved": "2026-10-22",
+   "kind": "measured"
+  },
+  {
+   "id": "coa-drainage",
+   "name": "City of Austin storm drain pipes & inlets",
+   "url": "https://maps.austintexas.gov/arcgis/rest/services/Shared/DrainageInfrastructure/MapServer",
+   "license": "Public domain",
+   "retrieved": "2026-10-22",
+   "kind": "measured"
+  },
+  {
+   "id": "fema",
+   "name": "FEMA floodplain (via City of Austin)",
+   "url": "https://maps.austintexas.gov/arcgis/rest/services/Shared/Floodplain/MapServer/1",
+   "license": "Public domain",
+   "retrieved": "2026-10-22",
+   "kind": "measured"
+  },
+  {
+   "id": "census",
+   "name": "US Census 2020 blocks (POP100, HU100), TIGERweb",
+   "url": "https://tigerweb.geo.census.gov/",
+   "license": "Public domain",
+   "retrieved": "2026-10-22",
+   "kind": "measured"
+  },
+  {
+   "id": "lodes",
+   "name": "LEHD LODES 8 workplace jobs (WAC 2023)",
+   "url": "https://lehd.ces.census.gov/data/",
+   "license": "Public domain",
+   "retrieved": "2026-10-22",
+   "kind": "measured"
+  },
+  {
+   "id": "txdot",
+   "name": "TxDOT AADT annual counts",
+   "url": "https://gis-txdot.opendata.arcgis.com/",
+   "license": "Public domain",
+   "retrieved": "2026-10-22",
+   "kind": "measured"
+  },
+  {
+   "id": "dem",
+   "name": "AWS Terrain Tiles (Terrarium, z15; USGS 3DEP-derived)",
+   "url": "https://registry.opendata.aws/terrain-tiles/",
+   "license": "Various open",
+   "retrieved": "2026-10-22",
+   "kind": "measured"
+  },
+  {
+   "id": "era5",
+   "name": "Open-Meteo ERA5 reanalysis, 2023-08-15",
+   "url": "https://open-meteo.com/",
+   "license": "CC BY 4.0",
+   "retrieved": "2026-10-22",
+   "kind": "measured"
+  }
+ ],
+ "weather": {
+  "date": "2023-08-15",
+  "source": "Open-Meteo archive (ERA5 reanalysis, ~25 km grid — not an urban station)",
+  "hourly": {
+   "t": [
+    32.5,
+    31.5,
+    31.4,
+    30.8,
+    30.3,
+    29.8,
+    29.5,
+    27.6,
+    27.5,
+    28.8,
+    30.6,
+    32.5,
+    34.1,
+    35.7,
+    37,
+    37.9,
+    38.5,
+    38.7,
+    38.5,
+    36.9,
+    35.8,
+    34.4,
+    33.5,
+    32.7
+   ],
+   "rh": [
+    46,
+    51,
+    52,
+    55,
+    57,
+    58,
+    48,
+    42,
+    42,
+    43,
+    39,
+    34,
+    30,
+    28,
+    26,
+    25,
+    24,
+    24,
+    23,
+    24,
+    25,
+    27,
+    28,
+    28
+   ],
+   "sw": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    57,
+    239,
+    448,
+    633,
+    787,
+    895,
+    938,
+    909,
+    823,
+    678,
+    492,
+    282,
+    85,
+    1,
+    0,
+    0
+   ],
+   "wind": [
+    6.1,
+    6.8,
+    4.4,
+    5.4,
+    5.7,
+    7,
+    19.2,
+    16.9,
+    18.5,
+    17.6,
+    18.5,
+    17.4,
+    16.9,
+    16.8,
+    16.7,
+    15.6,
+    14.7,
+    14.7,
+    14.8,
+    13.8,
+    12.9,
+    12.3,
+    12.8,
+    14.1
+   ],
+   "cloud": [
+    55,
+    35,
+    4,
+    14,
+    14,
+    0,
+    2,
+    62,
+    21,
+    33,
+    56,
+    94,
+    33,
+    14,
+    29,
+    16,
+    5,
+    14,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0
+   ]
+  }
+ },
+ "calibration": {
+  "householdSize": 1.75,
+  "censusPopulation": 68428,
+  "censusHousingUnits": 36095,
+  "lodesJobs": 213931
+ },
+ "initialView": {
+  "center": [
+   -202.06547035136978,
+   -587.5422455164721
+  ],
+  "zoom": 15.6,
+  "pitch": 58,
+  "bearing": -28
+ },
+ "grid": {
+  "x0": -2021,
+  "y0": -2162,
+  "cell": 4,
+  "nx": 1011,
+  "ny": 1081
+ },
+ "impervious": {
+  "measuredFraction": 0.7660944054176032
+ }
+}
