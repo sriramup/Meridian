@@ -19,6 +19,10 @@ const groupVariants = cva("inline-flex items-center", {
   defaultVariants: { variant: "segmented", size: "sm" },
 });
 
+// "on" is read from aria-checked/aria-pressed, not data-state: a Tooltip trigger wrapping an item
+// overwrites data-state with its own open/closed state. (Classes are written out in full so
+// Tailwind can see them.)
+
 const itemVariants = cva(
   [
     "inline-flex cursor-default select-none items-center justify-center gap-1.5 whitespace-nowrap font-medium leading-none transition-[background-color,color,box-shadow] duration-100",
@@ -29,13 +33,13 @@ const itemVariants = cva(
     variants: {
       variant: {
         segmented:
-          "rounded-[4px] text-ink-3 hover:text-ink data-[state=on]:bg-[#f8eed6] data-[state=on]:text-rose data-[state=on]:shadow-[0_1px_2px_rgb(88_60_28/0.22)]",
-        ghost: "rounded-[6px] text-ink-2 hover:bg-paper-3 data-[state=on]:bg-accent data-[state=on]:text-on-accent",
+          "rounded-[4px] text-ink-3 hover:text-ink [&:is([aria-checked=true],[aria-pressed=true])]:bg-[#f8eed6] [&:is([aria-checked=true],[aria-pressed=true])]:text-rose [&:is([aria-checked=true],[aria-pressed=true])]:shadow-[0_1px_2px_rgb(88_60_28/0.22)]",
+        ghost: "rounded-[6px] text-ink-2 hover:bg-paper-3 [&:is([aria-checked=true],[aria-pressed=true])]:bg-accent [&:is([aria-checked=true],[aria-pressed=true])]:text-on-accent",
       },
       size: {
-        xs: "h-5 px-1.5 text-[11px] [&_svg]:size-3",
-        sm: "h-6 px-2 text-[11.5px] [&_svg]:size-3.5",
-        md: "h-7 px-2.5 text-[12px] [&_svg]:size-3.5",
+        xs: "h-5 px-1.5 text-[11px] [&_svg[width='24']:not([class*='size-'])]:size-3",
+        sm: "h-6 px-2 text-[11.5px] [&_svg[width='24']:not([class*='size-'])]:size-3.5",
+        md: "h-7 px-2.5 text-[12px] [&_svg[width='24']:not([class*='size-'])]:size-3.5",
       },
       icon: { true: "px-0", false: "" },
     },

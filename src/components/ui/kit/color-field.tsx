@@ -57,7 +57,7 @@ export function ColorField({ value, onChange, swatches = DEFAULT_SWATCHES, size 
         className={cn(
           fieldBase,
           fieldSizes[size],
-          "inline-flex cursor-default items-center gap-1.5 data-[state=open]:border-rose/55",
+          "inline-flex cursor-default items-center gap-1.5 aria-expanded:border-rose/55",
           showHex ? (size === "xs" ? "pr-2 pl-1" : "pr-2.5 pl-1.5") : "justify-center px-0 " + (size === "xs" ? "w-6" : size === "sm" ? "w-7" : "w-8"),
           className,
         )}

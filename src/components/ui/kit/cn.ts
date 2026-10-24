@@ -23,3 +23,6 @@ export const fieldSizes = {
   md: "h-8 text-[12.5px]",
 } as const;
 export type FieldSize = keyof typeof fieldSizes;
+
+// Icons: the kit sizes lucide icons left at their default size (width="24") to fit each control;
+// an icon given an explicit `size` prop or a `size-*` class keeps it.

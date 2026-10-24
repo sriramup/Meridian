@@ -1,83 +1,37 @@
 "use client";
 
-import * as Tooltip from "@radix-ui/react-tooltip";
+// The app's original small primitives, kept API-compatible as thin wrappers over the component kit
+// (src/components/ui/kit). New code should import from "@/components/ui/kit" directly.
 import clsx from "clsx";
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { Button as KitButton, Kbd as KitKbd, Segmented as KitSegmented, Tooltip } from "./ui/kit";
 
 export const cx = clsx;
 
 export function Tip({ label, kbd, side = "bottom", children }: { label: string; kbd?: string; side?: "top" | "bottom" | "left" | "right"; children: ReactNode }) {
   return (
-    <Tooltip.Root delayDuration={350}>
-      <Tooltip.Trigger asChild>{children}</Tooltip.Trigger>
-      <Tooltip.Portal>
-        <Tooltip.Content side={side} sideOffset={6} className="z-50 flex items-center gap-2 rounded-[5px] border border-line-2 bg-paper-3 px-2 py-1 text-[11.5px] text-ink shadow-lg select-none">
-          {label}
-          {kbd && <kbd className="rounded bg-ink/10 px-1 font-mono text-[10.5px] text-ink-3">{kbd}</kbd>}
-        </Tooltip.Content>
-      </Tooltip.Portal>
-    </Tooltip.Root>
+    <Tooltip content={label} kbd={kbd} side={side}>
+      {children}
+    </Tooltip>
   );
 }
 
 type IBProps = ButtonHTMLAttributes<HTMLButtonElement> & { active?: boolean; size?: "sm" | "md" };
-export const IconButton = forwardRef<HTMLButtonElement, IBProps>(function IconButton({ active, size = "md", className, ...p }, ref) {
-  return (
-    <button
-      ref={ref}
-      {...p}
-      className={cx(
-        "inline-flex shrink-0 items-center justify-center rounded-[6px] text-ink-2 transition-colors duration-100 outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:pointer-events-none disabled:opacity-35",
-        size === "md" ? "h-8 w-8" : "h-7 w-7",
-        active ? "bg-accent text-on-accent hover:bg-accent" : "hover:bg-paper-3 active:bg-line",
-        className,
-      )}
-    />
-  );
+export const IconButton = forwardRef<HTMLButtonElement, IBProps>(function IconButton({ active, size = "md", ...p }, ref) {
+  return <KitButton ref={ref} variant="ghost" size={size === "md" ? "icon" : "icon-sm"} active={active} {...p} />;
 });
 
 type BProps = ButtonHTMLAttributes<HTMLButtonElement> & { tone?: "default" | "primary" | "ghost" | "danger"; size?: "sm" | "md" };
-export const Button = forwardRef<HTMLButtonElement, BProps>(function Button({ tone = "default", size = "md", className, ...p }, ref) {
-  return (
-    <button
-      ref={ref}
-      {...p}
-      className={cx(
-        "inline-flex items-center justify-center gap-1.5 rounded-[6px] font-medium transition-colors duration-100 outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:pointer-events-none disabled:opacity-40",
-        size === "md" ? "h-8 px-3 text-[12.5px]" : "h-7 px-2.5 text-[12px]",
-        tone === "primary" && "bg-accent text-on-accent hover:brightness-110",
-        tone === "default" && "border border-line-2 bg-paper text-ink hover:bg-paper-2",
-        tone === "ghost" && "text-ink-2 hover:bg-paper-3",
-        tone === "danger" && "border border-bad/30 bg-bad-2 text-bad hover:bg-bad/10",
-        className,
-      )}
-    />
-  );
+export const Button = forwardRef<HTMLButtonElement, BProps>(function Button({ tone = "default", size = "md", ...p }, ref) {
+  return <KitButton ref={ref} variant={tone} size={size} {...p} />;
 });
 
 export function Kbd({ children }: { children: ReactNode }) {
-  return <kbd className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-[4px] border border-line-2 bg-paper px-1 font-mono text-[10.5px] text-ink-3">{children}</kbd>;
+  return <KitKbd>{children}</KitKbd>;
 }
 
 export function Segmented<T extends string>({ value, onChange, options, size = "sm" }: { value: T; onChange: (v: T) => void; options: { value: T; label: ReactNode; title?: string }[]; size?: "sm" | "xs" }) {
-  return (
-    <div className="inline-flex rounded-[6px] border border-line bg-paper-2 p-[2px]">
-      {options.map((o) => (
-        <button
-          key={o.value}
-          title={o.title}
-          onClick={() => onChange(o.value)}
-          className={cx(
-            "rounded-[4px] font-medium transition-colors",
-            size === "sm" ? "h-6 px-2 text-[11.5px]" : "h-5 px-1.5 text-[11px]",
-            value === o.value ? "bg-paper-3 text-rose shadow-[0_1px_2px_rgb(88_60_28/0.22)]" : "text-ink-3 hover:text-ink",
-          )}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
-  );
+  return <KitSegmented value={value} onChange={onChange} options={options} size={size} />;
 }
 
 export function SectionLabel({ children, right }: { children: ReactNode; right?: ReactNode }) {

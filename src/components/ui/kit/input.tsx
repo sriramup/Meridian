@@ -32,7 +32,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         wrapperClassName,
       )}
     >
-      {leading && <span className="flex shrink-0 items-center text-ink-4 [&_svg]:size-3.5">{leading}</span>}
+      {leading && <span className="flex shrink-0 items-center text-ink-4 [&_svg[width='24']:not([class*='size-'])]:size-3.5">{leading}</span>}
       <input
         ref={ref}
         type={type}
@@ -40,7 +40,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         className={cn("h-full w-full min-w-0 bg-transparent outline-none placeholder:text-ink-4 disabled:cursor-not-allowed", className)}
         {...props}
       />
-      {trailing && <span className="flex shrink-0 items-center text-ink-4 [&_svg]:size-3.5">{trailing}</span>}
+      {trailing && <span className="flex shrink-0 items-center text-ink-4 [&_svg[width='24']:not([class*='size-'])]:size-3.5">{trailing}</span>}
     </div>
   );
 });

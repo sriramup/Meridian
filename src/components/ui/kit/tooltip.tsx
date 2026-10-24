@@ -21,7 +21,7 @@ export const TooltipContent = forwardRef<ElementRef<typeof T.Content>, Component
         sideOffset={sideOffset}
         collisionPadding={collisionPadding}
         className={cn(
-          "kit-tip kit-pop z-[60] flex max-w-[280px] select-none items-center gap-2 rounded-[5px] px-2 py-[5px] text-[11.5px] leading-[1.3] font-medium",
+          "kit-tip kit-pop z-[60] flex max-w-[420px] select-none items-center gap-2 rounded-[5px] px-2 py-[5px] text-[11.5px] leading-[1.3] font-medium",
           className,
         )}
         {...props}

@@ -19,7 +19,7 @@ export const selectTriggerVariants = cva(
       variant: {
         default: fieldBase,
         ghost:
-          "rounded-[6px] border border-transparent bg-transparent text-ink hover:bg-paper-3 focus-visible:ring-2 focus-visible:ring-rose/40 data-[state=open]:bg-paper-3 disabled:opacity-45",
+          "rounded-[6px] border border-transparent bg-transparent text-ink hover:bg-paper-3 focus-visible:ring-2 focus-visible:ring-rose/40 aria-expanded:bg-paper-3 disabled:opacity-45",
       },
       size: {
         xs: "h-6 pr-1 pl-1.5 text-[11.5px] [&>svg]:size-3",
@@ -39,7 +39,7 @@ export const SelectTrigger = forwardRef<
     <S.Trigger ref={ref} data-slot="select-trigger" className={cn(selectTriggerVariants({ variant, size }), className)} {...props}>
       {children}
       <S.Icon asChild>
-        <ChevronDown className="shrink-0 text-ink-4 transition-transform duration-150 group-data-[state=open]:rotate-180" />
+        <ChevronDown className="shrink-0 text-ink-4 transition-transform duration-150 group-aria-expanded:rotate-180" />
       </S.Icon>
     </S.Trigger>
   );
