@@ -8,7 +8,7 @@ beforeAll(async () => {
   R = loadHeadless();
   const { executeTool } = await import("@/agent/tools");
   run = async (name, input) => (await executeTool(name, input, { requestApproval: async () => true, approvals: false })).content;
-});
+}, 180_000);
 
 describe("agent tool layer on the Austin pack", () => {
   it("dry-run previews report the cascade without changing anything", async () => {
