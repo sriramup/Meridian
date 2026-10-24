@@ -68,7 +68,7 @@ export function groundLayers(origin: [number, number, number], cursor: GroundCur
         ...common,
         data: [{ ring: circle(cursor.p, r) }],
         getPolygon: (d) => d.ring,
-        getFillColor: no ? [214, 76, 60, 60] : [255, 255, 255, 80],
+        getFillColor: no ? [214, 76, 60, 70] : [255, 255, 255, 110],
         getLineColor: no ? NO : WHITE,
         getLineWidth: 2,
         lineWidthUnits: "pixels",
@@ -123,7 +123,7 @@ export function facadeLayers(origin: [number, number, number], cursor: GroundCur
       ...common,
       data: [{ q: quad }],
       getPolygon: (d) => d.q,
-      getFillColor: [255, 255, 255, 70],
+      getFillColor: [255, 255, 255, 90],
       _full3d: true,
       material: false,
     }),
@@ -135,6 +135,7 @@ export function facadeLayers(origin: [number, number, number], cursor: GroundCur
       getColor: WHITE,
       getWidth: 2,
       widthUnits: "pixels",
+      billboard: true,
     }),
   ];
 }
