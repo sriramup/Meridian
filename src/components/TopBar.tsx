@@ -1,7 +1,7 @@
 "use client";
 
 import * as DM from "@radix-ui/react-dropdown-menu";
-import { Check, ChevronDown, CircleHelp, Download, FilePlus2, GitCompare, LoaderCircle, Footprints, GitBranch, Layers, Moon, Redo2, Sparkles, Sun, Undo2, Upload, Trash2 } from "lucide-react";
+import { Check, ChevronDown, CircleHelp, Download, FileJson, FilePlus2, FileSpreadsheet, GitCompare, LoaderCircle, Footprints, GitBranch, Layers, Moon, Redo2, Sparkles, Sun, Undo2, Upload, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { rt, rtMaybe } from "@/state/runtime";
 import { useApp } from "@/state/store";
@@ -12,7 +12,19 @@ import { faceNorth, orbitDrag, overview } from "@/render/camera";
 import { toggleNight, togglePedestrian } from "@/state/view";
 import { Wordmark } from "./LoadingScreen";
 import { CITY_PRESETS, switchCity } from "@/state/cities";
-import { clearDesign, exportDesign, hasDesign, importDesign } from "@/state/persist";
+import { clearDesign, hasDesign } from "@/state/persist";
+import { exportProposal, exportableScenarios, importProposalText, ProposalImportError } from "@/state/proposalIO";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "./ui/kit";
 import { IconButton, Tip, cx } from "./ui";
 import { CommandSearch } from "./CommandSearch";
 
@@ -20,7 +32,6 @@ export function TopBar() {
   useApp((s) => s.scenarioVersion);
   const R = rt();
   const S = R.scenarios;
-  const active = S.active;
   const bump = () => {
     useApp.getState().bumpWorld();
     useApp.getState().bumpScenarios();
@@ -34,67 +45,7 @@ export function TopBar() {
       <CityMenu />
       <CommandSearch />
       <span className="mx-1 h-4 w-px bg-line-2" />
-      <DM.Root>
-        <Tip label="Designs: switch, compare or try an alternative">
-          <DM.Trigger asChild>
-            <button className="flex h-7 min-w-0 items-center gap-1.5 rounded-[6px] px-2 text-[12.5px] font-medium text-ink outline-none hover:bg-paper-3">
-              <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: active.color }} />
-              <span className="max-w-[140px] truncate">{active.name}</span>
-              <span className="tabular shrink-0 text-[11px] font-normal text-ink-4 @max-[820px]:hidden">{active.cursor ? `${active.cursor} edit${active.cursor > 1 ? "s" : ""}` : ""}</span>
-              <ChevronDown size={13} className="shrink-0 text-ink-4" />
-            </button>
-          </DM.Trigger>
-        </Tip>
-        <DM.Portal>
-          <DM.Content sideOffset={6} align="start" className="z-50 w-72 rounded-[8px] border border-line bg-paper p-1 shadow-xl">
-            <div className="px-2 pt-1.5 pb-1 font-legend text-[12.5px] leading-none text-ink-3">Scenarios</div>
-            {[...S.scenarios.values()].map((s) => (
-              <DM.Item
-                key={s.id}
-                onSelect={() => {
-                  S.switchTo(s.id);
-                  bump();
-                }}
-                className="group flex cursor-default items-center gap-2 rounded-[5px] px-2 py-1.5 text-[12.5px] text-ink outline-none data-[highlighted]:bg-paper-3"
-              >
-                <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: s.color }} />
-                <span className="min-w-0 flex-1 truncate">{s.name}</span>
-                <span className="tabular text-[11px] text-ink-4">{s.cursor}</span>
-                {s.id === S.activeId ? <Check size={13} className="text-ink-2" /> : <span className="w-[13px]" />}
-                {s.id !== "baseline" && (
-                  <button
-                    className="hidden text-ink-4 group-hover:block hover:text-bad"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      S.remove(s.id);
-                      bump();
-                    }}
-                    title="Delete scenario"
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                )}
-              </DM.Item>
-            ))}
-            {active.cursor > 0 && (
-              <>
-                <DM.Separator className="my-1 h-px bg-line" />
-                <ChangesItem />
-              </>
-            )}
-            <DM.Separator className="my-1 h-px bg-line" />
-            <DM.Item
-              onSelect={() => {
-                S.branch(`Option ${String.fromCharCode(64 + S.scenarios.size)}`, "user");
-                bump();
-              }}
-              className="flex cursor-default items-center gap-2 rounded-[5px] px-2 py-1.5 text-[12.5px] text-ink-2 outline-none data-[highlighted]:bg-paper-3"
-            >
-              <GitBranch size={13} /> Branch from “{active.name}”
-            </DM.Item>
-          </DM.Content>
-        </DM.Portal>
-      </DM.Root>
+      <ScenarioMenu />
       <Tip label="Undo" kbd="⌘Z">
         <IconButton
           size="sm"
@@ -120,6 +71,140 @@ export function TopBar() {
         </IconButton>
       </Tip>
     </div>
+  );
+}
+
+/** the scenarios (designs / proposals): switch, branch, show changes, and proposal files */
+function ScenarioMenu() {
+  useApp((s) => s.scenarioVersion);
+  const R = rt();
+  const S = R.scenarios;
+  const active = S.active;
+  const file = useRef<HTMLInputElement>(null);
+  const bump = () => {
+    useApp.getState().bumpWorld();
+    useApp.getState().bumpScenarios();
+  };
+  const word = R.meta.sandbox ? "design" : "proposal";
+  const canExport = active.id !== "baseline" && active.cursor > 0;
+  const many = exportableScenarios(R).length > 1;
+  const save = (format: "json" | "csv", which: "active" | "all" = "active") => {
+    try {
+      exportProposal(R, format, which);
+    } catch (err) {
+      useApp.getState().notify(`Could not export: ${(err as Error).message}`, "error");
+    }
+  };
+  const open = async (f: File) => {
+    const st = useApp.getState();
+    try {
+      const res = importProposalText(R, await f.text(), f.name);
+      bump();
+      const what = res.names.length > 1 ? `${res.names.length} ${word}s` : `“${res.names[0]}”`;
+      st.notify(res.notes.length ? `Imported ${what}. Not carried by CSV: ${res.notes.join("; ")}` : `Imported ${what} as a new ${word}`, res.notes.length ? "warn" : "info");
+    } catch (err) {
+      st.notify(err instanceof ProposalImportError ? err.message : `Could not import ${f.name}: ${(err as Error).message}`, "error");
+    }
+  };
+  return (
+    <DropdownMenu>
+      <Tip label="Designs: switch, compare, try an alternative, export or import">
+        <DropdownMenuTrigger asChild>
+          <button className="flex h-7 min-w-0 items-center gap-1.5 rounded-[6px] px-2 text-[12.5px] font-medium text-ink outline-none hover:bg-paper-3">
+            <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: active.color }} />
+            <span className="max-w-[140px] truncate">{active.name}</span>
+            <span className="tabular shrink-0 text-[11px] font-normal text-ink-4 @max-[820px]:hidden">{active.cursor ? `${active.cursor} edit${active.cursor > 1 ? "s" : ""}` : ""}</span>
+            <ChevronDown size={13} className="shrink-0 text-ink-4" />
+          </button>
+        </DropdownMenuTrigger>
+      </Tip>
+      <DropdownMenuContent align="start" className="w-72">
+        <DropdownMenuLabel>Scenarios</DropdownMenuLabel>
+        {[...S.scenarios.values()].map((s) => (
+          <DropdownMenuItem
+            key={s.id}
+            onSelect={() => {
+              S.switchTo(s.id);
+              bump();
+            }}
+            className="group"
+          >
+            <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: s.color }} />
+            <span className="min-w-0 flex-1 truncate">{s.name}</span>
+            <span className="tabular text-[11px] text-ink-4">{s.cursor}</span>
+            {s.id === S.activeId ? <Check size={13} className="text-ink-2" /> : <span className="w-[13px]" />}
+            {s.id !== "baseline" && (
+              <button
+                className="hidden text-ink-4 group-hover:block hover:text-bad"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  S.remove(s.id);
+                  bump();
+                }}
+                title="Delete scenario"
+                aria-label={`Delete ${s.name}`}
+              >
+                <Trash2 size={12} />
+              </button>
+            )}
+          </DropdownMenuItem>
+        ))}
+        {active.cursor > 0 && (
+          <>
+            <DropdownMenuSeparator />
+            <ChangesItem />
+          </>
+        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onSelect={() => {
+            S.branch(`Option ${String.fromCharCode(64 + S.scenarios.size)}`, "user");
+            bump();
+          }}
+        >
+          <GitBranch /> Branch from “{active.name}”
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger disabled={!canExport && !many}>
+            <Download /> Export {word}
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="w-64">
+            <DropdownMenuItem disabled={!canExport} onSelect={() => save("json")}>
+              <FileJson /> <span className="flex-1">JSON</span>
+              <span className="text-[11px] text-ink-4">exact, re-importable</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={!canExport} onSelect={() => save("csv")}>
+              <FileSpreadsheet /> <span className="flex-1">CSV</span>
+              <span className="text-[11px] text-ink-4">a row per feature</span>
+            </DropdownMenuItem>
+            {many && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => save("json", "all")}>
+                  <FileJson /> <span className="flex-1">All {word}s (JSON)</span>
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        <DropdownMenuItem onSelect={() => file.current?.click()}>
+          <Upload /> Import {word}…
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+      <input
+        ref={file}
+        type="file"
+        accept=".json,.csv,application/json,text/csv"
+        className="hidden"
+        data-testid="import-proposal"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          e.target.value = "";
+          if (f) void open(f);
+        }}
+      />
+    </DropdownMenu>
   );
 }
 
@@ -270,77 +355,47 @@ function Compass() {
   );
 }
 
-/** which city is open: the blank canvas or a measured preset; design files for the canvas */
+/** which city is open: the blank canvas or a measured preset (designs are exported from the scenario menu) */
 function CityMenu() {
   const R = rt();
-  const file = useRef<HTMLInputElement>(null);
-  const item = "flex cursor-default items-center gap-2 rounded-[5px] px-2 py-1.5 text-[12.5px] text-ink outline-none data-[highlighted]:bg-paper-3 data-[disabled]:opacity-40";
-  const go = (id: string) => void switchCity(id);
   return (
-    <DM.Root>
-      <Tip label="Change city, or save and open designs">
-        <DM.Trigger asChild>
+    <DropdownMenu>
+      <Tip label="Change city">
+        <DropdownMenuTrigger asChild>
           <button className="flex h-7 shrink-0 items-center gap-1 rounded-[6px] px-2 text-[12.5px] font-medium whitespace-nowrap text-ink outline-none hover:bg-paper-3">
             {R.meta.name}
             <ChevronDown size={13} className="text-ink-4" />
           </button>
-        </DM.Trigger>
+        </DropdownMenuTrigger>
       </Tip>
-      <DM.Portal>
-        <DM.Content sideOffset={6} align="start" className="z-50 w-80 rounded-[8px] border border-line bg-paper p-1 shadow-xl">
-          <div className="px-2 pt-1.5 pb-1 font-legend text-[12.5px] leading-none text-ink-3">Start from</div>
-          {CITY_PRESETS.map((c) => (
-            <DM.Item key={c.id} onSelect={() => go(c.id)} className={cx(item, "items-start")}>
-              <span className="min-w-0 flex-1">
-                <span className="block font-medium">{c.name}</span>
-                <span className="block text-[11px] leading-snug text-ink-4">{c.blurb}</span>
-              </span>
-              {c.id === R.cityId ? <Check size={13} className="mt-0.5 text-ink-2" /> : <span className="w-[13px]" />}
-            </DM.Item>
-          ))}
-          {R.meta.sandbox && (
-            <>
-              <DM.Separator className="my-1 h-px bg-line" />
-              <DM.Item
-                className={item}
-                onSelect={async () => {
-                  if (hasDesign() && !window.confirm("Clear this design and start again? Export it first to keep a copy.")) return;
-                  await clearDesign();
-                  window.location.reload();
-                }}
-              >
-                <FilePlus2 size={13} className="text-ink-3" /> New blank canvas
-              </DM.Item>
-              <DM.Item className={item} disabled={!hasDesign()} onSelect={exportDesign}>
-                <Download size={13} className="text-ink-3" /> Export design
-              </DM.Item>
-              <DM.Item className={item} onSelect={() => file.current?.click()}>
-                <Upload size={13} className="text-ink-3" /> Open design file…
-              </DM.Item>
-              <div className="px-2 pt-1 pb-1.5 text-[10.5px] leading-snug text-ink-4">Your design is saved in this browser as you work.</div>
-            </>
-          )}
-        </DM.Content>
-      </DM.Portal>
-      <input
-        ref={file}
-        type="file"
-        accept="application/json,.json"
-        className="hidden"
-        onChange={async (e) => {
-          const f = e.target.files?.[0];
-          e.target.value = "";
-          if (!f) return;
-          if (hasDesign() && !window.confirm("Open this file in place of the current design? Export the current one first to keep it.")) return;
-          try {
-            await importDesign(f);
-            window.location.reload();
-          } catch (err) {
-            useApp.getState().notify((err as Error).message, "error");
-          }
-        }}
-      />
-    </DM.Root>
+      <DropdownMenuContent align="start" className="w-80">
+        <DropdownMenuLabel>Start from</DropdownMenuLabel>
+        {CITY_PRESETS.map((c) => (
+          <DropdownMenuItem key={c.id} onSelect={() => void switchCity(c.id)} className="h-auto items-start py-1.5 leading-normal">
+            <span className="min-w-0 flex-1">
+              <span className="block font-medium">{c.name}</span>
+              <span className="block text-[11px] leading-snug text-ink-4">{c.blurb}</span>
+            </span>
+            {c.id === R.cityId ? <Check size={13} className="mt-0.5 text-ink-2" /> : <span className="w-[13px]" />}
+          </DropdownMenuItem>
+        ))}
+        {R.meta.sandbox && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onSelect={async () => {
+                if (hasDesign() && !window.confirm("Clear this design and start again? Export it first (design menu → Export) to keep a copy.")) return;
+                await clearDesign();
+                window.location.reload();
+              }}
+            >
+              <FilePlus2 /> New blank canvas
+            </DropdownMenuItem>
+            <div className="px-2 pt-1 pb-1.5 text-[10.5px] leading-snug text-ink-4">Your designs are saved in this browser as you work. Export or import them from the design menu.</div>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

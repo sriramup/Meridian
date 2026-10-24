@@ -1,7 +1,10 @@
-// Blank-canvas designs persist in this browser (IndexedDB, saved shortly after every edit) and
-// travel as JSON design files. Measured cities are not saved: their baseline is the pack itself.
+// Blank-canvas designs persist in this browser (IndexedDB, saved shortly after every edit). Files
+// are proposal files (src/state/proposalIO.ts), exported and imported from the scenario menu for the
+// canvas and measured cities alike; older design files are still read there. Measured cities are
+// not saved in the browser: their baseline is the pack itself.
 
 import type { ScenarioSnapshot } from "@/world/scenarios";
+import { exportProposal } from "./proposalIO";
 import { rtMaybe } from "./runtime";
 import { useApp } from "./store";
 
@@ -98,22 +101,8 @@ export async function clearDesign(): Promise<void> {
   await tx("readwrite", (s) => s.delete(KEY));
 }
 
+/** save every design on the canvas as one proposal file */
 export function exportDesign() {
-  const d = current();
-  if (!d) return;
-  const blob = new Blob([JSON.stringify(d)], { type: "application/json" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `meridian-design-${d.savedAt.slice(0, 10)}.json`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-}
-
-/** load a design file into the browser's slot; the caller reloads the canvas */
-export async function importDesign(file: File): Promise<void> {
-  const d = JSON.parse(await file.text()) as DesignFile;
-  if (!isDesign(d) || !d.scenarios?.scenarios) throw new Error("Not a Meridian design file");
-  stop?.();
-  stop = null;
-  await tx("readwrite", (s) => s.put(d, KEY));
+  const R = rtMaybe();
+  if (R && hasDesign()) exportProposal(R, "json", "all");
 }
