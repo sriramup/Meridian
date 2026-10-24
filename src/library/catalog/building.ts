@@ -62,6 +62,8 @@ export const BUILDING_PARAMS: ParamSpec[] = [
   num("siteInset", "Setback from site edge", 0, { group: F, unit: "m", min: 0, max: 30, step: 0.5, description: "Front / side / rear setback from a drawn site", advanced: true }),
   // massing
   int("floors", "Floors", 4, { group: MS, min: 1, max: 160, unit: "floors", description: "Storeys above ground" }),
+  num("targetHeight", "Target height", 0, { group: MS, unit: "m", min: 0, max: 700, step: 0.5, description: "If set, floors are derived from this height and the floor heights (0 = use Floors)" }),
+  num("targetGFA", "Target floor area", 0, { group: MS, unit: "m²", min: 0, max: 2000000, step: 50, description: "If set, floors are derived so the gross floor area reaches this (0 = use Floors)" }),
   num("groundFloorHeight", "Ground floor height", 0, { group: MS, unit: "m", min: 0, max: 12, step: 0.1, description: "Floor-to-floor height of the ground storey (0 = typical for the use: 4.2 m residential, 4.8 m other)" }),
   num("floorHeight", "Typical floor height", 0, { group: MS, unit: "m", min: 0, max: 10, step: 0.1, description: "Floor-to-floor height of upper storeys (0 = typical for the use: 3.2 m residential / hotel, 4.0 m office, 5.5 m industrial)" }),
   int("podiumFloors", "Podium floors", 0, { group: MS, min: 0, max: 20, unit: "floors", description: "Floors in a full-footprint base; the floors above form a tower (0 = no podium)" }),
@@ -200,7 +202,19 @@ export function buildBuilding(out: Out, r: Reader, frame: Frame, o: BuildOverrid
     return null;
   }
   const use = r.s("use") as Use;
-  const floors = r.n("floors");
+  let floors = r.n("floors");
+  {
+    const fh = floorHeightsFor(use, r.n("groundFloorHeight"), r.n("floorHeight"));
+    if (r.n("targetHeight") > 0) floors = Math.max(1, Math.min(160, 1 + Math.round((r.n("targetHeight") - fh.ground) / fh.typ)));
+    else if (r.n("targetGFA") > 0) {
+      // podium floors carry the full plate, tower floors the reduced one
+      const plate = polyArea(local);
+      const pf = Math.min(r.n("podiumFloors"), 159);
+      const tower = plate * (pf > 0 ? r.n("towerCoverage") / 100 : 1);
+      const rest = r.n("targetGFA") - pf * plate;
+      floors = Math.max(1, Math.min(160, pf + Math.max(pf > 0 ? 1 : 1, Math.ceil(rest / Math.max(1, tower)))));
+    }
+  }
   const st = stackMasses(local, {
     floors,
     use,

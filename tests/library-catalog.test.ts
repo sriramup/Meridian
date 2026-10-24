@@ -218,7 +218,7 @@ describe("library catalog", () => {
         }
         const ms = performance.now() - t0;
         if (ms > 5000) failures.push(`${def.id}: slow (${ms.toFixed(0)} ms) with ${JSON.stringify(raw)}`);
-        for (const e of validate(def, g, `fz${k}`)) failures.push(`${def.id} ${JSON.stringify(raw).slice(0, 300)}: ${e}`);
+        for (const e of validate(def, g, `fz${k}`)) failures.push(`${def.id} ${JSON.stringify(raw).slice(0, process.env.LIB_FUZZ_FULL ? 5000 : 300)}: ${e}`);
         if (failures.length > 30) break;
       }
     }
@@ -319,5 +319,17 @@ describe("search", () => {
     expect(top("sakura")).toContain("flora.tree_cherry");
     expect(top("townhomes")).toContain("housing.townhouse_row");
     expect(top("palm")).toEqual(expect.arrayContaining(["flora.tree_palm"]));
+  });
+});
+
+describe("height and floor-area targets", () => {
+  it("derives floors from a target height or GFA", () => {
+    const def = getPrimitive("buildings.building")!;
+    let { params } = validateParams(def, { targetHeight: 100, use: "office" });
+    let b = def.generate(params, { at: [0, 0] }, ctxFor(def, params, {})).buildings![0];
+    expect(Math.abs(b.height - 100)).toBeLessThan(4.1);
+    ({ params } = validateParams(def, { targetGFA: 10000, width: 30, depth: 20, use: "residential" }));
+    b = def.generate(params, { at: [0, 0] }, ctxFor(def, params, {})).buildings![0];
+    expect(b.floors).toBe(Math.ceil(10000 / 600));
   });
 });
