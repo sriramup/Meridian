@@ -27,7 +27,7 @@ export function TopBar() {
   };
   return (
     <div className="pointer-events-auto flex h-10 min-w-0 items-center gap-1 chrome scroll-ends pr-1.5 pl-3">
-      <button onClick={overview} className="mr-1 shrink-0 text-ink" title="Overview">
+      <button onClick={overview} className="mr-1 flex h-full shrink-0 items-center text-ink" title="Overview">
         <Wordmark className="@max-[700px]:[&>span]:hidden" />
       </button>
       <span className="mx-1 h-4 w-px bg-line-2" />
