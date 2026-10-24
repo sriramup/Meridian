@@ -11,6 +11,7 @@ import { useApp, type Tool, type OverlayId } from "@/state/store";
 import { LocalProjection } from "@/world/projection";
 import { removeBuildings } from "@/world/ops/buildings";
 import { plantTreesAt, removeEntities } from "@/world/ops/landscape";
+import { removeInstance } from "@/world/ops/library";
 import { removeStreets } from "@/world/ops/streets";
 import { pointProblem, treeProblem } from "@/world/ops/placement";
 import { speciesOf } from "@/world/species";
@@ -144,15 +145,21 @@ function Attribution() {
 export function deleteSelection(): boolean {
   const R = rt();
   const st = useApp.getState();
-  const ents = st.selection.map((id) => R.world.get(id)).filter((e): e is NonNullable<typeof e> => !!e);
+  let ents = st.selection.map((id) => R.world.get(id)).filter((e): e is NonNullable<typeof e> => !!e);
   const actor = { author: "user" as const };
   const of = (k: string) => ents.filter((e) => e.kind === k).map((e) => e.id);
   let ok = false;
+  // the main feature of a library instance takes the whole instance (its trees, objects, paths…) with it
+  const insts = ents.filter((e) => "lib" in e && e.lib?.primary).map((e) => e.id);
+  if (insts.length) {
+    ok = applyOp(removeInstance(R.world, insts, actor)) || ok;
+    ents = ents.filter((e) => R.world.get(e.id));
+  }
   if (of("building").length) ok = applyOp(removeBuildings(R.world, of("building"), actor)) || ok;
   if (of("street").length) ok = applyOp(removeStreets(R.world, of("street"), { reclaim: "none" }, actor)) || ok;
   // a transit line takes its stops with it
   const routes = ents.filter((e) => e.kind === "route") as TransitRoute[];
-  const other = [...of("area"), ...of("tree"), ...routes.flatMap((r) => [r.id, ...r.stops.filter((s) => R.world.get(s))])];
+  const other = [...of("area"), ...of("tree"), ...of("prop"), ...of("path"), ...routes.flatMap((r) => [r.id, ...r.stops.filter((s) => R.world.get(s))])];
   if (other.length) ok = applyOp(removeEntities(R.world, other, actor)) || ok;
   return ok;
 }

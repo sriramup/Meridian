@@ -281,7 +281,8 @@ function generateInto(v: View, def: PrimitiveDef, params: ParamValues, place: Pl
   const summary: string[] = [];
   const warnings: string[] = [];
   const conflicts: { id: string; kind: string; message: string; resolved: boolean }[] = [];
-  const siting = def.siting ?? {};
+  // a definition may let its users relax siting per instance with allow_* parameters
+  const siting = { ...(def.siting ?? {}), ...(params.allow_carriageway === true ? { carriageway: true } : {}), ...(params.allow_water === true ? { water: true } : {}), ...(params.allow_on_buildings === true ? { onBuildings: true } : {}), ...(params.allow_overlap === true ? { overlapProps: true } : {}) };
   const source = actor.author === "agent" ? `Library: ${def.name} (agent)` : `Library: ${def.name}`;
   const foreign = (e: Entity) => libOf(e)?.instance !== o.instance;
   const skipped: Record<string, number> = {};

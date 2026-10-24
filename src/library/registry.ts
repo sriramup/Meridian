@@ -36,11 +36,14 @@ export function searchPrimitives(query: string, limit = 50): PrimitiveDef[] {
     const desc = `${d.id} ${d.category} ${d.description}`.toLowerCase();
     let s = 0;
     let all = true;
-    for (const w of words) {
-      if (name.includes(w)) s += name.startsWith(w) ? 4 : 3;
+    for (const w0 of words) {
+      // plain plural / stem tolerance: "kiosks" finds "kiosk", "benches" finds "bench"
+      const forms = [w0, w0.replace(/(es|s)$/, ""), w0.replace(/s$/, "")].filter((w, i, a) => w.length > 1 && a.indexOf(w) === i);
+      const w = forms.find((f) => name.includes(f)) ?? forms.find((f) => tags.includes(f)) ?? forms.find((f) => desc.includes(f));
+      if (!w) all = false;
+      else if (name.includes(w)) s += name.startsWith(w) ? 4 : 3;
       else if (tags.includes(w)) s += 2;
-      else if (desc.includes(w)) s += 1;
-      else all = false;
+      else s += 1;
     }
     if (all) scored.push({ d, s });
   }

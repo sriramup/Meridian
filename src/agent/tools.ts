@@ -33,6 +33,7 @@ import type { Typology } from "@/geometry/massing";
 import { checkBuilding, frontage, heightLimit, parcelsUnder, rowConflicts, streetBand } from "@/world/ops/validate";
 import type { Area, AreaType, Building, Entity, Parcel, Polygon, Street, StreetNode, TransitRoute, Use, Vec2 } from "@/world/types";
 import type { Changeset } from "@/world/world";
+import { LIBRARY_TOOLS, libraryBrief, libraryDetail, libraryMatch } from "./libraryTools";
 import { blockAt, entityName, entityPoint, junctionOf, polyOf, resolveArea, resolveLocation, resolvePlace, resolveStreets, viewBounds, viewCenter, type AreaRef, type Loc } from "./resolve";
 
 export interface ToolDisplay {
@@ -134,7 +135,7 @@ function err(title: string, message: string): ToolOutput {
 
 // ---------------------------------------------------------------- commit
 
-async function commit(res: OpResult, title: string, ctx: ToolContext): Promise<ToolOutput> {
+export async function commit(res: OpResult, title: string, ctx: ToolContext): Promise<ToolOutput> {
   if (!res.ok || !res.changeset) return err(title, res.error ?? "Operation failed");
   const R = rt();
   const cs = res.changeset;
@@ -262,8 +263,11 @@ function brief(e: Entity, from?: Vec2) {
     case "place":
       Object.assign(base, { type: e.type });
       break;
+    case "prop":
+      Object.assign(base, { type: e.type, height_m: r1(e.height), proposed: !!e.createdBy, ...(e.shade ? { shade_radius_m: e.shade.r } : {}) });
+      break;
   }
-  return base;
+  return Object.assign(base, libraryBrief(e));
 }
 
 function detail(e: Entity) {
@@ -284,6 +288,7 @@ function detail(e: Entity) {
       issues: checkBuilding(w, e).map((i) => i.message),
       source: e.source,
       notes: e.notes,
+      ...libraryDetail(e),
     };
   }
   if (e.kind === "street") {
@@ -314,7 +319,8 @@ function detail(e: Entity) {
     return { ...b, buildings: blds.map((x) => x.id), existing_gfa_m2: Math.round(gfa), far_used: e.area ? r1(gfa / e.area) : null };
   }
   if (e.kind === "route") return { ...b, streets: e.streets.length, stop_ids: e.stops.slice(0, 40) };
-  return b;
+  if (e.kind === "prop") return { ...b, ...libraryDetail(e), solids: e.solids.length, footprint_m2: e.footprint ? r1(polyArea(e.footprint)) : undefined, cover: e.cover, source: e.source };
+  return { ...b, ...libraryDetail(e) };
 }
 
 // ---------------------------------------------------------------- simulations formatting
@@ -824,6 +830,8 @@ export const TOOLS: Record<string, (i: In, ctx: ToolContext) => Promise<ToolOutp
     const W = (i.where ?? {}) as In;
     const hh = R.meta.calibration.householdSize;
     cands = cands.filter((e) => {
+      if ((W.def || W.category || W.instance) && !libraryMatch(e, W)) return false;
+      if (e.kind === "prop" && W.type && e.type !== W.type) return false;
       if (i.name && !(entityName(e).toLowerCase().includes(String(i.name).toLowerCase()) || ("name" in e && (e as { name?: string }).name?.toLowerCase().includes(String(i.name).toLowerCase())))) return false;
       if (e.kind === "building") {
         if (W.use && e.use !== W.use && !(W.use === "residential" && (e.program.residential ?? 0) > 0.5)) return false;
@@ -2197,6 +2205,7 @@ export const TOOLS: Record<string, (i: In, ctx: ToolContext) => Promise<ToolOutp
     if (i.highlight) st.setHighlight({ ids: i.highlight });
     return { content: { placed: notes.length }, display: { title: `Annotated ${notes.length} location${notes.length === 1 ? "" : "s"}`, status: "ok" } };
   },
+  ...LIBRARY_TOOLS,
 };
 
 /** check streamed tool input against the tool's JSON schema (required keys and top-level types) before running it */
