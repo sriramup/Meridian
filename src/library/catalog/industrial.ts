@@ -7,7 +7,6 @@ import { C, hexToRgb, shade } from "../geometry/palette";
 import { S, beam, box, cyl, moveSolids } from "../geometry/solids";
 import { benchSolids, signSolids } from "../geometry/props";
 import { BUILDING_PARAMS, buildBuilding, buildingType } from "./building";
-import { atRear, frontParking, parkingParams } from "./commercial";
 import { areaL, canopySolids, parkingLot, rectL } from "./decor";
 import { propDef, siteOf } from "./kinds";
 import { Out } from "./make";
