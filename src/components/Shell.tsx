@@ -15,7 +15,9 @@ import { removeStreets } from "@/world/ops/streets";
 import { pointProblem, treeProblem } from "@/world/ops/placement";
 import { speciesOf } from "@/world/species";
 import type { TransitRoute, Vec2 } from "@/world/types";
-import { AgentPanel } from "./AgentPanel";
+import { AgentsPane } from "./agents/AgentsPane";
+import { ZoneDrawSurface } from "./agents/ZoneDrawSurface";
+import { ZoneLayers } from "./agents/ZoneLayers";
 import { AnalysisDock } from "./AnalysisDock";
 import { HelpDialog, NavHint } from "./Help";
 import { Inspector } from "./Inspector";
@@ -48,7 +50,8 @@ export function Shell() {
       import("@/sim/client").then((c) => ((window as unknown as { __meridianSims: unknown }).__meridianSims = c.useSims));
       (window as unknown as { __meridianTools: unknown }).__meridianTools = { run: (name: string, input: Record<string, unknown>) => m.executeTool(name, input, { requestApproval: async () => true, approvals: false }) };
     });
-    import("@/agent/agent").then((m) => ((window as unknown as { __meridianAgent: unknown }).__meridianAgent = m.useAgent));
+    // the multi-agent runtime for automation: AgentsApi functions, `.agents` (the useAgents store) and `.sessions` (the module)
+    import("@/agent/sessions").then((m) => ((window as unknown as { __meridianAgent: unknown }).__meridianAgent = { ...m.agentsApi, agents: m.useAgents, sessions: m }));
     initSimWorker().catch((e) => useApp.getState().notify(`Simulation worker failed: ${(e as Error).message}`, "error"));
   }, []);
   useEffect(() => {
@@ -76,6 +79,8 @@ export function Shell() {
         <div className="@container relative min-w-0 flex-1">
           <MapView />
           <LibrarySolids />
+          <ZoneDrawSurface />
+          <ZoneLayers paneOpen={agentOpen} />
           <div className="relative z-[5]">
             <Annotations />
           </div>
@@ -110,7 +115,7 @@ export function Shell() {
         {agentOpen && (
           <div className="relative h-full shrink-0" style={{ width }}>
             <div className="absolute top-0 bottom-0 -left-1 z-10 w-2 cursor-col-resize" onPointerDown={() => (drag.current = true)} />
-            <AgentPanel onClose={() => useApp.getState().setAgentOpen(false)} />
+            <AgentsPane onClose={() => useApp.getState().setAgentOpen(false)} />
           </div>
         )}
       </div>
