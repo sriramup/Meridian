@@ -9,7 +9,7 @@ import { polyCentroid } from "@/geometry/polygon";
 import type { Marking } from "@/geometry/streetGeometry";
 import { speciesOf, type CrownShape } from "@/world/species";
 import type { Position } from "@deck.gl/core";
-import type { Area, Building, Entity, Path as FootPath, Ring, Street, StripType, Tree } from "@/world/types";
+import type { Area, Building, Entity, Path as FootPath, Prop, Ring, Street, StripType, Tree } from "@/world/types";
 import type { World } from "@/world/world";
 import { FACADE, facadeAlpha } from "./FacadeLayer";
 import type { RGB, RGBA, Theme } from "./theme";
@@ -265,6 +265,8 @@ export class SceneCache {
     let base: RGB = T.building[b.use] ?? T.building.other;
     if (proposed) base = T.proposed;
     if (b.style?.facade === "glass" && !proposed) base = T.glass;
+    // library primitives carry an explicit wall colour (kept when changes are highlighted, so a configured colour is seen)
+    if (b.style?.color) base = b.style.color;
     const tint = (b.style?.tint ?? 0.5) - 0.5;
     // by day buildings range from white to a light grey so a block doesn't read as one white mass
     const k = T.id === "night" ? 1 + tint * 0.25 : 0.95 + tint * 0.16;
@@ -352,8 +354,27 @@ export function outlineFor(e: Entity, world: World): OutlinePath[] {
   } else if (e.kind === "node") {
     const g = world.nodeGeom.get(e.id);
     if (g?.carriageway) flat(g.carriageway);
+  } else if (e.kind === "prop") {
+    // a library prop: its footprint (or the box around its solids) at the base and at its height
+    const r = e.footprint?.[0] ?? propBox(e);
+    out.push({ path: ring(r, 0.08), solid: false });
+    if (e.height > 1.5) out.push({ path: ring(r, e.height), solid: true });
   }
   return out;
+}
+
+/** a prop's ground box from its solids (world coordinates) */
+function propBox(e: Prop): Ring {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const s of e.solids) {
+    const a = ((s.rot ?? 0) * Math.PI) / 180, ca = Math.abs(Math.cos(a)), sa = Math.abs(Math.sin(a));
+    const hx = (ca * s.size[0] + sa * s.size[1]) / 2, hy = (sa * s.size[0] + ca * s.size[1]) / 2;
+    x0 = Math.min(x0, s.at[0] - hx); x1 = Math.max(x1, s.at[0] + hx);
+    y0 = Math.min(y0, s.at[1] - hy); y1 = Math.max(y1, s.at[1] + hy);
+  }
+  if (!Number.isFinite(x0)) x0 = y0 = -0.5, x1 = y1 = 0.5;
+  const pad = 0.15, c = Math.cos((e.rot * Math.PI) / 180), sn = Math.sin((e.rot * Math.PI) / 180);
+  return ([[x0 - pad, y0 - pad], [x1 + pad, y0 - pad], [x1 + pad, y1 + pad], [x0 - pad, y1 + pad]] as Ring).map(([x, y]) => [e.p[0] + c * x - sn * y, e.p[1] + sn * x + c * y]);
 }
 
 /** corners where an outer ring turns outward by more than 20° (real corners, not the facets of a curve) */
