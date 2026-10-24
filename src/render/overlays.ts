@@ -17,6 +17,7 @@ import type { Street, Vec2 } from "@/world/types";
 import { BLUES, DENSITY, DIVERGE, HEAT, LOS, SUN, VIRIDIS, VIRIDIS_R, sample, type Palette } from "./palettes";
 import { programmeOf } from "@/world/ops/core";
 import { polyCentroid } from "@/geometry/polygon";
+import { dF, fmtDF, toF } from "@/lib/units";
 
 export interface OverlayState {
   heatMode: "exposure" | "surface";
@@ -122,8 +123,8 @@ export function legendFor(overlay: OverlayId | null): Legend | null {
       return { title: "Volume / capacity", unit: "v/c", palette: LOS, min: 0, max: 1.2, ticks: ["0", "0.6", "0.9", "1.2+"], model: "Static user-equilibrium assignment · BPR", note: "Link width ∝ modelled flow; moving vehicles travel at modelled congested speed" };
     case "heat":
       return overlayState.heatMode === "exposure"
-        ? { title: "Street heat (feels like)", unit: "°C", palette: HEAT, min: heatRange()[0], max: heatRange()[1], model: "Simplified surface-energy model · shadow-cast" }
-        : { title: "Surface temperature", unit: "°C", palette: HEAT, min: heatRange()[0], max: heatRange()[1], model: "Simplified surface-energy model · shadow-cast" };
+        ? { title: "Street heat (feels like)", unit: "°F", palette: HEAT, min: Math.round(toF(heatRange()[0])), max: Math.round(toF(heatRange()[1])), model: "Simplified surface-energy model · shadow-cast" }
+        : { title: "Surface temperature", unit: "°F", palette: HEAT, min: Math.round(toF(heatRange()[0])), max: Math.round(toF(heatRange()[1])), model: "Simplified surface-energy model · shadow-cast" };
     case "sun":
       return { title: "Direct sun", unit: "hours", palette: SUN, min: 0, max: 12, model: "Shadow projection, 30-min steps" };
     case "runoff":
@@ -660,14 +661,15 @@ export function impactPins(): Layer[] {
   if (!imp) return [];
   const data = imp.pins;
   if (!data.length) return [];
-  const neutral = (d: ImpactPin) => Math.abs(d.deltaC) < 0.1;
+  // the pin reads in °F; under 0.1 °F of change it says no change
+  const neutral = (d: ImpactPin) => Math.abs(dF(d.deltaC)) < 0.1;
   return [
     new TextLayer<ImpactPin>({
       id: "impact-pins",
       ...common(),
       data,
       getPosition: (d) => [d.at[0], d.at[1], 12],
-      getText: (d) => (neutral(d) ? "0.0 °C" : `${d.deltaC < 0 ? "−" : "+"}${Math.abs(d.deltaC).toFixed(1)} °C`),
+      getText: (d) => (neutral(d) ? "0.0 °F" : fmtDF(d.deltaC)),
       getSize: 14,
       getColor: [255, 255, 255, 255],
       background: true,

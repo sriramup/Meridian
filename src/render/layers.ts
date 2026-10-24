@@ -11,7 +11,7 @@ import { FacadeLayer } from "./FacadeLayer";
 import { fadedGround } from "./edge";
 import { coneMesh, crownMesh, cylinderMesh, sphereMesh } from "./meshes";
 import { outlineFor, type MarkDatum, type MassDatum, type SurfaceDatum, type TreeDatum } from "./scene";
-import type { RGBA, Theme } from "./theme";
+import type { RGB, RGBA, Theme } from "./theme";
 
 const SPHERE = sphereMesh();
 const CYL = cylinderMesh();
@@ -26,7 +26,31 @@ export interface LayerContext {
   theme: Theme;
   app: Pick<AppState, "selection" | "layers" | "highlight" | "theme" | "cameraMode">;
   zoom: number;
+  /** of the modelled month: leaves turn in fall and are dead in winter */
+  season: Season;
 }
+
+export type Season = "spring" | "summer" | "fall" | "winter";
+/** meteorological seasons from a "MM-DD" date */
+export function seasonOf(date: string): Season {
+  const m = +date.slice(0, 2);
+  return m >= 3 && m <= 5 ? "spring" : m <= 8 && m >= 6 ? "summer" : m >= 9 && m <= 11 ? "fall" : "winter";
+}
+
+/** autumn colours, picked per tree so a row doesn't turn as one */
+const FALL: RGB[] = [
+  [214, 116, 44],
+  [232, 160, 58],
+  [196, 84, 46],
+  [226, 136, 40],
+  [204, 150, 70],
+];
+/** dead winter leaves: dry browns and greys */
+const WINTER: RGB[] = [
+  [132, 106, 80],
+  [118, 98, 80],
+  [146, 120, 92],
+];
 
 /**
  * The scene in three stacked sections: analysis overlays go between them (ground overlays above
@@ -342,11 +366,15 @@ export function buildLayers(ctx: LayerContext): SceneLayers {
   // ---- trees
   if (app.layers.trees) {
     const { trees, conifers, all } = treeData(chunks);
+    const season = ctx.season;
     const tint = (d: TreeDatum): RGBA => {
-      const base = d.color ?? (d.proposed ? [118, 172, 96] : T.tree);
-      const k = 0.9 + d.seed * 0.2;
+      const pick = (c: RGB[]) => c[Math.floor(d.seed * 997) % c.length];
+      const base = season === "fall" ? pick(FALL) : season === "winter" ? pick(WINTER) : d.color ?? (d.proposed ? [118, 172, 96] : T.tree);
+      const k = (0.9 + d.seed * 0.2) * (T.id === "night" && season !== "spring" && season !== "summer" ? 0.55 : 1);
       return [Math.min(255, base[0] * k), Math.min(255, base[1] * k), Math.min(255, base[2] * k), 255];
     };
+    // bare in winter: the dead leaves that are left make a thinner crown (the tree keeps its height)
+    const leafy = season === "winter" ? 0.72 : 1;
     // crown proportions by habit: spreading oaks are wide and low, vase elms taller than wide
     const squash = (d: TreeDatum) => (d.shape === "spreading" ? 0.58 : d.shape === "vase" ? 0.95 : 0.82) * (0.94 + d.seed * 0.12);
     const close = ctx.zoom >= 16.6;
@@ -385,11 +413,11 @@ export function buildLayers(ctx: LayerContext): SceneLayers {
         data: trees,
         mesh: (close ? CROWN : SPHERE) as never,
         getPosition: (d) => [d.position[0], d.position[1], Math.max(d.r * squash(d), d.h - d.r * squash(d))],
-        getScale: (d) => [d.r, d.r, d.r * squash(d)],
+        getScale: (d) => [d.r * leafy, d.r * leafy, d.r * squash(d) * leafy],
         getOrientation: (d) => [0, d.seed * 360, 0],
         getColor: tint,
         pickable: true,
-        updateTriggers: { getColor: [T.id] },
+        updateTriggers: { getColor: [T.id, season], getScale: [season] },
         material: { ambient: 0.55, diffuse: 0.7, shininess: 4, specularColor: [20, 30, 20] },
       }),
       new SimpleMeshLayer<TreeDatum>({
@@ -398,8 +426,9 @@ export function buildLayers(ctx: LayerContext): SceneLayers {
         data: conifers,
         mesh: CONE as never,
         getPosition: (d) => [d.position[0], d.position[1], d.h * 0.22],
-        getScale: (d) => [d.r, d.r, d.h * 0.8],
+        getScale: (d) => [d.r * leafy, d.r * leafy, d.h * 0.8],
         getColor: tint,
+        updateTriggers: { getColor: [T.id, season], getScale: [season] },
         pickable: true,
         material: { ambient: 0.55, diffuse: 0.7, shininess: 4, specularColor: [20, 30, 20] },
       }),

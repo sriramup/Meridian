@@ -32,17 +32,19 @@ ANTHROPIC_API_KEY=sk-ant-…
 | **Masterplan** | Generate districts (European, grid, mid-rise, towers, TOD, civic, infill). Infill can redevelop only underused private lots (buildings worth less than half their land), most underused first, to hit a net housing target. New streets subdivide blocks, open space is allocated, historic buildings are preserved, and floors are solved to hit a unit or population target under a storey cap. |
 | **Simulate** | Run traffic (AM/PM assignment), bicycle level of traffic stress with low-stress connectivity, heat exposure, sun hours, stormwater runoff, flood inundation, walk access, fire/EMS response, development capacity, a lot-by-lot residential growth scenario with 5-year snapshots, and scenario metrics. Results show as map overlays with legends and assumptions. |
 | **Compare** | Scenario branches with exact undo/redo. Compare any two branches with KPI deltas and difference maps. Borrow changes from one branch into another. |
-| **Navigate** | Orbit, cinematic fly-to, flyovers, a pedestrian eye-level walk mode (P, then WASD), a night theme (N), and time-of-day sun. |
+| **Navigate** | Orbit, cinematic fly-to, flyovers, a street-level walk (P: drag to look around, WASD or arrows to walk, scroll to step, Esc to come back up), a night theme (N), and time-of-day sun. Trees follow the modelled month: orange in fall, bare and brown in winter. |
 
-Keyboard: `V` select · `S` street · `B` building · `A` park, plaza or water · `T` trees · `D` district · `R` transit line · `M` measure · `Delete` remove the selection · `1–0` overlays · `N` night · `P` pedestrian · `⌘Z / ⇧⌘Z` undo/redo · `⌘J` agent.
+Keyboard: `/` or `⌘K` search for a tool or action (or ask the agent) · `?` controls guide · `V` select · `S` street · `B` building · `A` park, plaza or water · `T` trees · `D` district · `R` transit line · `M` measure · `Delete` remove the selection · `1–0` overlays · `N` night · `P` street level · `⌘Z / ⇧⌘Z` undo/redo · `⌘J` agent.
 
-Camera: drag to pan; right-drag, `Ctrl`-, `Shift`-, `Alt`/`⌥`- or middle-drag to rotate and tilt (or drag the compass, top right; click it to face north). `Q / E` turn, `⇧↑ / ⇧↓` tilt.
+Camera: drag to pan; right-drag, `Ctrl`-, `Shift`-, `Alt`/`⌥`- or middle-drag to rotate and tilt (or drag the compass, top right; click it to face north). `Q / E` turn, `⇧↑ / ⇧↓` tilt. The `?` button lists every control.
+
+Temperatures are shown in °F (the heat model works in °C; the agent's tool results carry both).
 
 ## Blank canvas (sandbox)
 
 The default view is an empty 3 × 3 km site with a faint 100 m grid. There is no basemap, measured data or existing city under it. You design the city from scratch with the same elements and operations used on Austin:
 
-- **Pick, then draw.** Choosing a tool opens a small palette for that element. Streets come in six classes (local, collector, avenue, boulevard, living street, pedestrian), with optional bike lanes and street trees. Buildings have a use, a form (13 massing typologies) and a number of floors. Areas cover parks, plazas, water, woodland, lawn, rain gardens, permeable paving, retention ponds and parking. A district has a style, a homes target, a height cap, and optional new local streets. A transit line can be a bus, rapid bus or tram, with a headway.
+- **Pick, then draw.** Choosing a tool opens a small palette for that element. Streets come in six classes (local, collector, avenue, boulevard, living street, pedestrian), with optional bike lanes and street trees. Buildings have a use, a form (13 massing typologies) and a number of floors. Areas cover parks, plazas, water, woodland, lawn, rain gardens, permeable paving, retention ponds and parking (drawn bare: trees are planted by hand). Trees go one at a time or along a line, spaced a crown apart; a tree needs room for its whole crown, so it can't be planted where its leaves would overlap another tree or a building. A district has a style, a homes target, a height cap, and optional new local streets. A transit line can be a bus, rapid bus or tram, with a headway.
 - **Placing elements.** Finishing a shape creates the element straight away and selects it, so you can fine-tune it in the inspector. The inspector lets you rename, edit floors and form, edit the street cross-section, set junction control, or remove the element. Shapes that run into something (a street through buildings, a footprint over another building) ask first.
 - **Hidden overlays.** The heat, shade, stormwater, traffic, density, walk-access, bike and transit models all run on what you draw. Capacity, growth and flood screening are hidden, because there are no parcels, zoning or terrain to work on.
 - **How models treat a drawn city:**

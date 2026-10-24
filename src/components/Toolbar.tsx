@@ -1,14 +1,13 @@
 "use client";
 
-import { Building2, LayoutGrid, LoaderCircle, MousePointer2, Ruler, Spline, Square, TramFront, TreeDeciduous } from "lucide-react";
-import { Fragment, useEffect, useState, type ReactNode } from "react";
+import { Building2, LayoutGrid, MousePointer2, Ruler, Spline, Square, TramFront, TreeDeciduous } from "lucide-react";
+import { Fragment, useEffect, type ReactNode } from "react";
 import { TYPOLOGIES } from "@/geometry/massing";
 import { MODEL } from "@/render/theme";
 import { createDrawn, paletteStreetWidth } from "@/state/create";
 import { draw, resetDraw } from "@/state/drawing";
 import { useApp, type Palette, type Tool } from "@/state/store";
 import { SPECIES } from "@/world/species";
-import { viewBounds } from "@/agent/resolve";
 import type { Vec2 } from "@/world/types";
 import { Button, IconButton, Segmented, Tip, cx } from "./ui";
 
@@ -58,45 +57,23 @@ export function Toolbar() {
 function PlantingPalette() {
   const pl = useApp((s) => s.planting);
   const set = useApp((s) => s.setPlanting);
-  const [busy, setBusy] = useState(false);
-  const fillView = async () => {
-    setBusy(true);
-    try {
-      const [x0, y0, x1, y1] = viewBounds();
-      const { executeTool } = await import("@/agent/tools");
-      const out = await executeTool("plant_trees", { within: [[x0, y0], [x1, y0], [x1, y1], [x0, y1]], count: pl.count, target: "heat", species: pl.species }, { requestApproval: async () => true, approvals: false });
-      if (out.isError) useApp.getState().notify("No open sidewalk on screen to plant: draw streets first, or move the map", "warn");
-      else {
-        const { notifyReport } = await import("@/state/actions");
-        notifyReport(out.content as { summary?: string[] }, `Plant ${pl.count} shade trees`);
-        // show what they do: the heat map updates live
-        if (!useApp.getState().overlay) useApp.getState().setOverlay("heat");
-      }
-      useApp.getState().bumpWorld();
-      useApp.getState().bumpScenarios();
-    } finally {
-      setBusy(false);
-    }
-  };
+  const sp = SPECIES.find((x) => x.id === pl.species);
   return (
-    <div className="chrome w-[280px] p-3">
-      <div className="font-display text-[17px] leading-none font-semibold text-ink">Plant trees</div>
-      <div className="mt-2.5 grid grid-cols-3 gap-1">
+    <Panel
+      title="Plant trees"
+      hint={`${pl.mode === "single" ? "Click to plant one tree." : "Click along a sidewalk, then Enter: trees go a crown apart."} A tree needs room for its leaves (${sp ? `${(sp.r * 2).toFixed(0)} m across` : "its crown"}): red means they'd hit a building or another tree.`}
+    >
+      <div className="grid grid-cols-2 gap-1">
         {SPECIES.map((x) => (
-          <button
-            key={x.id}
-            onClick={() => set({ species: x.id })}
-            title={x.note}
-            className={cx("flex flex-col items-center gap-1 rounded-[6px] border px-1 py-1.5 text-[10.5px] leading-tight transition-colors", x.id === pl.species ? "border-accent/70 bg-accent-2 text-ink" : "border-line text-ink-3 hover:border-line-2 hover:text-ink")}
-          >
-            <span className="block rounded-full" style={{ width: 6 + x.r * 2.4, height: 6 + x.r * 2.4, background: `rgb(${x.color.join(",")})` }} />
-            {x.name}
-          </button>
+          <Choice key={x.id} on={x.id === pl.species} onClick={() => set({ species: x.id })} title={x.note}>
+            <span className="flex items-center gap-1.5 whitespace-nowrap">
+              <span className="block shrink-0 rounded-full" style={{ width: 4 + x.r * 1.6, height: 4 + x.r * 1.6, background: `rgb(${x.color.join(",")})` }} />
+              <span className="font-medium">{x.name}</span>
+            </span>
+          </Choice>
         ))}
       </div>
-
-      <div className="mt-3 flex items-center justify-between">
-        <span className="text-[11px] font-semibold tracking-[0.08em] text-ink-4 uppercase">By hand</span>
+      <Field label="Place">
         <Segmented
           size="xs"
           value={pl.mode}
@@ -105,37 +82,12 @@ function PlantingPalette() {
             set({ mode });
           }}
           options={[
-            { value: "single", label: "Click", title: "One tree per click" },
-            { value: "row", label: "Row", title: "Click along a sidewalk, Enter to plant" },
-            { value: "area", label: "Area", title: "Outline a lot or park, Enter to fill it" },
+            { value: "single", label: "One at a time", title: "One tree per click" },
+            { value: "row", label: "Along a line", title: "Click along a sidewalk, Enter to plant" },
           ]}
         />
-      </div>
-      {pl.mode !== "single" && (
-        <label className="mt-2 flex items-center gap-2 text-[11.5px] text-ink-3">
-          Spacing
-          <input type="range" min={4} max={20} step={1} value={pl.spacing} onChange={(e) => set({ spacing: +e.target.value })} className="h-1 min-w-0 flex-1" />
-          <span className="tabular w-9 text-right text-ink">{pl.spacing} m</span>
-        </label>
-      )}
-
-      <div className="mt-3 border-t border-line pt-3">
-        <div className="text-[11px] font-semibold tracking-[0.08em] text-ink-4 uppercase">Automatic</div>
-        <p className="mt-1 text-[11.5px] leading-snug text-ink-3">Shade the hottest walks: trees go on open sidewalk where people on foot take the most heat, anywhere on screen.</p>
-        <div className="mt-2 flex items-center gap-1.5">
-          <select value={pl.count} onChange={(e) => set({ count: +e.target.value })} className="h-7 rounded-[5px] border border-line-2 bg-paper px-1 text-[12px]" aria-label="How many trees">
-            {[50, 150, 300, 500, 1000].map((n) => (
-              <option key={n} value={n}>
-                {n} trees
-              </option>
-            ))}
-          </select>
-          <Button size="sm" tone="primary" disabled={busy} onClick={fillView} className="flex-1">
-            {busy ? <LoaderCircle size={13} className="animate-spin" /> : <TreeDeciduous size={13} />} Shade hot spots
-          </Button>
-        </div>
-      </div>
-    </div>
+      </Field>
+    </Panel>
   );
 }
 

@@ -5,7 +5,7 @@ import { MapboxOverlay } from "@deck.gl/mapbox";
 import maplibregl from "maplibre-gl";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { basemapStyle, setBasemapTheme } from "@/render/basemap";
-import { buildLayers, hoverLayers, stackLayers, zoomBand } from "@/render/layers";
+import { buildLayers, hoverLayers, seasonOf, stackLayers, zoomBand } from "@/render/layers";
 import { MODEL, NIGHT } from "@/render/theme";
 import { localTimestamp, sunAltAz } from "@/lib/sun";
 import { skyFor } from "@/render/sky";
@@ -176,6 +176,7 @@ export function MapView() {
   // the scene's layers change only when the world, the view options or the detail band do;
   // hover and smooth zooming don't rebuild them
   const band = zoomBand(zoom);
+  const season = seasonOf(date);
   const scene = useMemo(() => {
     if (!ready) return { ground: [], solid: [], labels: [] };
     const R = rt();
@@ -189,9 +190,10 @@ export function MapView() {
       theme: T,
       app: { selection, layers: layersOn, highlight, theme, cameraMode },
       zoom: band,
+      season,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, worldVersion, selection, layersOn, theme, highlight, band, cameraMode, showChanges]);
+  }, [ready, worldVersion, selection, layersOn, theme, highlight, band, cameraMode, showChanges, season]);
   const layers: Layer[] = useMemo(() => stackLayers(scene, extra), [scene, extra]);
   const hoverL = useMemo(() => (ready ? hoverLayers(rt(), theme === "night" ? NIGHT : MODEL, hover, selection) : []), [ready, hover, selection, theme, worldVersion]);
 

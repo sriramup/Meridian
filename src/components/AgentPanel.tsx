@@ -195,9 +195,9 @@ export function AgentPanel({ onClose }: { onClose: () => void }) {
   }, [items]);
 
   return (
-    <aside className="flex h-full w-full flex-col border-l border-line bg-paper">
-      <header className="flex h-11 shrink-0 items-center gap-2 border-b border-line px-3">
-        <span className="text-[13px] font-semibold text-ink">Agent</span>
+    <aside className="agent-sheet flex h-full w-full flex-col border-l border-line-2">
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-line px-3">
+        <span className="font-display text-[19px] leading-none text-ink">Agent</span>
         <span className="text-[11px] text-ink-4">{configured === false ? "not connected" : "spatial planning"}</span>
         <div className="ml-auto flex items-center gap-1">
           <Segmented
@@ -292,7 +292,7 @@ function UserMsg({ text, refs }: { text: string; refs: string[] }) {
           {refs.map((id) => {
             const e = R?.world.get(id);
             return (
-              <span key={id} className="inline-flex h-5 items-center rounded-[4px] bg-accent-2 px-1.5 text-[10.5px] font-medium text-accent">
+              <span key={id} className="inline-flex h-5 items-center rounded-[4px] bg-accent-2 px-1.5 text-[10.5px] font-medium text-rose">
                 {e ? entityName(e) : id}
               </span>
             );
@@ -371,7 +371,7 @@ function ToolRow({ call, last }: { call: ToolCallUI; last: boolean }) {
   return (
     <div className={cx(!last && "border-b border-line")}>
       <button onClick={() => hasDetail && setOpen(!open)} className={cx("flex w-full items-center gap-2.5 px-2.5 py-[7px] text-left", hasDetail && "hover:bg-paper-3/60")}>
-        <span className={cx("grid h-6 w-6 shrink-0 place-items-center rounded-[5px]", isEdit ? "bg-proposed-2 text-proposed" : call.name === "run_simulation" || call.name === "compare_scenarios" ? "bg-accent-2 text-accent" : "bg-paper text-ink-3 ring-1 ring-line")}>
+        <span className={cx("grid h-6 w-6 shrink-0 place-items-center rounded-[5px]", isEdit ? "bg-proposed-2 text-proposed" : call.name === "run_simulation" || call.name === "compare_scenarios" ? "bg-accent-2 text-rose" : "bg-paper text-ink-3 ring-1 ring-line")}>
           {busy ? <LoaderCircle size={13} className="animate-spin" /> : <Icon size={13} strokeWidth={1.8} />}
         </span>
         <span className="min-w-0 flex-1">
@@ -462,16 +462,14 @@ function Composer() {
     el.style.height = "0px";
     el.style.height = Math.min(180, el.scrollHeight) + "px";
   }, [text]);
+  // text handed over from the search ("Ask the agent …") lands here, ready to send
+  const draft = useApp((s) => s.agentDraft);
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.key === "/" || (e.key === "k" && (e.metaKey || e.ctrlKey))) && !(e.target as HTMLElement)?.closest("input,textarea")) {
-        e.preventDefault();
-        ref.current?.focus();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+    const d = useApp.getState().takeAgentDraft();
+    if (d === null) return;
+    if (d) setText(d);
+    requestAnimationFrame(() => ref.current?.focus());
+  }, [draft]);
   const submit = () => {
     if (!text.trim() || running) return;
     send(text.trim());
@@ -484,7 +482,7 @@ function Composer() {
         {selection.slice(0, 4).map((id) => {
           const e = R?.world.get(id);
           return (
-            <span key={id} className="inline-flex h-5 max-w-[180px] items-center truncate rounded-[4px] bg-accent-2 px-1.5 text-[10.5px] font-medium text-accent">
+            <span key={id} className="inline-flex h-5 max-w-[180px] items-center truncate rounded-[4px] bg-accent-2 px-1.5 text-[10.5px] font-medium text-rose">
               {e ? entityName(e) : id}
             </span>
           );

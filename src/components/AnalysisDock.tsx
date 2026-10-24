@@ -9,11 +9,12 @@ import { DIVERGE, cssGradient } from "@/render/palettes";
 import { growthSnapshot, legendFor, overlayState } from "@/render/overlays";
 import { rt } from "@/state/runtime";
 import { monthDate, useApp, type OverlayId } from "@/state/store";
+import { fmtF } from "@/lib/units";
 import type { SimKind } from "@/sim/engine";
 import { compareWith, usePlanImpact } from "./ImpactPanel";
 import { Button, Segmented, Tip, cx } from "./ui";
 
-const CHIPS: { id: OverlayId; label: string; icon: typeof Car; sim?: SimKind; hint: string; more?: boolean }[] = [
+export const CHIPS: { id: OverlayId; label: string; icon: typeof Car; sim?: SimKind; hint: string; more?: boolean }[] = [
   { id: "heat", label: "Heat", icon: Thermometer, sim: "heat", hint: "How hot it feels on the street, hour by hour" },
   { id: "sun", label: "Shade", icon: Sun, sim: "sun", hint: "Hours of direct sun per spot (fewer = more shade)" },
   { id: "runoff", label: "Stormwater", icon: CloudRain, sim: "runoff", hint: "Design-storm runoff from hard surfaces" },
@@ -32,6 +33,11 @@ const CHIPS: { id: OverlayId; label: string; icon: typeof Car; sim?: SimKind; hi
 const LIVE: ReadonlySet<SimKind> = new Set(["heat", "sun", "runoff"]);
 
 const NEEDS_DATA = new Set<OverlayId>(["zoning", "growth", "flood"]);
+
+/** the analyses this city can run: the blank canvas has no zoning, parcels or terrain for capacity, growth and flood screening */
+export function availableOverlays() {
+  return CHIPS.filter((c) => !rt().meta.sandbox || !NEEDS_DATA.has(c.id));
+}
 
 function currentRecord(kind: SimKind | undefined, records: SimRecord[], shown: Partial<Record<SimKind, string>>) {
   if (!kind) return undefined;
@@ -108,8 +114,7 @@ export function AnalysisDock() {
   const cmpRec = chip?.sim ? records.find((r) => r.id === compare[chip.sim!]) : undefined;
   const kpis = useMemo(() => (rec?.status === "done" ? kpiFor(rec) : []), [rec]);
   usePlanImpact();
-  // the blank canvas has no zoning, parcels or terrain: capacity, growth and flood screening need a measured city
-  const avail = CHIPS.filter((c) => !rt().meta.sandbox || !NEEDS_DATA.has(c.id));
+  const avail = availableOverlays();
   const primary = avail.filter((c) => !c.more);
   const extra = avail.filter((c) => c.more);
   const extraOn = extra.find((c) => c.id === overlay);
@@ -129,8 +134,8 @@ export function AnalysisDock() {
                 </div>
                 <div className="mt-1.5 h-2 rounded-full" style={{ background: cssGradient(cmpRec ? DIVERGE : legend.palette) }} />
                 <div className="mt-1 flex justify-between text-[10.5px] text-ink-4 tabular">
-                  <span>{cmpRec ? "−3 cooler" : legend.min}</span>
-                  <span>{cmpRec ? "+3 hotter" : legend.max}</span>
+                  <span>{cmpRec ? (overlay === "heat" ? "−5 °F cooler" : "less") : legend.min}</span>
+                  <span>{cmpRec ? (overlay === "heat" ? "+5 °F hotter" : "more") : legend.max}</span>
                 </div>
               </>
             ) : overlay === "transit" ? (
@@ -236,7 +241,7 @@ export function AnalysisDock() {
           )}
         </div>
       )}
-      <div className="chrome flex items-center gap-0.5 p-1">
+      <div className="chrome scroll-ends flex items-center gap-0.5 px-1.5 py-1">
         {primary.map((c) => (
           <Chip key={c.id} c={c} on={overlay === c.id} busy={!!c.sim && records.some((r) => r.kind === c.sim && r.status === "running")} onClick={() => setOverlay(overlay === c.id ? null : c.id)} />
         ))}
@@ -257,7 +262,7 @@ export function AnalysisDock() {
                   <c.icon size={13} strokeWidth={1.8} className="text-ink-3" />
                   <span className="flex-1">{c.label}</span>
                   <span className="truncate text-[10.5px] text-ink-4">{c.hint}</span>
-                  {overlay === c.id && <Check size={13} className="shrink-0 text-accent" />}
+                  {overlay === c.id && <Check size={13} className="shrink-0 text-rose" />}
                 </DM.Item>
               ))}
             </DM.Content>
@@ -438,8 +443,8 @@ function kpiFor(rec: SimRecord): { label: string; value: string }[] {
       ];
     case "heat":
       return [
-        { label: "Ped. exposure", value: `${f(r.kpi.meanExposure, 1)} °C` },
-        { label: ">40 °C share", value: `${f(r.kpi.pedHotShare * 100)}%` },
+        { label: "Feels like on foot", value: fmtF(r.kpi.meanExposure) },
+        { label: "Above 104 °F", value: `${f(r.kpi.pedHotShare * 100)}%` },
         { label: "Canopy", value: `${f(r.kpi.canopy * 100, 1)}%` },
         { label: "Shaded paths", value: `${f(r.kpi.shadedPedShare * 100)}%` },
       ];

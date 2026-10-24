@@ -70,7 +70,7 @@ export function Segmented<T extends string>({ value, onChange, options, size = "
           className={cx(
             "rounded-[4px] font-medium transition-colors",
             size === "sm" ? "h-6 px-2 text-[11.5px]" : "h-5 px-1.5 text-[11px]",
-            value === o.value ? "bg-paper-3 text-accent shadow-[0_1px_2px_rgb(8_16_48/0.4)]" : "text-ink-3 hover:text-ink",
+            value === o.value ? "bg-paper-3 text-rose shadow-[0_1px_2px_rgb(88_60_28/0.22)]" : "text-ink-3 hover:text-ink",
           )}
         >
           {o.label}
@@ -104,7 +104,7 @@ export function Stat({ label, value, sub, tone }: { label: string; value: ReactN
 export function Provenance({ kind }: { kind: string }) {
   const map: Record<string, [string, string]> = {
     measured: ["Measured", "bg-good-2 text-good"],
-    mapped: ["Mapped", "bg-accent-2 text-accent"],
+    mapped: ["Mapped", "bg-accent-2 text-rose"],
     derived: ["Derived", "bg-paper-3 text-ink-2"],
     estimated: ["Estimated", "bg-warn-2 text-warn"],
     proposed: ["Proposed", "bg-proposed-2 text-proposed"],

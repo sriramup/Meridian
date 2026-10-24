@@ -37,7 +37,7 @@ export function StartCard() {
           return (
             <button key={x.tool} onClick={() => pick(x.tool)} className={cx("group flex flex-col items-start gap-1 rounded-[7px] border border-line px-2 py-2 text-left transition-colors hover:border-accent/60 hover:bg-accent-2")}>
               <span className="flex w-full items-center justify-between">
-                <Icon size={15} strokeWidth={1.7} className="text-accent" />
+                <Icon size={15} strokeWidth={1.7} className="text-rose" />
                 <kbd className="font-mono text-[10px] text-ink-4">{x.key}</kbd>
               </span>
               <span className="text-[12px] font-medium text-ink">{x.name}</span>

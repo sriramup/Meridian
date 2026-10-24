@@ -41,8 +41,8 @@ export interface AppState {
 
   tool: Tool;
   setTool: (t: Tool) => void;
-  /** planting palette: species, single clicks or a row along a drawn line, row spacing m */
-  planting: { species: string; mode: "single" | "row" | "area"; spacing: number; count: number };
+  /** planting palette: species, and single clicks or a row along a drawn line (spaced a crown apart) */
+  planting: { species: string; mode: "single" | "row" };
   setPlanting: (p: Partial<AppState["planting"]>) => void;
   palette: Palette;
   setPalette: <K extends keyof Palette>(k: K, p: Partial<Palette[K]>) => void;
@@ -81,6 +81,13 @@ export interface AppState {
 
   agentOpen: boolean;
   setAgentOpen: (v: boolean) => void;
+  /** text handed to the agent's message box (from the search), taken by the panel once shown */
+  agentDraft: string | null;
+  askAgent: (text?: string) => void;
+  takeAgentDraft: () => string | null;
+  /** the controls & navigation guide */
+  helpOpen: boolean;
+  setHelpOpen: (v: boolean) => void;
   panel: "layers" | "scenarios" | "history" | null;
   setPanel: (p: AppState["panel"]) => void;
 
@@ -127,7 +134,7 @@ export const useApp = create<AppState>((set, get) => ({
 
   tool: "select",
   setTool: (tool) => set({ tool }),
-  planting: { species: "live_oak", mode: "single", spacing: 9, count: 150 },
+  planting: { species: "live_oak", mode: "single" },
   setPlanting: (p) => set((s) => ({ planting: { ...s.planting, ...p } })),
   palette: {
     street: { cls: "residential", bike: "none", trees: true },
@@ -171,6 +178,15 @@ export const useApp = create<AppState>((set, get) => ({
 
   agentOpen: false,
   setAgentOpen: (agentOpen) => set({ agentOpen }),
+  agentDraft: null,
+  askAgent: (text) => set({ agentOpen: true, agentDraft: text ?? "" }),
+  takeAgentDraft: () => {
+    const d = get().agentDraft;
+    if (d !== null) set({ agentDraft: null });
+    return d;
+  },
+  helpOpen: false,
+  setHelpOpen: (helpOpen) => set({ helpOpen }),
   panel: null,
   setPanel: (panel) => set((s) => ({ panel: s.panel === panel ? null : panel })),
 

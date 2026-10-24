@@ -61,7 +61,7 @@ export function createDrawn(tool: DrawnTool, pts: Vec2[], opts: { replace?: bool
       break;
     }
     case "area":
-      res = createArea(R.world, { type: P.area.type, poly: [pts], shadeTrees: P.area.type === "park" ? { spacing: 14 } : undefined }, actor);
+      res = createArea(R.world, { type: P.area.type, poly: [pts] }, actor);
       break;
     case "street":
       res = createStreet(R.world, { path: pts, cls: P.street.cls, bike: P.street.bike === "none" ? null : P.street.bike, trees: P.street.trees }, actor);

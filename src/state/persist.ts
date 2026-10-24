@@ -8,9 +8,10 @@ import { useApp } from "./store";
 const DB = "meridian";
 const STORE = "designs";
 const KEY = "sandbox";
+const FORMAT = "meridian-design";
 
 export interface DesignFile {
-  format: "meridian-design";
+  format: typeof FORMAT;
   version: 1;
   /** climate city the design was drawn under */
   climate: string;
@@ -41,7 +42,11 @@ async function tx<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBReq
 function current(): DesignFile | null {
   const R = rtMaybe();
   if (!R?.meta.sandbox) return null;
-  return { format: "meridian-design", version: 1, climate: R.climateId, savedAt: new Date().toISOString(), scenarios: R.scenarios.snapshot() };
+  return { format: FORMAT, version: 1, climate: R.climateId, savedAt: new Date().toISOString(), scenarios: R.scenarios.snapshot() };
+}
+
+function isDesign(d: DesignFile | null | undefined): d is DesignFile {
+  return !!d && d.format === FORMAT && d.version === 1;
 }
 
 /** whether the canvas holds any design (edits in any branch) */
@@ -81,7 +86,7 @@ export async function restoreDesign(): Promise<boolean> {
   const R = rtMaybe();
   if (!R?.meta.sandbox) return false;
   const saved = (await tx<DesignFile | undefined>("readonly", (s) => s.get(KEY))) ?? null;
-  const ok = !!saved && saved.format === "meridian-design" && saved.climate === R.climateId && R.scenarios.restore(saved.scenarios);
+  const ok = !!saved && isDesign(saved) && saved.climate === R.climateId && R.scenarios.restore(saved.scenarios);
   startAutosave();
   return ok;
 }
@@ -107,7 +112,7 @@ export function exportDesign() {
 /** load a design file into the browser's slot; the caller reloads the canvas */
 export async function importDesign(file: File): Promise<void> {
   const d = JSON.parse(await file.text()) as DesignFile;
-  if (d?.format !== "meridian-design" || d.version !== 1 || !d.scenarios?.scenarios) throw new Error("Not an Meridian design file");
+  if (!isDesign(d) || !d.scenarios?.scenarios) throw new Error("Not a Meridian design file");
   stop?.();
   stop = null;
   await tx("readwrite", (s) => s.put(d, KEY));

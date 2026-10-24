@@ -5,7 +5,7 @@ export function basemapStyle(theme: "model" | "night", plain = false): StyleSpec
   const night = theme === "night";
   const c = night
     ? { bg: "#14161a", water: "#121c25", park: "#18211b", road: "#24272c", major: "#2b2f35", label: "#7c8088", halo: "#14161a" }
-    : { bg: "#e2dfda", water: "#b7c8d2", park: "#d3dccb", road: "#d2cfca", major: "#cbc7c1", label: "#8a857d", halo: "#e8e5e0" };
+    : { bg: "#ece2ca", water: "#bcd3dc", park: "#d6dcbf", road: "#ddd0b6", major: "#d5c6aa", label: "#8a7660", halo: "#f3ead6" };
   // the blank canvas has no real place under it: just the backdrop (the climate city's tiles would show through)
   if (plain) return { version: 8, sources: {}, layers: [{ id: "bg", type: "background", paint: { "background-color": c.bg } }] };
   return {

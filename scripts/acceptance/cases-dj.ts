@@ -544,7 +544,7 @@ export const G: Case[] = [
       await h.run("scenario", { action: "switch", id: "baseline" });
       const raw = await h.run("rank_sites", { candidates: "streets", within: "Downtown", criterion: "heat", limit: 5 });
       const r = await h.run("rank_sites", { candidates: "streets", within: "Downtown", criterion: "shade_benefit", limit: 6 });
-      h.ev(`hottest sidewalks (raw): ${raw.top.slice(0, 3).map((x: any) => `${x.label} ${x.score} °C`).join("; ")}`);
+      h.ev(`hottest sidewalks (raw): ${raw.top.slice(0, 3).map((x: any) => `${x.label} ${x.score} °F`).join("; ")}`);
       h.ev(`criterion: ${r.criterion} (of ${r.ranked_of} street blocks)`, ...r.top.slice(0, 5).map((x: any) => `${x.label} → ${x.score}`));
       const cls = r.top.map((x: any) => (h.R.world.get(x.id) as any)?.cls);
       h.expect(!cls.some((c: string) => /motorway|trunk/.test(c)), "no motorway or trunk segment ranked for pedestrian shade");

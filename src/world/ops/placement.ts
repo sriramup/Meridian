@@ -10,14 +10,15 @@ import type { Area, Building, Polygon, Street, Tree, Vec2 } from "../types";
 import type { World } from "../world";
 import { buildingOverlaps, rowConflicts } from "./validate";
 
-export type TreeProblem = "outside" | "building" | "road" | "water" | "crowded";
+export type TreeProblem = "outside" | "building" | "leaves" | "road" | "water" | "crowded";
 
 export const TREE_PROBLEM_LABEL: Record<TreeProblem, string> = {
   outside: "Outside the study area",
   building: "Inside a building",
   road: "In the roadway",
   water: "On water",
-  crowded: "Too close to another tree",
+  leaves: "Its leaves would hit a building",
+  crowded: "Its leaves would overlap another tree",
 };
 
 /** inside the modelled study area (edits outside it would have no data under them) */
@@ -53,15 +54,26 @@ export function inCarriageway(world: World, p: Vec2): boolean {
   return false;
 }
 
-/** why a tree with crown radius r can't stand at p (null = fine); `also` are positions planted in the same action */
+/** how far crowns may press into each other or into a façade (share of the crown radius) before it counts as a collision */
+const CROWN_GIVE = 0.15;
+
+/**
+ * Why a tree with crown radius r can't stand at p (null = fine); `also` are positions planted in
+ * the same action (same crown). A tree takes up its whole crown: a cylinder as wide as its leaves and
+ * as tall as the tree, so crowns don't overlap one another or grow into buildings. The trunk alone
+ * decides road and water.
+ */
 export function treeProblem(world: World, p: Vec2, r: number, also: Vec2[] = []): TreeProblem | null {
   if (!inStudyArea(world, p)) return "outside";
-  const around = world.query([p[0] - 8, p[1] - 8, p[0] + 8, p[1] + 8], ["building", "tree", "area"]);
-  if (around.some((e) => e.kind === "building" && pointInPoly(p, (e as Building).footprint))) return "building";
+  const reach = r + 12;
+  const around = world.query([p[0] - reach, p[1] - reach, p[0] + reach, p[1] + reach], ["building", "tree", "area"]);
+  const blds = around.filter((e): e is Building => e.kind === "building");
+  if (blds.some((b) => pointInPoly(p, b.footprint))) return "building";
   if (around.some((e) => e.kind === "area" && ((e as Area).type === "water" || (e as Area).type === "retention") && pointInPoly(p, (e as Area).poly))) return "water";
-  const near = Math.max(2.5, r * 0.6);
-  if (around.some((e) => e.kind === "tree" && dist((e as Tree).p, p) < near) || also.some((o) => dist(o, p) < near)) return "crowded";
   if (inCarriageway(world, p)) return "road";
+  const give = 1 - CROWN_GIVE;
+  if (blds.some((b) => b.footprint.some((ring) => closestOnPath(p, [...ring, ring[0]]).d < r * give))) return "leaves";
+  if (around.some((e) => e.kind === "tree" && dist((e as Tree).p, p) < ((e as Tree).r + r) * give) || also.some((o) => dist(o, p) < 2 * r * give)) return "crowded";
   return null;
 }
 

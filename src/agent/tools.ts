@@ -23,6 +23,7 @@ import { mergeBuildings, modifyBuildings, createBuilding, removeBuildings } from
 import { OpBuilder, programmeOf, fmt, type OpResult } from "@/world/ops/core";
 import { generateDistrict, type DistrictStyle } from "@/world/ops/district";
 import { convertAreas, createArea, plantTrees, removeEntities } from "@/world/ops/landscape";
+import { dF, toF } from "@/lib/units";
 import type { SectionEdit } from "@/world/ops/sectionEdit";
 import { createStreet, editStreetSections, moveStreets, realignStreets, removeStreets, setNodeControl, setSignalPreemption, setStreetAttributes, setTransitPriority, upgradeCurbRamps, type ConflictPolicy } from "@/world/ops/streets";
 import { createTransitRoute, optimizeStops } from "@/world/ops/transit";
@@ -262,9 +263,12 @@ function simSummary(rec: SimRecord) {
       return {
         peak_hour: r.kpi.peakHour,
         air_temp_c: r.airTemp.map((t: number) => r1(t)),
+        air_temp_f: r.airTemp.map((t: number) => r1(toF(t))),
         hours: r.hours,
         mean_surface_c: r1(r.kpi.meanSurface),
+        mean_surface_f: r1(toF(r.kpi.meanSurface)),
         mean_ped_exposure_c: r1(r.kpi.meanExposure),
+        mean_ped_exposure_f: r1(toF(r.kpi.meanExposure)),
         ped_share_over_40c: Math.round(r.kpi.pedHotShare * 100) + "%",
         shaded_ped_share: Math.round(r.kpi.shadedPedShare * 100) + "%",
         canopy_cover: Math.round(r.kpi.canopy * 1000) / 10 + "%",
@@ -317,7 +321,7 @@ function simSummary(rec: SimRecord) {
   }
 }
 
-const blockRow = (b: any) => ({ census_block: b.id, at: pt(b.p), exposure_c: r1(b.exposure), surface_c: r1(b.surface), canopy: Math.round(b.canopy * 100) + "%", impervious: Math.round(b.impervious * 100) + "%", residents_2020: b.pop });
+const blockRow = (b: any) => ({ census_block: b.id, at: pt(b.p), exposure_c: r1(b.exposure), exposure_f: r1(toF(b.exposure)), surface_c: r1(b.surface), canopy: Math.round(b.canopy * 100) + "%", impervious: Math.round(b.impervious * 100) + "%", residents_2020: b.pop });
 
 /** mean modelled exposure (°C) over samples within r metres of p, ignoring cells with no value */
 function meanExposure(p: Vec2, ex: Uint8Array, r: number): number {
@@ -577,6 +581,9 @@ function heatLocal(ra: SimRecord, rb: SimRecord) {
     mean_change_where_changed_c: n ? r1(sum / n) : 0,
     max_cooling_c: r1(cool),
     max_warming_c: r1(warm),
+    mean_change_where_changed_f: n ? r1(dF(sum / n)) : 0,
+    max_cooling_f: r1(dF(cool)),
+    max_warming_f: r1(dF(warm)),
     // where people walk: area-wide means count empty lots and rooftops as much as busy sidewalks
     people_weighted_sidewalk_c: { a: r1(peopleWeightedExposure(ea)), b: r1(peopleWeightedExposure(eb)) },
     note: "pedestrian exposure difference (b − a) over cells that changed by ≥ 0.25 °C; people_weighted_sidewalk_c weights sidewalk exposure by the pedestrian-activity proxy (residents, jobs, transit riders nearby)",
@@ -1682,7 +1689,7 @@ export const TOOLS: Record<string, (i: In, ctx: ToolContext) => Promise<ToolOutp
         }
       } else if (k === "heat") {
         out.heat = { a: { mean_ped_exposure_c: sa.mean_ped_exposure_c, ped_share_over_40c: sa.ped_share_over_40c, canopy: sa.canopy_cover }, b: { mean_ped_exposure_c: sb.mean_ped_exposure_c, ped_share_over_40c: sb.ped_share_over_40c, canopy: sb.canopy_cover }, local: heatLocal(ra, rb) };
-        metrics!.push({ label: "ped. exposure °C", value: String(sb.mean_ped_exposure_c), delta: `${r1(sb.mean_ped_exposure_c - sa.mean_ped_exposure_c)}`, tone: sb.mean_ped_exposure_c > sa.mean_ped_exposure_c ? "bad" : "good" });
+        metrics!.push({ label: "feels like on foot °F", value: String(r1(toF(sb.mean_ped_exposure_c))), delta: `${r1(dF(sb.mean_ped_exposure_c - sa.mean_ped_exposure_c))}`, tone: sb.mean_ped_exposure_c > sa.mean_ped_exposure_c ? "bad" : "good" });
         if (i.show_diff) {
           useSims.getState().setShown("heat", rb.id);
           useSims.getState().setCompare("heat", ra.id);
@@ -1779,25 +1786,26 @@ export const TOOLS: Record<string, (i: In, ctx: ToolContext) => Promise<ToolOutp
         if (shade) {
           const act = pedActivity();
           const activity = cands.map((c) => act(c.p));
-          scores = cands.map((_, k) => shadeBenefit(exposure[k], air, activity[k]));
-          unit = `shade benefit at ${rec.result.hours[hi]}:00 = (sidewalk exposure − air ${r1(air)} °C) × √(pedestrian activity)`;
+          // in °F: a difference above air temperature, weighted by how many people walk there
+          scores = cands.map((_, k) => dF(shadeBenefit(exposure[k], air, activity[k])));
+          unit = `shade benefit at ${rec.result.hours[hi]}:00 = (sidewalk feels-like − air ${r1(toF(air))} °F) × √(pedestrian activity)`;
           if (i.candidates === "streets") {
             // describe each block by its length-weighted exposure and activity
             const gE = groupBlocks(cands, exposure),
               gA = groupBlocks(cands, activity),
               g = groupBlocks(cands, scores);
-            g.cands.forEach((c, k) => (c.label += ` · ${r1(gE.scores[k])} °C, activity ${Math.round(gA.scores[k])}`));
+            g.cands.forEach((c, k) => (c.label += ` · ${r1(toF(gE.scores[k]))} °F, activity ${Math.round(gA.scores[k])}`));
             return rankOut(g.cands, g.scores, unit + " — street blocks", i.limit, PED_ASSUMPTIONS);
           }
-          cands.forEach((c, k) => (c.label += ` · ${r1(exposure[k])} °C, activity ${Math.round(activity[k])}`));
+          cands.forEach((c, k) => (c.label += ` · ${r1(toF(exposure[k]))} °F, activity ${Math.round(activity[k])}`));
           return rankOut(cands, scores, unit, i.limit, PED_ASSUMPTIONS);
         }
-        scores = exposure;
+        scores = exposure.map(toF);
         if (i.candidates === "streets") {
           const g = groupBlocks(cands, scores);
-          return rankOut(g.cands, g.scores, `°C pedestrian exposure at ${rec.result.hours[hi]}:00 (sidewalks, street blocks)`, i.limit);
+          return rankOut(g.cands, g.scores, `°F pedestrian feels-like at ${rec.result.hours[hi]}:00 (sidewalks, street blocks)`, i.limit);
         }
-        unit = `°C pedestrian exposure at ${rec.result.hours[hi]}:00`;
+        unit = `°F pedestrian feels-like at ${rec.result.hours[hi]}:00`;
       } else {
         const cat = i.criterion === "park_gap" ? "park" : "frequent_transit";
         const lpms = cands.map((c) => (c.parcel?.value ? c.parcel.value.land / Math.max(1, c.parcel.area) : NaN)).filter(Number.isFinite).sort((a, b) => a - b);

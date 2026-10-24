@@ -1,7 +1,7 @@
 "use client";
 
 import type { Vec2 } from "@/world/types";
-import { plantTrees, plantTreesAt } from "@/world/ops/landscape";
+import { plantTreesAt } from "@/world/ops/landscape";
 import { applyOp } from "./actions";
 import { createDrawn, drawConflict, type DrawnTool } from "./create";
 import { rt } from "./runtime";
@@ -56,9 +56,8 @@ export function finishDrawing() {
     return;
   }
   if (tool === "tree") {
-    const { species, spacing, mode } = useApp.getState().planting;
-    if (mode === "area" && draw.points.length >= 3) applyOp(plantTrees(rt().world, { within: [draw.points.slice()], spacing, species }, { author: "user" }));
-    else if (mode === "row" && draw.points.length >= 2) applyOp(plantTreesAt(rt().world, { points: draw.points.slice(), species, spacing }, { author: "user" }));
+    const { species, mode } = useApp.getState().planting;
+    if (mode === "row" && draw.points.length >= 2) applyOp(plantTreesAt(rt().world, { points: draw.points.slice(), species }, { author: "user" }));
   }
   draw.points = [];
   useApp.getState().bumpTool();
@@ -67,7 +66,7 @@ export function finishDrawing() {
 /** tools that draw a closed outline (finished by clicking the first corner again) */
 export function drawsClosedShape(): boolean {
   const st = useApp.getState();
-  return st.tool === "building" || st.tool === "area" || st.tool === "district" || (st.tool === "tree" && st.planting.mode === "area");
+  return st.tool === "building" || st.tool === "area" || st.tool === "district";
 }
 
 /**

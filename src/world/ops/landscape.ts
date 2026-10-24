@@ -268,7 +268,7 @@ export function plantTreesAt(world: World, p: PlantParams, actor: Actor): OpResu
     for (let a = 0; a <= L + 1e-6; a += spacing) pts.push(pointAt(p.points, a).p);
   }
   const placed: Vec2[] = [];
-  const skipped: Record<TreeProblem, number> = { outside: 0, building: 0, road: 0, water: 0, crowded: 0 };
+  const skipped: Record<TreeProblem, number> = { outside: 0, building: 0, leaves: 0, road: 0, water: 0, crowded: 0 };
   for (const q of pts) {
     const bad = treeProblem(world, q, sp.r, placed);
     if (bad) {

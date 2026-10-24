@@ -4,6 +4,7 @@ import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { useEffect, useRef, useState } from "react";
 import { initSimWorker } from "@/sim/client";
 import { addPoint, draw, finishDrawing, finishPoint, resetDraw, setCursor } from "@/state/drawing";
+import { toggleNight, togglePedestrian } from "@/state/view";
 import { applyOp } from "@/state/actions";
 import { rt } from "@/state/runtime";
 import { useApp, type Tool, type OverlayId } from "@/state/store";
@@ -16,6 +17,7 @@ import { speciesOf } from "@/world/species";
 import type { TransitRoute, Vec2 } from "@/world/types";
 import { AgentPanel } from "./AgentPanel";
 import { AnalysisDock } from "./AnalysisDock";
+import { HelpDialog, NavHint } from "./Help";
 import { Inspector } from "./Inspector";
 import { StartCard } from "./StartCard";
 import { MapView } from "./MapView";
@@ -89,7 +91,8 @@ export function Shell() {
             <div className="absolute left-3 flex flex-col justify-end" style={clearDock}>
               <ChangeReport />
             </div>
-            <div ref={dock} className="absolute right-0 bottom-3 left-0 flex justify-center">
+            <div ref={dock} className="absolute right-0 bottom-3 left-0 flex flex-col items-center gap-2">
+              <NavHint />
               <AnalysisDock />
             </div>
             <div className="absolute top-16 left-1/2 -translate-x-1/2">
@@ -99,6 +102,7 @@ export function Shell() {
               <StartCard />
             </div>
             <Attribution />
+            <HelpDialog />
           </div>
         </div>
         {agentOpen && (
@@ -184,7 +188,7 @@ function useShortcuts() {
       if (e.key === "Escape") {
         if (draw.points.length || draw.pending) resetDraw();
         else if (st.tool !== "select") st.setTool("select");
-        else if (st.cameraMode === "pedestrian") st.setCameraMode("orbit");
+        else if (st.cameraMode === "pedestrian") togglePedestrian();
         else st.setSelection([]);
         st.setHighlight(null);
         return;
@@ -213,20 +217,9 @@ function useShortcuts() {
         resetDraw();
         st.setTool(TOOL_KEYS[k]);
       } else if (OVERLAY_KEYS[k]) st.setOverlay(st.overlay === OVERLAY_KEYS[k] ? null : OVERLAY_KEYS[k]);
-      else if (k === "n") st.setTheme(st.theme === "model" ? "night" : "model");
-      else if (k === "p") {
-        import("@/agent/resolve").then(({ viewCenter }) =>
-          import("@/render/camera").then((m) => {
-            if (st.cameraMode === "pedestrian") {
-              st.setCameraMode("orbit");
-              m.flyTo(viewCenter(), { zoom: 17, pitch: 60 });
-            } else {
-              m.pedestrianAt(viewCenter());
-              st.setCameraMode("pedestrian");
-            }
-          }),
-        );
-      }
+      else if (k === "n") toggleNight();
+      else if (k === "p") togglePedestrian();
+      else if (k === "?") st.setHelpOpen(!st.helpOpen);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

@@ -11,14 +11,14 @@ import { streetBand } from "@/world/ops/validate";
 import type { Building, Vec2 } from "@/world/types";
 
 type C4 = [number, number, number, number];
-const ROYAL: C4 = [40, 71, 166, 255];
+const INK: C4 = [150, 62, 98, 255];
 const CREAM: C4 = [246, 221, 133, 255];
 const RED: C4 = [226, 72, 64, 255];
 const OK: C4 = [120, 196, 120, 255];
 const FLAT = { depthCompare: "always", depthWriteEnabled: false } as const;
 
-/** the trees a row / area planting would place, each with whether it can stand there */
-function treeCandidates(tool: "single" | "row" | "area", pts: Vec2[], r: number, spacing: number): { p: Vec2; ok: boolean; why?: string }[] {
+/** the trees a click or a row would place (a row spaces them a crown apart), each with whether it can stand there */
+function treeCandidates(tool: "single" | "row", pts: Vec2[], r: number): { p: Vec2; ok: boolean; why?: string }[] {
   const R = rtMaybe()!;
   const out: { p: Vec2; ok: boolean; why?: string }[] = [];
   const placed: Vec2[] = [];
@@ -30,12 +30,7 @@ function treeCandidates(tool: "single" | "row" | "area", pts: Vec2[], r: number,
   if (tool === "single") test(pts[0]);
   else if (tool === "row") {
     const L = polyLength(pts);
-    for (let a = 0; a <= L + 1e-6 && out.length < 400; a += Math.max(3, spacing)) test(pointAt(pts, a).p);
-  } else if (pts.length >= 3) {
-    const [x0, y0, x1, y1] = polyBBox([pts]);
-    const sp = Math.max(3, spacing);
-    for (let x = x0; x < x1 && out.length < 600; x += sp)
-      for (let y = y0; y < y1 && out.length < 600; y += sp) if (pointInPoly([x, y], [pts])) test([x, y]);
+    for (let a = 0; a <= L + 1e-6 && out.length < 400; a += Math.max(3, r * 1.8)) test(pointAt(pts, a).p);
   }
   return out;
 }
@@ -60,7 +55,7 @@ export function toolLayers(): { ground: Layer[]; top: Layer[] } {
       getSize: 12.5,
       getColor: [255, 255, 255, 255],
       background: true,
-      getBackgroundColor: tone === "bad" ? [189, 58, 44, 240] : [20, 34, 77, 235],
+      getBackgroundColor: tone === "bad" ? [176, 77, 74, 240] : [90, 64, 46, 235],
       backgroundPadding: [7, 4],
       getPixelOffset: [0, -26],
       fontFamily: "Geist, system-ui, sans-serif",
@@ -75,14 +70,9 @@ export function toolLayers(): { ground: Layer[]; top: Layer[] } {
     const r = sp?.r ?? 4;
     const mode = planting.mode;
     const src = mode === "single" ? (draw.cursor ? [draw.cursor] : []) : live;
-    const cands = src.length ? treeCandidates(mode, src, r, planting.spacing) : [];
-    if (mode === "area" && src.length >= 2)
-      layers.push(
-        new SolidPolygonLayer({ id: "draw-fill", ...common, data: [{ polygon: src }], getPolygon: (d: { polygon: Position[] }) => d.polygon, getFillColor: [40, 71, 166, 36], parameters: FLAT }),
-        new PathLayer({ id: "draw-path", ...common, data: [{ path: [...src, src[0]] }], getPath: (d: { path: Position[] }) => d.path.map((p) => [p[0], p[1], 0.5] as Position), getColor: ROYAL, getWidth: 2, widthUnits: "pixels", parameters: FLAT }),
-      );
+    const cands = src.length ? treeCandidates(mode, src, r) : [];
     if (mode === "row" && src.length >= 2)
-      layers.push(new PathLayer({ id: "draw-path", ...common, data: [{ path: src }], getPath: (d: { path: Position[] }) => d.path.map((p) => [p[0], p[1], 0.5] as Position), getColor: [40, 71, 166, 150], getWidth: 1.5, widthUnits: "pixels", parameters: FLAT }));
+      layers.push(new PathLayer({ id: "draw-path", ...common, data: [{ path: src }], getPath: (d: { path: Position[] }) => d.path.map((p) => [p[0], p[1], 0.5] as Position), getColor: [INK[0], INK[1], INK[2], 150], getWidth: 1.5, widthUnits: "pixels", parameters: FLAT }));
     if (cands.length)
       layers.push(
         new ScatterplotLayer<{ p: Vec2; ok: boolean }>({
@@ -138,7 +128,7 @@ export function toolLayers(): { ground: Layer[]; top: Layer[] } {
       message = `Cuts through ${hitBuildings.length} building${hitBuildings.length > 1 ? "s" : ""}`;
     }
   }
-  const stroke = bad ? RED : ROYAL;
+  const stroke = bad ? RED : INK;
   if (bands.length)
     layers.push(new SolidPolygonLayer({ id: "draw-row-conflict", ...common, data: bands.map((b) => ({ polygon: b })), getPolygon: (d: { polygon: Position[] }) => d.polygon, getFillColor: [226, 72, 64, 70], parameters: FLAT }));
   if (hitBuildings.length)
@@ -211,7 +201,7 @@ function cursorDot(p: Vec2, ok: boolean, common: object): Layer {
     getRadius: 5,
     radiusUnits: "pixels",
     getFillColor: ok ? [255, 255, 255, 255] : RED,
-    getLineColor: ok ? ROYAL : [255, 255, 255, 255],
+    getLineColor: ok ? INK : [255, 255, 255, 255],
     stroked: true,
     lineWidthMinPixels: 2,
     parameters: FLAT,
@@ -228,7 +218,7 @@ function closeHandle(p: Vec2, common: object): Layer {
     getRadius: 8,
     radiusUnits: "pixels",
     getFillColor: CREAM,
-    getLineColor: ROYAL,
+    getLineColor: INK,
     stroked: true,
     lineWidthMinPixels: 2.5,
     parameters: FLAT,

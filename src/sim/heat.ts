@@ -326,8 +326,8 @@ export function runHeat(lc: Landcover, weather: Weather, p: HeatParams, onProgre
       "Air temperature & shortwave: ERA5 reanalysis for the reference day (Open-Meteo), plus the scenario offset",
       "Surface heating = (1−albedo) × shortwave × class coefficient; asphalt α=0.08, concrete 0.30, roof 0.22, lawn 0.24 (literature values)",
       "Shadows cast by sun position (SunCalc) over a 4 m height raster of building masses, modelled tree crowns (60% of height) and the City of Austin 2022 measured canopy (taken as 9 m); proposals clear canopy under new buildings, hard surfaces and rebuilt carriageways; sun below 3.5° is treated as diffuse-only",
-      "Neighbourhood air adjustment: +1.2 °C per unit imperviousness (50 m), −1.6 °C per unit canopy (30 m), −0.8 °C near water, measured against the existing city's area means so new canopy cools without warming elsewhere",
-      "Pedestrian exposure index ≈ air + 0.35 × (ground − air) + 5.5 °C per kW/m² of direct sun — an MRT-style proxy, not UTCI",
+      "Neighbourhood air adjustment: +2.2 °F per unit imperviousness (50 m), −2.9 °F per unit canopy (30 m), −1.4 °F near water, measured against the existing city's area means so new canopy cools without warming elsewhere",
+      "Pedestrian feels-like index ≈ air + 0.35 × (ground − air) + 9.9 °F per kW/m² of direct sun — an MRT-style proxy, not UTCI (modelled in °C, shown in °F)",
       "Not calibrated to Landsat land-surface temperature; use for relative comparison",
     ],
   };
