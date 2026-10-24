@@ -374,6 +374,7 @@ async function streamTurn(sessionId: string, itemId: string, tier: Tier, signal:
       return { ...it, segments: segs };
     });
   for await (const ev of transport({ messages: r.messages, tier, city: rtMaybe()?.cityId ?? "sandbox" }, signal)) {
+    if (signal.aborted) throw Object.assign(new Error("Stopped"), { name: "AbortError" });
     if (!firstSeen && (ev.t === "text" || ev.t === "tool" || ev.t === "final")) {
       firstSeen = true;
       onFirst();
@@ -513,7 +514,11 @@ export async function send(id: string, text: string, opts: { mode?: AgentMode; z
       finish();
       if (signal.aborted) break;
     }
-    patch(id, (x) => ({ status: "idle", lastRun: { ...x.lastRun!, model, ms: Date.now() - t0, firstTokenMs: firstMs, tools } }));
+    patch(id, (x) => ({
+      status: "idle",
+      items: signal.aborted ? [...x.items, { kind: "notice", id: nid("n"), tone: "info", text: "Stopped." }] : x.items,
+      lastRun: { ...x.lastRun!, model, ms: Date.now() - t0, firstTokenMs: firstMs, tools },
+    }));
   } catch (e) {
     const err = e as Error;
     const aborted = signal.aborted || err.name === "AbortError";
@@ -569,12 +574,17 @@ function load(c: string) {
   } catch {
     data = null;
   }
-  runtimes.clear();
   if (!data?.sessions?.length) {
+    // nothing saved for this city: keep pristine sessions (the startup default), else start fresh
+    const st = useAgents.getState();
+    const pristine = Object.values(st.sessions).every((s) => !s.items.length && s.status === "idle");
+    if (pristine && st.order.length) return;
+    runtimes.clear();
     const s = blankSession();
     useAgents.setState({ sessions: { [s.id]: s }, order: [s.id], viewing: s.id });
     return;
   }
+  runtimes.clear();
   const sessions: Record<string, AgentSession> = {};
   for (const s0 of data.sessions) {
     const interrupted = s0.status === "running" || s0.status === "needs_input";

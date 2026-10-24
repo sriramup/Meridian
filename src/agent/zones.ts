@@ -16,8 +16,9 @@
 //    trees, split street pieces) must touch zone+MARGIN. Street segments are atomic, so a segment
 //    that crosses the boundary may be edited as a whole; segments wholly outside may not. Cascades
 //    therefore reach at most one segment / one frontage beyond the line.
-//  - At least one touched feature must be mostly inside (≥ 50% within zone+TOL): an edit made only
-//    of boundary-straddling features elsewhere along the edge is not "in" the zone.
+//  - At least one touched feature must be mostly inside (≥ 50% within zone+TOL; ≥ 25% of its length for
+//    a street that crosses the boundary): an edit made only of features straddling the edge elsewhere
+//    is not "in" the zone.
 
 import { circle, convexHull, isValidPoly, normalizePoly, overlapArea, pointInPoly, polyArea, polyBBox, polyCentroid, bufferPoly, unionMany } from "@/geometry/polygon";
 import { polyLength, pointAt } from "@/geometry/polyline";
@@ -312,7 +313,7 @@ export function zoneCheck(zone: Zone, cs: Pick<Changeset, "ops">): ZoneVerdict {
       checked++;
       const g = geomOf(e);
       const sh = share(g, tol);
-      if (sh >= 0.5) anchored = true;
+      if (sh >= (g.t === "line" ? 0.25 : 0.5)) anchored = true;
       const bad = placed ? sh < 0.5 : !touches(g, margin);
       if (bad && !outside.some((o) => o.id === e.id)) outside.push({ id: e.id, kind: e.kind, name: name(e), inside_share: Math.round(sh * 100) / 100 });
     }

@@ -38,8 +38,10 @@ export function nameScore(query: string, name?: string): number {
     n = norm(name);
   if (!q) return 0;
   if (n === q) return 1;
-  if (n.startsWith(q) || q.startsWith(n)) return 0.9;
-  if (n.includes(q)) return 0.8;
+  // whole-token matches only: "5th" must not match "15th" or "TX 165"
+  const tok = (x: string) => ` ${x} `;
+  if (tok(n).startsWith(tok(q)) || tok(q).startsWith(tok(n))) return 0.9;
+  if (tok(n).includes(tok(q))) return 0.8;
   const qt = q.split(" ").filter((t) => t.length > 1);
   const nt = new Set(n.split(" "));
   const hits = qt.filter((t) => nt.has(t)).length;
