@@ -341,7 +341,7 @@ export const TOOL_DEFS: ToolDef[] = [
   },
   {
     name: "show",
-    description: "Set the visualisation: overlay (traffic|heat|density|access|bike|flood|zoning|growth|transit|sun|runoff|change|none), hour (0–24 time of day), compare_with (scenario to diff against, or null), mode (heat: exposure|surface; density: residents|jobs; access: frequent_transit|transit|grocery|school|park|health|food|emergency (fire/EMS drive time); zoning: added|limit; growth: a snapshot year such as 2030), timelapse {from,to,seconds}.",
+    description: "Set the visualisation: overlay (traffic|heat|density|access|bike|flood|zoning|growth|transit|sun|runoff|change|none), hour (0–24 time of day), compare_with (scenario to diff against, or null), mode (density: residents|jobs; access: frequent_transit|transit|grocery|school|park|health|food|emergency (fire/EMS drive time); zoning: added|limit; growth: a snapshot year such as 2030), timelapse {from,to,seconds}.",
     input_schema: { type: "object", properties: { overlay: { type: "string" }, hour: { type: "number" }, compare_with: { type: "string" }, mode: { type: "string" }, timelapse: { type: "object" } } },
   },
   {

@@ -1,6 +1,6 @@
 // What the plan did to street heat, where. Every edited feature (a planted tree, a park or plaza,
 // a building) is grouped with edits within ~50 m into one pin. The pin's value is the modelled
-// change in pedestrian heat (plan − current city) on that group's own ground: under the tree crowns,
+// change in surface temperature (plan − current city) on that group's own ground: under the tree crowns,
 // inside the park, around the building. Only the hour shown on the map is compared.
 
 import { create } from "zustand";
@@ -28,7 +28,7 @@ export const useImpact = create<{ impact: PlanImpact | null; set: (i: PlanImpact
 
 interface HeatLike {
   hours: number[];
-  exposure: Uint8Array[];
+  surface: Uint8Array[];
 }
 
 /** the ground an edited feature acts on */
@@ -57,8 +57,8 @@ export function planImpact(base: HeatLike, cur: HeatLike, hour: number, g: GridS
   const ia = base.hours.reduce((best, h, i) => (Math.abs(h - hour) < Math.abs(base.hours[best] - hour) ? i : best), 0);
   const ib = cur.hours.indexOf(base.hours[ia]);
   if (ib < 0) return null;
-  const ea = base.exposure[ia],
-    eb = cur.exposure[ib];
+  const ea = base.surface[ia],
+    eb = cur.surface[ib];
   // features the plan adds or reshapes (net of later edits to the same id)
   const feats = new Map<string, Footprint>();
   for (const cs of changesets)
@@ -86,9 +86,12 @@ export function planImpact(base: HeatLike, cur: HeatLike, hour: number, g: GridS
   const cellA = g.cell * g.cell;
   for (const grp of groups) {
     const seen = new Set<number>();
+    // a building's own footprint is roof, not the ground around it
+    const skip = new Set<number>();
+    for (const f of grp.fs) if (f.rings && f.halo) rasterizeRings(g, f.rings as [number, number][][], (i) => skip.add(i));
     let sum = 0;
     const take = (i: number) => {
-      if (seen.has(i) || !ea[i] || !eb[i]) return;
+      if (seen.has(i) || skip.has(i) || !ea[i] || !eb[i]) return;
       seen.add(i);
       sum += dqT(eb[i]) - dqT(ea[i]);
     };
@@ -96,7 +99,7 @@ export function planImpact(base: HeatLike, cur: HeatLike, hour: number, g: GridS
       if (f.disc) rasterizeDisc(g, f.disc.c, f.disc.r, (i) => take(i));
       if (f.rings) {
         if (f.halo) {
-          // pedestrian ground near the building: its own footprint is roof, not street
+          // the ground near the building (its shadow and surroundings)
           const [x0, y0, x1, y1] = bbox(f.rings[0]);
           rasterizeRings(g, [[[x0 - f.halo, y0 - f.halo], [x1 + f.halo, y0 - f.halo], [x1 + f.halo, y1 + f.halo], [x0 - f.halo, y1 + f.halo]]], (i) => take(i));
         } else rasterizeRings(g, f.rings as [number, number][][], (i) => take(i));

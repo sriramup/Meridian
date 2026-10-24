@@ -1,8 +1,7 @@
 "use client";
 
 import * as DM from "@radix-ui/react-dropdown-menu";
-import * as Popover from "@radix-ui/react-popover";
-import { Bike, Car, Check, ChevronLeft, ChevronRight, ChevronUp, CloudRain, Droplets, Ellipsis, Footprints, Info, LayoutGrid, LoaderCircle, Pause, Play, RefreshCw, Sun, Thermometer, TramFront, TreeDeciduous, TrendingUp, Users, GitCompare } from "lucide-react";
+import { Bike, Car, Check, ChevronLeft, ChevronRight, ChevronUp, CloudRain, Droplets, Ellipsis, Footprints, LayoutGrid, LoaderCircle, Pause, Play, RefreshCw, Sun, Thermometer, TramFront, TreeDeciduous, TrendingUp, Users, GitCompare } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { runSim, useSims, type SimRecord } from "@/sim/client";
 import { DIVERGE, cssGradient } from "@/render/palettes";
@@ -11,11 +10,15 @@ import { rt } from "@/state/runtime";
 import { monthDate, useApp, type OverlayId } from "@/state/store";
 import { fmtF } from "@/lib/units";
 import type { SimKind } from "@/sim/engine";
+import { areaKpi, tilesIn, type Scope } from "@/sim/heatKpi";
+import { stateKey } from "@/sim/heatCache";
+import { LocalProjection } from "@/world/projection";
 import { compareWith, usePlanImpact } from "./ImpactPanel";
+import { MonthSelect } from "./MonthSelect";
 import { Button, Segmented, Tip, cx } from "./ui";
 
 export const CHIPS: { id: OverlayId; label: string; icon: typeof Car; sim?: SimKind; hint: string; more?: boolean }[] = [
-  { id: "heat", label: "Heat", icon: Thermometer, sim: "heat", hint: "How hot it feels on the street, hour by hour" },
+  { id: "heat", label: "Heat", icon: Thermometer, sim: "heat", hint: "Surface temperature, hour by hour" },
   { id: "sun", label: "Shade", icon: Sun, sim: "sun", hint: "Hours of direct sun per spot (fewer = more shade)" },
   { id: "runoff", label: "Stormwater", icon: CloudRain, sim: "runoff", hint: "Design-storm runoff from hard surfaces" },
   { id: "traffic", label: "Traffic", icon: Car, sim: "traffic", hint: "Peak-hour assignment", more: true },
@@ -63,7 +66,8 @@ export function AnalysisDock() {
   const [, force] = useState(0);
   const chip = CHIPS.find((c) => c.id === overlay);
   const rec = currentRecord(chip?.sim, records, shown);
-  const running = records.find((r) => r.kind === chip?.sim && r.status === "running");
+  // prefetches (e.g. the neighbouring months) run silently
+  const running = records.find((r) => r.kind === chip?.sim && r.status === "running" && !r.background);
   const R = rt();
   const stale = rec && rec.scenarioId === R.scenarios.activeId && rec.cursor !== R.scenarios.active.cursor;
   const otherScenario = rec && rec.scenarioId !== R.scenarios.activeId;
@@ -87,7 +91,15 @@ export function AnalysisDock() {
       const p = currentRecord(kind, useSims.getState().records, useSims.getState().shown)?.params ?? defaultParams(kind);
       return dated ? { ...p, date } : p;
     };
-    const have = () => useSims.getState().records.some((r) => r.kind === kind && r.scenarioId === R.scenarios.activeId && r.cursor === R.scenarios.active.cursor && (r.status === "done" || r.status === "running") && (!dated || r.params.date === date));
+    // current = the shown run modelled this scenario state (and month); a cached or prefetched run is
+    // not current until runSim shows it, which it does instantly
+    const have = () => {
+      const S = useSims.getState();
+      const state = stateKey(R.scenarios.activeId, R.scenarios.appliedChangesets().map((c) => c.id));
+      const ok = (r: SimRecord) => r.kind === kind && r.state === state && (!dated || r.params.date === date);
+      const cur = currentRecord(kind, S.records, S.shown);
+      return (cur?.status === "done" && ok(cur)) || S.records.some((r) => r.status === "running" && !r.background && ok(r));
+    };
     if (have()) return;
     const t = setTimeout(() => !have() && run(kind, params()), opened ? 0 : 450);
     return () => clearTimeout(t);
@@ -112,7 +124,9 @@ export function AnalysisDock() {
   const legend = legendFor(overlay);
   const scenarios = [...R.scenarios.scenarios.values()];
   const cmpRec = chip?.sim ? records.find((r) => r.id === compare[chip.sim!]) : undefined;
-  const kpis = useMemo(() => (rec?.status === "done" ? kpiFor(rec) : []), [rec]);
+  const kpisStatic = useMemo(() => (rec?.status === "done" && rec.kind !== "heat" ? kpiFor(rec) : []), [rec]);
+  const heatKpis = useHeatKpis(rec?.kind === "heat" && rec.status === "done" ? rec : undefined, hour);
+  const kpis = rec?.kind === "heat" ? heatKpis : kpisStatic;
   usePlanImpact();
   const avail = availableOverlays();
   const primary = avail.filter((c) => !c.more);
@@ -152,7 +166,7 @@ export function AnalysisDock() {
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               {chip?.sim === "heat" || chip?.sim === "sun" ? (
                 <>
-                  <DatePicker />
+                  <MonthSelect />
                   {running && <LoaderCircle size={13} className="shrink-0 animate-spin text-ink-3" />}
                 </>
               ) : running ? (
@@ -201,7 +215,6 @@ export function AnalysisDock() {
                     </button>
                   </Tip>
                 )}
-                {rec?.result?.assumptions && <Assumptions lines={rec.result.assumptions} calibration={rec.kind === "traffic" ? rec.result.calibration : undefined} />}
               </div>
             </div>
             {(overlay === "traffic" || overlay === "heat") && (
@@ -230,7 +243,7 @@ export function AnalysisDock() {
           </div>
           {/* KPIs */}
           {kpis.length > 0 && (
-            <div className="grid grid-cols-[repeat(2,max-content)] content-center gap-x-5 gap-y-1 border-l border-line px-3 py-2 @max-[480px]:gap-x-3">
+            <div className="grid grid-cols-[repeat(2,max-content)] content-center gap-x-5 gap-y-1 border-l border-line px-3 py-2 @max-[480px]:gap-x-3" title={rec?.kind === "heat" ? "For the area in view, at the time shown" : undefined}>
               {kpis.slice(0, 4).map((k) => (
                 <div key={k.label} className="whitespace-nowrap">
                   <div className="text-[10px] text-ink-4">{k.label}</div>
@@ -299,21 +312,6 @@ export function defaultParams(kind: SimKind): Record<string, unknown> {
 }
 
 function OverlayMode({ overlay, onChange }: { overlay: OverlayId | null; onChange: () => void }) {
-  if (overlay === "heat")
-    return (
-      <Segmented
-        size="xs"
-        value={overlayState.heatMode}
-        onChange={(v) => {
-          overlayState.heatMode = v;
-          onChange();
-        }}
-        options={[
-          { value: "exposure", label: "Pedestrian" },
-          { value: "surface", label: "Surface" },
-        ]}
-      />
-    );
   if (overlay === "density")
     return (
       <Segmented
@@ -380,56 +378,6 @@ function OverlayMode({ overlay, onChange }: { overlay: OverlayId | null; onChang
   return null;
 }
 
-function Assumptions({ lines, calibration }: { lines: string[]; calibration?: { road: string; observed: number; modelled: number; geh: number }[] }) {
-  return (
-    <Popover.Root>
-      <Popover.Trigger asChild>
-        <button className="grid h-7 w-7 place-items-center rounded-[5px] text-ink-3 hover:bg-paper-3 hover:text-ink" title="Model assumptions">
-          <Info size={13} />
-        </button>
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Content side="top" sideOffset={8} className="chrome z-50 w-[380px] p-3">
-          <div className="font-legend text-[12.5px] leading-none text-ink-3">Model assumptions</div>
-          <ul className="mt-1.5 space-y-1 text-[11.5px] leading-snug text-ink-2">
-            {lines.map((l, i) => (
-              <li key={i}>{l}</li>
-            ))}
-          </ul>
-          {calibration && calibration.length > 0 && (
-            <>
-              <div className="mt-3 font-legend text-[12.5px] leading-none text-ink-3">Check against TxDOT counts (peak hour)</div>
-              <div className="mt-1 text-[11px] text-ink-3">
-                GEH &lt; 5 at {calibration.filter((c) => c.geh < 5).length} of {calibration.length} stations — not validated for absolute volumes.
-              </div>
-              <table className="mt-1.5 w-full text-[11px] tabular">
-                <thead className="text-ink-4">
-                  <tr>
-                    <th className="text-left font-normal">Station</th>
-                    <th className="text-right font-normal">Count</th>
-                    <th className="text-right font-normal">Model</th>
-                    <th className="text-right font-normal">GEH</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {calibration.slice(0, 10).map((c, i) => (
-                    <tr key={i} className="text-ink-2">
-                      <td className="truncate">{c.road}</td>
-                      <td className="text-right">{c.observed}</td>
-                      <td className="text-right">{c.modelled}</td>
-                      <td className={cx("text-right", c.geh < 5 ? "text-good" : c.geh < 10 ? "text-warn" : "text-bad")}>{c.geh}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </>
-          )}
-        </Popover.Content>
-      </Popover.Portal>
-    </Popover.Root>
-  );
-}
-
 function kpiFor(rec: SimRecord): { label: string; value: string }[] {
   const r = rec.result;
   const f = (x: number, d = 0) => x.toLocaleString(undefined, { maximumFractionDigits: d });
@@ -440,13 +388,6 @@ function kpiFor(rec: SimRecord): { label: string; value: string }[] {
         { label: "Avg speed", value: `${f(r.kpi.avgSpeedKmh, 1)} km/h` },
         { label: "Congested", value: `${f(r.kpi.congestedKm, 1)} km` },
         { label: "Veh trips", value: f(r.kpi.vehTrips) },
-      ];
-    case "heat":
-      return [
-        { label: "Feels like on foot", value: fmtF(r.kpi.meanExposure) },
-        { label: "Above 104 °F", value: `${f(r.kpi.pedHotShare * 100)}%` },
-        { label: "Canopy", value: `${f(r.kpi.canopy * 100, 1)}%` },
-        { label: "Shaded paths", value: `${f(r.kpi.shadedPedShare * 100)}%` },
       ];
     case "bike":
       return [
@@ -507,29 +448,73 @@ function clock(hour: number): string {
   return `${h24 % 12 === 0 ? 12 : h24 % 12}:${String(min).padStart(2, "0")} ${h24 < 12 ? "AM" : "PM"}`;
 }
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+/** the part of the map the heat KPIs describe: the ground in view, capped to 900 m around the view centre */
+const VIEW_RADIUS = 900;
 
-/** the modelled month (sun path and typical weather of its mean day), with month-by-month arrows */
-function DatePicker() {
-  const date = useApp((s) => s.date);
-  const setDate = useApp((s) => s.setDate);
-  const m = +date.slice(0, 2) - 1;
-  const step = "grid h-7 w-6 place-items-center rounded-[5px] text-ink-3 hover:bg-paper-3 hover:text-ink";
-  return (
-    <div className="flex shrink-0 items-center gap-0.5">
-      <button onClick={() => setDate(monthDate(m - 1))} className={step} title="Previous month">
-        <ChevronLeft size={14} />
-      </button>
-      <select value={m} onChange={(e) => setDate(monthDate(+e.target.value))} className="h-7 w-[62px] rounded-[5px] border border-line-2 bg-paper px-1 text-[12.5px] font-medium text-ink outline-none hover:border-accent/60" aria-label="Month" title="Modelled month: sun path and typical weather">
-        {MONTHS.map((x, i) => (
-          <option key={x} value={i}>
-            {x}
-          </option>
-        ))}
-      </select>
-      <button onClick={() => setDate(monthDate(m + 1))} className={step} title="Next month">
-        <ChevronRight size={14} />
-      </button>
-    </div>
-  );
+function viewScope(): Scope | null {
+  const R = rt();
+  const map = R.map;
+  if (!map) return null;
+  const proj = new LocalProjection(R.meta.origin.lon, R.meta.origin.lat);
+  const cv = map.getCanvas();
+  const w = cv.clientWidth,
+    h = cv.clientHeight;
+  const c = map.getCenter();
+  const center = proj.toLocal(c.lng, c.lat) as [number, number];
+  const poly: [number, number][] = [];
+  for (const [x, y] of [[0, 0], [w, 0], [w, h], [0, h]]) {
+    const ll = map.unproject([x, y]);
+    const p = proj.toLocal(ll.lng, ll.lat);
+    if (!Number.isFinite(p[0]) || !Number.isFinite(p[1])) return { center, radius: VIEW_RADIUS };
+    poly.push([p[0], p[1]]);
+  }
+  // a tilted view reaches toward the horizon: the radius keeps the figures about the place in front of you
+  return { poly, center, radius: VIEW_RADIUS };
+}
+
+/**
+ * Heat KPIs for the area in view at the hour shown: re-scoped when the camera settles, re-timed every
+ * frame of the clock (tile sums, microseconds), and recomputed whenever a new run (an edit, a month)
+ * lands.
+ */
+function useHeatKpis(rec: SimRecord | undefined, hour: number): { label: string; value: string }[] {
+  const [scope, setScope] = useState<Scope | null>(null);
+  useEffect(() => {
+    let map = rt().map;
+    let t: ReturnType<typeof setTimeout> | null = null;
+    const update = () => setScope(viewScope());
+    const onMove = () => {
+      if (t) clearTimeout(t);
+      t = setTimeout(update, 120);
+    };
+    // the map can attach after the dock mounts
+    const poll = setInterval(() => {
+      if (map || !rt().map) return;
+      map = rt().map;
+      map!.on("move", onMove);
+      update();
+    }, 500);
+    if (map) {
+      map.on("move", onMove);
+      update();
+    }
+    return () => {
+      clearInterval(poll);
+      if (t) clearTimeout(t);
+      map?.off("move", onMove);
+    };
+  }, []);
+  const tiles = rec?.result?.tiles;
+  const grid = rec?.result?.grid ?? rt().meta.grid;
+  const sel = useMemo(() => (tiles ? tilesIn(tiles, grid, scope) : null), [tiles, grid, scope]);
+  if (!rec || !tiles || !sel) return [];
+  const k = areaKpi(rec.result, sel, hour);
+  const pct = (x: number, d = 0) => `${(x * 100).toFixed(d)}%`;
+  const none = "—";
+  return [
+    { label: "Surface temp", value: k.surface === null ? none : fmtF(k.surface, 0) },
+    { label: "Feels like on foot", value: k.feels === null ? none : fmtF(k.feels, 0) },
+    { label: "Canopy", value: k.cells ? pct(k.canopy, 1) : none },
+    { label: "Shaded paths", value: k.feels === null ? none : k.shaded === null ? "Night" : pct(k.shaded) },
+  ];
 }
