@@ -70,7 +70,7 @@ export function HelpDialog() {
               <Row k={<Keys>Esc</Keys>}>Back up above the street</Row>
             </Section>
             <Section title="Making things">
-              <Row k={<><Keys>L</Keys><Keys>B</Keys><Keys>T</Keys></>}>Library: everything you can place (B opens buildings, T trees)</Row>
+              <Row k={<><Keys>L</Keys><Keys>B</Keys><Keys>A</Keys><Keys>T</Keys></>}>Library: everything you can place (B buildings, A parks, T trees)</Row>
               <Row k={<><Keys>click</Keys><Keys>drag</Keys></>}>Place it; drag to aim it, or drag out a rectangle</Row>
               <Row k={<><Keys>[</Keys><Keys>]</Keys></>}>Turn what you are placing</Row>
               <Row k={<Keys>Space</Keys>}>Hold to pan while placing</Row>

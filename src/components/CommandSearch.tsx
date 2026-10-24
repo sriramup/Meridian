@@ -3,7 +3,10 @@
 // The search box finds things to do: tools, analyses, views and design actions, or hands the
 // question to the agent. "/" or ⌘K to focus, arrows to choose, Enter to run.
 
-import { Building2, CircleHelp, Compass, Download, Eye, Footprints, GitBranch, LayoutGrid, Map as MapIcon, MessageSquare, Moon, MousePointer2, Redo2, Ruler, Search, Spline, Square, Tags, TramFront, TreeDeciduous, Undo2, type LucideIcon } from "lucide-react";
+import { ensureLibrary, searchPrimitives } from "@/library";
+import { CATEGORY } from "./library/icons";
+import { useLibrary } from "./library/libraryStore";
+import { Building2, CircleHelp, Compass, Download, Eye, Footprints, GitBranch, LayoutGrid, LibraryBig, Map as MapIcon, MessageSquare, Moon, MousePointer2, Redo2, Ruler, Search, Spline, Square, Tags, TramFront, TreeDeciduous, Undo2, type LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { faceNorth, overview, tilt } from "@/render/camera";
 import { switchCity } from "@/state/cities";
@@ -28,12 +31,13 @@ interface Cmd {
   run: () => void;
 }
 
-const TOOLS: { tool: Tool; label: string; icon: LucideIcon; keys: string; words: string }[] = [
+const TOOLS: { tool: Tool; label: string; icon: LucideIcon; keys?: string; words: string }[] = [
   { tool: "select", label: "Select and inspect", icon: MousePointer2, keys: "V", words: "pick choose edit info" },
   { tool: "street", label: "Draw a street", icon: Spline, keys: "S", words: "road avenue boulevard lane bike path" },
-  { tool: "building", label: "Draw a building", icon: Building2, keys: "B", words: "house homes tower office shop school" },
-  { tool: "area", label: "Add a park, plaza or water", icon: Square, keys: "A", words: "green garden lake pond square open space" },
-  { tool: "tree", label: "Plant trees", icon: TreeDeciduous, keys: "T", words: "tree shade oak elm canopy planting" },
+  { tool: "library", label: "Open the library", icon: LibraryBig, keys: "L", words: "place add building house park tree bench furniture catalog primitive" },
+  { tool: "building", label: "Draw a building footprint", icon: Building2, words: "house homes tower office shop school outline polygon" },
+  { tool: "area", label: "Draw an area: park, plaza, water, parking", icon: Square, words: "green garden lake pond square open space outline" },
+  { tool: "tree", label: "Plant trees (one by one or in a row)", icon: TreeDeciduous, words: "tree shade oak elm canopy planting" },
   { tool: "district", label: "Generate a district", icon: LayoutGrid, keys: "D", words: "blocks neighbourhood neighborhood masterplan homes" },
   { tool: "transit", label: "Draw a transit line", icon: TramFront, keys: "R", words: "bus tram brt route stop train" },
   { tool: "measure", label: "Measure", icon: Ruler, keys: "M", words: "distance ruler length area" },
@@ -98,7 +102,7 @@ function score(c: Cmd, q: string): number {
 }
 
 /** what to offer before anything is typed */
-const STARTERS = ["tool:tree", "tool:street", "tool:building", "agent", "overlay:heat", "pedestrian", "help"];
+const STARTERS = ["tool:library", "tool:street", "agent", "overlay:heat", "pedestrian", "help"];
 
 export function CommandSearch() {
   const [q, setQ] = useState("");
@@ -116,8 +120,12 @@ export function CommandSearch() {
       .map((c) => ({ c, s: score(c, q) }))
       .filter((x) => x.s >= 0)
       .sort((a, b) => b.s - a.s)
-      .slice(0, 7)
+      .slice(0, 6)
       .map((x) => x.c);
+    // library primitives: picking one opens its settings and arms it for placement
+    ensureLibrary();
+    for (const d of searchPrimitives(q, 4))
+      hits.push({ id: `lib:${d.id}`, label: d.name, group: "Tools", icon: CATEGORY[d.category]?.icon ?? LibraryBig, words: d.description, run: () => (resetDraw(), useLibrary.getState().arm(d.id)) });
     // anything else is a question for the agent
     hits.push({ id: "ask", label: `Ask the agent: “${q.trim()}”`, group: "Agent", icon: MessageSquare, run: () => useApp.getState().askAgent(q.trim()) });
     return hits;

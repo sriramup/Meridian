@@ -182,23 +182,27 @@ function torus(nu = 24, nv = 12): UnitMesh {
   return b.mesh();
 }
 
-const cache = new Map<SolidShape, UnitMesh>();
-const MAKE: Record<SolidShape, () => UnitMesh> = {
+/** mesh detail: 0 far, 1 middle distance, 2 close (flat-sided shapes are the same at every level) */
+export type MeshLod = 0 | 1 | 2;
+
+const cache = new Map<string, UnitMesh>();
+const MAKE: Record<SolidShape, (lod: MeshLod) => UnitMesh> = {
   box,
-  cylinder: () => cylinder(),
-  cone: () => cone(),
-  sphere: () => ellipsoid(10, 16, false),
-  hemisphere: () => ellipsoid(6, 16, true),
+  cylinder: (l) => cylinder([6, 10, 18][l]),
+  cone: (l) => cone([6, 10, 18][l]),
+  sphere: (l) => ellipsoid([4, 6, 10][l], [6, 10, 16][l], false),
+  hemisphere: (l) => ellipsoid([2, 4, 6][l], [6, 10, 16][l], true),
   wedge,
   pyramid,
-  torus: () => torus(),
+  torus: (l) => torus([12, 18, 24][l], [8, 8, 12][l]),
 };
 
 export const SOLID_SHAPES = Object.keys(MAKE) as SolidShape[];
 
-/** the shared unit mesh for a shape (built once) */
-export function unitMesh(shape: SolidShape): UnitMesh {
-  let m = cache.get(shape);
-  if (!m) cache.set(shape, (m = MAKE[shape]()));
+/** the shared unit mesh for a shape at a detail level (built once) */
+export function unitMesh(shape: SolidShape, lod: MeshLod = 2): UnitMesh {
+  const k = `${shape}:${lod}`;
+  let m = cache.get(k);
+  if (!m) cache.set(k, (m = MAKE[shape](lod)));
   return m;
 }
