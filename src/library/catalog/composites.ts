@@ -38,7 +38,7 @@ function bld(out: Out, f: Frame, at: Vec2, rotDeg: number, params: ParamValues, 
 
 function streetTree(out: Out, p: Vec2, seed: number, scale = 0.8) {
   const t = treeSolids({ shape: "vase", height: 13 * scale, crown: 9 * scale, trunkFrac: 0.35, dbh: 0.4, color: [96, 134, 74], trunkColor: C.trunk, clumps: 2, seed });
-  out.prop("flora.tree", { c: p, a: seed * 6, siteW: 0, siteD: 0 }, t, { primary: false, shade: { r: 4.5 * scale, h: 13 * scale } });
+  out.prop("flora.tree", { c: p, a: seed * 6, siteW: 0, siteD: 0 }, t, { primary: false, shade: { r: 4.5 * scale, h: 13 * scale }, anchorR: 0.5 });
 }
 
 function siteFrame(place: PlacementInput, w: number, d: number): Frame {
@@ -285,7 +285,7 @@ export const COMPOSITES: PrimitiveDef[] = [
         const a = (i / 8) * Math.PI * 2;
         out.prop("streetscape.bench", subFrame(f, [Math.cos(a) * 14, Math.sin(a) * 14], (a * 180) / Math.PI + 90), benchSolids("classic", 1.8), { primary: false });
       }
-      for (const [x, y] of [[-pw / 2 + 2, -pd / 2 + 2], [pw / 2 - 2, -pd / 2 + 2], [pw / 2 - 2, pd / 2 - 2], [-pw / 2 + 2, pd / 2 - 2]] as Vec2[]) out.prop("streetscape.street_lamp", subFrame(f, [x, y]), lampSolids("historic", 4.5), { primary: false });
+      for (const [x, y] of [[-pw / 2 + 2, -pd / 2 + 2], [pw / 2 - 2, -pd / 2 + 2], [pw / 2 - 2, pd / 2 - 2], [-pw / 2 + 2, pd / 2 - 2]] as Vec2[]) out.prop("streetscape.street_lamp", subFrame(f, [x, y]), lampSolids("historic", 4.5), { primary: false, anchorR: 0.3 });
       // frame: town hall at the head, shopfronts on the other three sides
       if (r.b("townHall")) child(out, byId(CIVIC, "civic.city_hall"), { width: Math.min(70, W * 0.45), depth: 22, shape: "rect", forecourt: false, floors: 3 }, { at: toWorld(f, [0, D / 2 + 2]), rotation: ((f.a * 180) / Math.PI + 180) % 360 });
       const fl = r.n("shopFloors");

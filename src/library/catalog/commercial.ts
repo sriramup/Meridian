@@ -64,7 +64,7 @@ export const COMMERCIAL: PrimitiveDef[] = [
     tags: ["bodega", "convenience store", "deli", "shop", "market", "neighbourhood retail"],
     description: "Small neighbourhood shop, optionally with apartments above.",
     icon: "store",
-    defaults: { ...shop, width: 12, depth: 15, floors: 2, groundUse: "retail", use: "residential", facade: "brick_red", shape: "chamfered", corner: 2.5 },
+    defaults: { ...shop, width: 12, depth: 15, floors: 2, groundUse: "retail", use: "residential", facade: "brick_red", shape: "rect", corner: 2.5 },
   }),
   buildingType({
     id: "commercial.supermarket",

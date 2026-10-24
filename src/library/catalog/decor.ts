@@ -81,15 +81,15 @@ export function parkingLot(out: Out, f: Frame, cx: number, cy: number, w: number
     }
   }
   if (s.length) {
-    const p = out.prop("decor.parking_markings", subFrame(f, [cx, cy]), s, { primary: false, height: 0.05 });
+    const p = out.prop("transport.parking_lot", subFrame(f, [cx, cy]), s, { primary: false, height: 0.05 });
     p.cover = "paving";
   }
   if (o.lamps) {
     const n = Math.max(1, Math.round(w / 30));
-    for (let i = 0; i < n; i++) out.prop("streetscape.street_lamp", subFrame(f, [cx - w / 2 + (w * (i + 0.5)) / n, cy]), lampSolids("double", 9, 1.6), { primary: false });
+    for (let i = 0; i < n; i++) out.prop("streetscape.street_lamp", subFrame(f, [cx - w / 2 + (w * (i + 0.5)) / n, cy]), lampSolids("double", 9, 1.6), { primary: false, anchorR: 0.4 });
   }
   if (o.trees) {
-    for (const yy of [cy - d / 2 - 2.5, cy + d / 2 + 2.5]) for (let x = cx - w / 2 + 4; x <= cx + w / 2 - 4; x += 10) out.prop("flora.tree", subFrame(f, [x, yy]), treeSolids({ shape: "round", height: 8, crown: 6, trunkFrac: 0.35, dbh: 0.3, color: C.foliage, trunkColor: C.trunk, clumps: 2, seed: x * 0.13 }), { primary: false, shade: { r: 3, h: 8 } });
+    for (const yy of [cy - d / 2 - 2.5, cy + d / 2 + 2.5]) for (let x = cx - w / 2 + 4; x <= cx + w / 2 - 4; x += 10) out.prop("flora.tree", subFrame(f, [x, yy]), treeSolids({ shape: "round", height: 8, crown: 6, trunkFrac: 0.35, dbh: 0.3, color: C.foliage, trunkColor: C.trunk, clumps: 2, seed: x * 0.13 }), { primary: false, shade: { r: 3, h: 8 }, anchorR: 0.5 });
   }
   return stalls;
 }

@@ -92,14 +92,14 @@ export const WATER: PrimitiveDef[] = [
         const c = polyCentroid([ring]);
         const s: Solid[] = [];
         for (const st of stations([...ring, ring[0]], 2.5, 0, false)) if (rand() < 0.5) s.push(S("sphere", [st.p[0] - c[0], st.p[1] - c[1], -0.2], [0.6 + rand(), 0.5 + rand() * 0.6, 0.5 + rand() * 0.4], rand() < 0.5 ? C.stone : C.granite, "stone"));
-        if (s.length) out.prop("water.edge", { c, a: 0, siteW: 0, siteD: 0 }, s, { primary: false, height: 0.8 });
+        if (s.length) out.prop("water.pond", { c, a: 0, siteW: 0, siteD: 0 }, s, { primary: false, height: 0.8 });
       }
       if (r.b("reeds")) {
         const c = polyCentroid([ring]);
         const s: Solid[] = [];
         const st = stations([...offsetPath([...ring, ring[0]], 1.2)], 3, 0, false);
         for (const q of st) if (rand() < 0.45) s.push(...moveSolids(shrubSolids("grass_clump", 1.4, 1.3 + rand() * 0.6, [120, 150, 80], undefined, rand() * 10), q.p[0] - c[0], q.p[1] - c[1]));
-        if (s.length) out.prop("water.reeds", { c, a: 0, siteW: 0, siteD: 0 }, s, { primary: false, height: 2 }).cover = "planting";
+        if (s.length) out.prop("water.pond", { c, a: 0, siteW: 0, siteD: 0 }, s, { primary: false, height: 2 }).cover = "planting";
       }
       out.summary.push(`Pond ${Math.round(polyArea([ring])).toLocaleString()} m², ${Math.round(polyArea([ring]) * r.n("waterDepth")).toLocaleString()} m³`);
       return out.done();
@@ -193,7 +193,7 @@ export const WATER: PrimitiveDef[] = [
           const c = polyCentroid(poly);
           const s: Solid[] = [];
           for (const st of stations([...offsetPath([...poly[0], poly[0][0]], -r.n("bench") / 2)], 2.5, 0, false)) s.push(...moveSolids(shrubSolids("grass_clump", 1.6, 1.2, [120, 150, 80], undefined, st.s), st.p[0] - c[0], st.p[1] - c[1]));
-          if (s.length) out.prop("water.reeds", { c, a: 0, siteW: 0, siteD: 0 }, s, { primary: false, height: 1.3 }).cover = "raingarden";
+          if (s.length) out.prop("water.retention_pond", { c, a: 0, siteW: 0, siteD: 0 }, s, { primary: false, height: 1.3 }).cover = "raingarden";
         }
       }
       out.summary.push(`Retention pond: ${Math.round(polyArea(poly) * r.n("storageDepth")).toLocaleString()} m³ storage`);
@@ -323,7 +323,7 @@ function waterBand(values: Record<string, unknown>, place: Parameters<PrimitiveD
         b = edge[i + 1];
       const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
       if (len < 0.2) continue;
-      out.prop("water.edge", { c: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], a: Math.atan2(b[1] - a[1], b[0] - a[0]), siteW: 0, siteD: 0 }, [box(0, 0, -0.6, len, 0.6, 1.1, C.stone, "stone")], { primary: false, height: 0.5 });
+      out.prop("water.canal", { c: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], a: Math.atan2(b[1] - a[1], b[0] - a[0]), siteW: 0, siteD: 0 }, [box(0, 0, -0.6, len, 0.6, 1.1, C.stone, "stone")], { primary: false, height: 0.5 });
     }
   }
   if (r.b("towpath")) out.path(offsetPath(path, w / 2 + 2.5), "footway", { primary: false });

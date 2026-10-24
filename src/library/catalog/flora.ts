@@ -145,7 +145,7 @@ function addTree(out: Out, r: Reader, fixed: SpeciesPreset | null, p: Vec2, rotD
   const rad = t.spec.crown / 2;
   if (r.s("form") === "simple") return out.tree(p, rad, t.spec.height, t.simple, primary);
   const shadeR = t.spec.bare ? rad * 0.35 : rad;
-  return out.prop(typeId, { c: p, a: (rotDeg * Math.PI) / 180, siteW: 0, siteD: 0 }, treeSolids(t.spec), { shade: { r: shadeR, h: t.spec.height }, primary, name: t.name });
+  return out.prop(typeId, { c: p, a: (rotDeg * Math.PI) / 180, siteW: 0, siteD: 0 }, treeSolids(t.spec), { shade: { r: shadeR, h: t.spec.height }, primary, name: t.name, anchorR: Math.max(0.4, t.spec.dbh) });
 }
 
 function treeDef(sp: SpeciesPreset | null): PrimitiveDef {

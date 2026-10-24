@@ -60,7 +60,7 @@ export const STREETSCAPE: PrimitiveDef[] = [
     description: "Street or path light: cobra head, double arm, acorn, historic, post-top, pedestrian, modern or high mast.",
     icon: "lamp",
     params: lampParams,
-    build: (r) => ({ solids: lamp(r) }),
+    build: (r) => ({ solids: lamp(r), anchorR: 0.35 }),
   }),
   rowDef({
     id: "streetscape.lamp_row",
@@ -71,7 +71,7 @@ export const STREETSCAPE: PrimitiveDef[] = [
     icon: "lamp",
     params: [...lampParams, num("spacing", "Spacing", 30, { group: D, unit: "m", min: 3, max: 100, step: 0.5 }), num("offset", "Side offset", 0, { group: D, unit: "m", min: -30, max: 30, step: 0.5, description: "Shift left (+) / right (−) of the drawn line" }), bool("alternate", "Alternate sides", false, { group: D })],
     sideKey: "offset",
-    item: (r, i) => ({ solids: r.b("alternate") && i % 2 ? moveSolids(lamp(r), 0, 0, 180) : moveSolids(lamp(r), 0, 0, 90) }),
+    item: (r, i) => ({ solids: r.b("alternate") && i % 2 ? moveSolids(lamp(r), 0, 0, 180) : moveSolids(lamp(r), 0, 0, 90), anchorR: 0.35 }),
   }),
   propDef({
     id: "streetscape.bollard",
@@ -372,7 +372,7 @@ export const STREETSCAPE: PrimitiveDef[] = [
         s.push(box(x, 0, h - 1.1, 0.35, 0.3, 1.05, C.yellow, "metal"));
         s.push(S("sphere", [x, 0.16, h - 0.35], [0.2, 0.05, 0.2], [220, 60, 50], "light"), S("sphere", [x, 0.16, h - 0.95], [0.2, 0.05, 0.2], [80, 200, 120], "light"));
       }
-      return { solids: s };
+      return { solids: s, anchorR: 0.4 };
     },
   }),
   // ---------------------------------------------------------------- linear
