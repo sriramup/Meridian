@@ -13,7 +13,8 @@ import { toggleNight, togglePedestrian } from "@/state/view";
 import { Wordmark } from "./LoadingScreen";
 import { CITY_PRESETS, switchCity } from "@/state/cities";
 import { clearDesign, hasDesign } from "@/state/persist";
-import { exportProposal, exportableScenarios, importProposalText, ProposalImportError } from "@/state/proposalIO";
+import { exportableScenarios } from "@/state/proposalIO";
+import { openProposalFile, saveProposal } from "@/state/proposalActions";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -88,24 +89,8 @@ function ScenarioMenu() {
   const word = R.meta.sandbox ? "design" : "proposal";
   const canExport = active.id !== "baseline" && active.cursor > 0;
   const many = exportableScenarios(R).length > 1;
-  const save = (format: "json" | "csv", which: "active" | "all" = "active") => {
-    try {
-      exportProposal(R, format, which);
-    } catch (err) {
-      useApp.getState().notify(`Could not export: ${(err as Error).message}`, "error");
-    }
-  };
-  const open = async (f: File) => {
-    const st = useApp.getState();
-    try {
-      const res = importProposalText(R, await f.text(), f.name);
-      bump();
-      const what = res.names.length > 1 ? `${res.names.length} ${word}s` : `“${res.names[0]}”`;
-      st.notify(res.notes.length ? `Imported ${what}. Not carried by CSV: ${res.notes.join("; ")}` : `Imported ${what} as a new ${word}`, res.notes.length ? "warn" : "info");
-    } catch (err) {
-      st.notify(err instanceof ProposalImportError ? err.message : `Could not import ${f.name}: ${(err as Error).message}`, "error");
-    }
-  };
+  const save = saveProposal;
+  const open = openProposalFile;
   return (
     <DropdownMenu>
       <Tip label="Designs: switch, compare, try an alternative, export or import">

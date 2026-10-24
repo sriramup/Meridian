@@ -6,12 +6,12 @@
 import { ensureLibrary, searchPrimitives } from "@/library";
 import { CATEGORY } from "./library/icons";
 import { useLibrary } from "./library/libraryStore";
-import { Building2, CircleHelp, Compass, Download, Eye, Footprints, GitBranch, LayoutGrid, LibraryBig, Map as MapIcon, MessageSquare, Moon, MousePointer2, Redo2, Ruler, Search, Spline, Square, Tags, TramFront, TreeDeciduous, Undo2, type LucideIcon } from "lucide-react";
+import { Building2, CircleHelp, Compass, Download, Eye, Footprints, GitBranch, LayoutGrid, LibraryBig, Map as MapIcon, MessageSquare, Moon, MousePointer2, Redo2, Ruler, Search, Spline, Square, Tags, TramFront, TreeDeciduous, Undo2, Upload, type LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { faceNorth, overview, tilt } from "@/render/camera";
 import { switchCity } from "@/state/cities";
 import { resetDraw } from "@/state/drawing";
-import { exportDesign, hasDesign } from "@/state/persist";
+import { pickProposalFile, saveProposal } from "@/state/proposalActions";
 import { rt } from "@/state/runtime";
 import { useApp, type Tool } from "@/state/store";
 import { toggleNight, togglePedestrian } from "@/state/view";
@@ -78,9 +78,15 @@ function commands(): Cmd[] {
     { id: "redo", label: "Redo", group: "Design", icon: Redo2, keys: "⇧⌘Z", words: "again forward", run: () => (R.scenarios.redo(), bump()) },
     { id: "branch", label: "Try an alternative design", group: "Design", icon: GitBranch, words: "branch scenario option copy compare", run: () => (R.scenarios.branch(`Option ${String.fromCharCode(64 + R.scenarios.scenarios.size)}`, "user"), bump()) },
   );
+  const word = R.meta.sandbox ? "design" : "proposal";
+  if (R.scenarios.activeId !== "baseline" && R.scenarios.active.cursor > 0)
+    out.push(
+      { id: "export-json", label: `Export this ${word} as JSON`, group: "Design", icon: Download, words: "export download save file json exact backup share", run: () => saveProposal("json") },
+      { id: "export-csv", label: `Export this ${word} as CSV`, group: "Design", icon: Download, words: "export download save file csv spreadsheet table excel rows", run: () => saveProposal("csv") },
+    );
+  out.push({ id: "import", label: `Import a ${word} (JSON or CSV)…`, group: "Design", icon: Upload, words: "import open load file json csv proposal design", run: pickProposalFile });
   if (R.meta.sandbox) {
     out.push({ id: "austin", label: "Open Austin", group: "Design", icon: MapIcon, words: "city real texas measured", run: () => switchCity("austin") });
-    if (hasDesign()) out.push({ id: "export", label: "Save the design as a file", group: "Design", icon: Download, words: "export download json backup", run: exportDesign });
   } else out.push({ id: "blank", label: "Open a blank canvas", group: "Design", icon: MapIcon, words: "sandbox new empty scratch", run: () => switchCity("sandbox") });
   out.push({ id: "help", label: "Controls and navigation", group: "Help", icon: CircleHelp, keys: "?", words: "help keys keyboard mouse rotate tilt move camera how", run: () => st.setHelpOpen(true) });
   return out;
