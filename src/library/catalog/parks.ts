@@ -261,8 +261,9 @@ export const PARKS: PrimitiveDef[] = [
       num("depth", "Depth (if not drawn)", 45, { group: D, unit: "m", min: 10, max: 1000 }),
       choice("centre", "Centrepiece", "fountain", opts("fountain", "statue", "obelisk", "lawn", "none"), { group: F }),
       choice("species", "Trees", "london_plane", TREE_OPTS, { group: P }),
-      num("treeSpacing", "Tree spacing", 9, { group: P, unit: "m", min: 4, max: 40, step: 0.5 }),
+      num("treeSpacing", "Tree spacing", 10, { group: P, unit: "m", min: 4, max: 40, step: 0.5 }),
       num("edgeInset", "Tree inset from edge", 4, { group: P, unit: "m", min: 1, max: 30, step: 0.5 }),
+      num("treeSize", "Tree size", 45, { group: P, unit: "%", min: 15, max: 120, step: 5, description: "Share of the species' mature size (plaza trees in grates are usually kept smaller)" }),
       int("benches", "Benches", 8, { group: F, min: 0, max: 60 }),
       bool("lamps", "Lights", true, { group: F }),
       choice("paving", "Paving", "plaza", [{ value: "plaza", label: "Stone paving" }, { value: "permeable", label: "Permeable pavers" }], { group: A }),
@@ -279,7 +280,7 @@ export const PARKS: PrimitiveDef[] = [
       const seed = seedOf(ctx);
       if (ring) {
         const sts = stations(ring, r.n("treeSpacing"), 0, false);
-        plantTrees(out, sts.map((s) => s.p), r.s("species"), 0.7, seed);
+        plantTrees(out, sts.map((s) => s.p), r.s("species"), r.n("treeSize") / 100, seed);
         for (const s of sts) out.prop("streetscape.tree_grate", { c: s.p, a: 0, siteW: 0, siteD: 0 }, [box(0, 0, 0, 1.8, 1.8, 0.03, C.steelDark, "metal")], { primary: false, height: 0.03 });
         const nb = r.n("benches");
         if (nb) {
