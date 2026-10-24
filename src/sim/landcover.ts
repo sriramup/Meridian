@@ -4,7 +4,8 @@
 // model knows about (buildings, street strips, parks, water, trees) is painted
 // on top so edits flow straight into the analyses.
 
-import type { Area, Building, Entity, Polygon, Tree } from "@/world/types";
+import type { Area, Building, Entity, Polygon, Prop, PropCover, Solid, Tree } from "@/world/types";
+import { propSolidsWorld, solidOutline } from "@/library/frame";
 import { bufferPoly } from "@/geometry/polygon";
 import type { NodeGeom, StreetGeom } from "@/geometry/streetGeometry";
 import { rasterizeDisc, rasterizeRings, type GridSpec } from "./raster";
@@ -59,6 +60,58 @@ export interface LandcoverInput {
   trees: { p: [number, number]; r: number; h: number }[];
   /** proposed footprints / hard surfaces that clear the measured canopy beneath them */
   clearings: number[][][][];
+  /** canopy outlines that are not single trees (tall foliage of library props): canopy cover, height `h` */
+  canopies?: { rings: number[][][]; h: number }[];
+  /** solid structures that are not buildings (kiosks, shelters, building roof solids): height only, for shadows */
+  structures?: { rings: number[][][]; top: number }[];
+}
+
+/** land-cover class a library prop's ground cover paints */
+export const PROP_COVER: Record<PropCover, number> = {
+  water: 5, // LC.WATER
+  paving: 3, // LC.PAVED
+  planting: 0, // LC.GRASS
+  lawn: 7, // LC.PARK
+  permeable: 11, // LC.PERMEABLE
+  raingarden: 12, // LC.RAINGARDEN
+  woodland: 13, // LC.WOOD
+  bare: 8, // LC.BARE
+};
+
+/** a crown-shaped shade prop's canopy height for the height field (tree crowns are rasterised at 0.6 × height) */
+const TREE_CROWN = 0.6;
+
+/**
+ * Land-cover contributions of a library prop: explicit `shade` acts like a tree crown; explicit `cover`
+ * paints its footprint; otherwise the solids decide — low water solids are water, low foliage is planting,
+ * tall foliage is canopy, and other solid structures over 2 m tall cast shadows.
+ */
+export function propContributions(pr: Prop): { trees: LandcoverInput["trees"]; surfaces: LandcoverInput["surfaces"]; canopies: NonNullable<LandcoverInput["canopies"]>; structures: NonNullable<LandcoverInput["structures"]>; clears: boolean } {
+  const out = { trees: [] as LandcoverInput["trees"], surfaces: [] as LandcoverInput["surfaces"], canopies: [] as NonNullable<LandcoverInput["canopies"]>, structures: [] as NonNullable<LandcoverInput["structures"]>, clears: false };
+  if (pr.shade && pr.shade.r > 0) out.trees.push({ p: pr.p, r: pr.shade.r, h: pr.shade.h / TREE_CROWN });
+  if (pr.cover && pr.footprint) {
+    out.surfaces.push({ rings: pr.footprint, cls: PROP_COVER[pr.cover] });
+    out.clears = pr.cover === "water" || pr.cover === "paving" || pr.cover === "bare";
+  }
+  for (const w of propSolidsWorld(pr)) {
+    const m = w.solid.material;
+    if (m === "water") {
+      if (!pr.cover && w.base < 1) out.surfaces.push({ rings: [w.ring], cls: LC.WATER });
+    } else if (m === "foliage") {
+      if (pr.shade) continue;
+      if (w.top <= 2.5) {
+        if (!pr.cover && w.base < 1) out.surfaces.push({ rings: [w.ring], cls: LC.GRASS });
+      } else out.canopies.push({ rings: [w.ring], h: w.top });
+    } else if (w.top >= 2 && w.solid.size[0] * w.solid.size[1] >= 0.5 && m !== "light") out.structures.push({ rings: [w.ring], top: w.top });
+  }
+  return out;
+}
+
+/** shadow-casting outlines of a building's extra solids (roofs, spires, canopies), absolute local metres */
+export function buildingSolidStructures(solids: Solid[] | undefined): NonNullable<LandcoverInput["structures"]> {
+  const out: NonNullable<LandcoverInput["structures"]> = [];
+  for (const s of solids ?? []) if (s.size[0] * s.size[1] >= 0.5 && s.at[2] + s.size[2] >= 2 && s.material !== "light") out.push({ rings: [solidOutline(s)], top: s.at[2] + s.size[2] });
+  return out;
 }
 
 /** base raster: low 7 bits = measured ground class, high bit = measured tree canopy (City of Austin 2022) */
@@ -83,6 +136,9 @@ export function prepareLandcover(entities: Iterable<Entity>, streetGeom: Map<str
   const surfaces: LandcoverInput["surfaces"] = [];
   const trees: LandcoverInput["trees"] = [];
   const clearings: number[][][][] = [];
+  const canopies: NonNullable<LandcoverInput["canopies"]> = [];
+  const structures: NonNullable<LandcoverInput["structures"]> = [];
+  const propSurfaces: LandcoverInput["surfaces"] = [];
   const areaCls: Partial<Record<Area["type"], number>> = {
     park: LC.PARK, grass: LC.GRASS, wood: LC.WOOD, pitch: LC.PARK, water: LC.WATER, parking: LC.PARKING, plaza: LC.PAVED,
     construction: LC.BARE, campus: -1, cemetery: LC.PARK, retention: LC.WATER, raingarden: LC.RAINGARDEN, permeable: LC.PERMEABLE,
@@ -94,6 +150,14 @@ export function prepareLandcover(entities: Iterable<Entity>, streetGeom: Map<str
       const b = e as Building;
       buildings.push({ rings: b.footprint, height: b.height, green: !!b.greenRoof, planted: b.greenRoof ? plantedRoof(b.footprint) : undefined, masses: b.masses.map((m) => ({ rings: m.poly, base: m.base, top: m.top })) });
       if (b.createdBy) clearings.push(b.footprint);
+      if (b.solids?.length) structures.push(...buildingSolidStructures(b.solids));
+    } else if (e.kind === "prop") {
+      const c = propContributions(e as Prop);
+      trees.push(...c.trees);
+      propSurfaces.push(...c.surfaces);
+      canopies.push(...c.canopies);
+      structures.push(...c.structures);
+      if (c.clears && (e as Prop).footprint) clearings.push((e as Prop).footprint!);
     } else if (e.kind === "tree") {
       const t = e as Tree;
       trees.push({ p: t.p, r: t.r, h: t.h });
@@ -122,7 +186,7 @@ export function prepareLandcover(entities: Iterable<Entity>, streetGeom: Map<str
   }
   areas.sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
   const areaSurfaces = areas.filter((a) => (areaCls[a.type] ?? -1) >= 0).map((a) => ({ rings: a.poly, cls: areaCls[a.type]! }));
-  return { grid, base, buildings, surfaces: [...areaSurfaces, ...surfaces], trees, clearings };
+  return { grid, base, buildings, surfaces: [...areaSurfaces, ...surfaces, ...propSurfaces], trees, clearings, canopies, structures };
 }
 
 export function buildLandcover(inp: LandcoverInput): Landcover {
@@ -165,6 +229,13 @@ export function buildLandcover(inp: LandcoverInput): Landcover {
       }
     });
   }
+  for (const c of inp.canopies ?? [])
+    rasterizeRings(g, toRings(c.rings), (i) => {
+      canopy[i] = 1;
+      if (cls[i] !== LC.ROOF && cls[i] !== LC.GREENROOF && cls[i] !== LC.WATER) cls[i] = LC.CANOPY;
+      height[i] = Math.max(height[i], c.h);
+    });
+  for (const st of inp.structures ?? []) rasterizeRings(g, toRings(st.rings), (i) => (height[i] = Math.max(height[i], st.top)));
   for (let i = 0; i < n; i++) if (ground[i] === LC.WOOD) canopy[i] = Math.max(canopy[i], 0.8);
   return { grid: g, cls, ground, canopy, height };
 }

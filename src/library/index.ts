@@ -17,3 +17,4 @@ export function ensureLibrary(): void {
   registerBuiltins();
   registerCatalog();
 }
+export { LIBRARY_PROMPT } from "./prompt";

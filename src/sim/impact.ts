@@ -43,6 +43,9 @@ function footprint(e: Entity): Footprint | null {
     case "building":
       // a building changes heat by its shadow and roof: compare the ground within 25 m of it
       return { at: polyCentroid(e.footprint), rings: e.footprint, halo: 25 };
+    case "prop":
+      // library objects act through their shade crown or ground cover
+      return e.shade ? { at: e.p, disc: { c: e.p, r: e.shade.r } } : e.cover && e.footprint ? { at: e.p, rings: e.footprint } : null;
     default:
       return null;
   }

@@ -87,6 +87,8 @@ export function entityName(e: Entity): string {
       return `${e.ref} ${e.name}`;
     case "poi":
       return e.name ?? e.category;
+    case "prop":
+      return e.name ?? e.type.split(".").pop()!.replace(/_/g, " ");
     default:
       return e.id;
   }
@@ -298,6 +300,7 @@ export function polyOf(e: Entity): Polygon | null {
   if (e.kind === "area" || e.kind === "parcel") return e.poly;
   if (e.kind === "place" && (e as Place).poly) return (e as Place).poly!;
   if (e.kind === "street") return streetBand(e);
+  if (e.kind === "prop" && e.footprint) return e.footprint;
   return null;
 }
 

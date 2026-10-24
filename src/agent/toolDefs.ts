@@ -2,6 +2,8 @@
 // client executor. Coordinates are local metres (x east, y north) from the
 // city origin. Most location parameters also accept a place name or feature id.
 
+import { LIBRARY_TOOL_DEFS } from "./libraryToolDefs";
+
 type Schema = Record<string, unknown>;
 export interface ToolDef {
   name: string;
@@ -65,7 +67,7 @@ export const TOOL_DEFS: ToolDef[] = [
   {
     name: "find_features",
     description:
-      "Search the world model. kind: building|street|node|parcel|area|tree|stop|route|poi|place|utility. Filters: name (fuzzy), near+radius, within (area), where{use, minHeight, maxHeight, minFloors, cls, landUse ('vacant','parking','building','park'), zoning (prefix), type (area type), historic, proposed (created in this session), minArea, maxArea, control (junction), degree (junction approaches; 1 = dead end), bridge, oneway, closed, minLanes, maxRadius (streets with a curve tighter than this radius, m, measured on a 15 m chord), sidewalk ('missing' any side | 'missing_both' | 'missing_measured' = confirmed absent in the City inventory | 'poor' = grade D/F or ≥ 50 % functionally deficient | 'narrow' = under 4 ft), ramps ('missing' | 'poor', junction curb ramps), owner ('public' | 'private' | a public body name), underused (improvements worth < half the land), etod (in the ETOD overlay), maxLandValuePerM2}. Parcel rows carry TCAD land / improvement values, owner (public bodies by name; private owners are not named) and ETOD eligibility. Street rows carry sidewalk_left/right status (City inventory where measured). sort: distance|height|area|gfa|residents|jobs|curvature (most substandard curve for its speed first). Returns compact rows.",
+      "Search the world model. kind: building|street|node|parcel|area|tree|stop|route|poi|place|utility|prop (library objects). Filters: name (fuzzy), near+radius, within (area), where{def (library definition id or prefix), category (library category), instance (lib:…), type (prop definition), use, minHeight, maxHeight, minFloors, cls, landUse ('vacant','parking','building','park'), zoning (prefix), type (area type), historic, proposed (created in this session), minArea, maxArea, control (junction), degree (junction approaches; 1 = dead end), bridge, oneway, closed, minLanes, maxRadius (streets with a curve tighter than this radius, m, measured on a 15 m chord), sidewalk ('missing' any side | 'missing_both' | 'missing_measured' = confirmed absent in the City inventory | 'poor' = grade D/F or ≥ 50 % functionally deficient | 'narrow' = under 4 ft), ramps ('missing' | 'poor', junction curb ramps), owner ('public' | 'private' | a public body name), underused (improvements worth < half the land), etod (in the ETOD overlay), maxLandValuePerM2}. Parcel rows carry TCAD land / improvement values, owner (public bodies by name; private owners are not named) and ETOD eligibility. Street rows carry sidewalk_left/right status (City inventory where measured). sort: distance|height|area|gfa|residents|jobs|curvature (most substandard curve for its speed first). Returns compact rows.",
     input_schema: {
       type: "object",
       properties: {
@@ -83,7 +85,7 @@ export const TOOL_DEFS: ToolDef[] = [
   },
   {
     name: "get_feature",
-    description: "Full detail for one or more features: buildings (masses, floors, programme, units/jobs, provenance, parcel zoning & height limits, constraints), streets (cross-section strips and widths, lanes per direction, ROW, frontage distance to buildings on each side, junction ids), junctions (approaches, control), parcels (zoning, FAR, height/CVC limits, capacity), areas, routes.",
+    description: "Full detail for one or more features: buildings (masses, floors, programme, units/jobs, provenance, parcel zoning & height limits, constraints), streets (cross-section strips and widths, lanes per direction, ROW, frontage distance to buildings on each side, junction ids), junctions (approaches, control), parcels (zoning, FAR, height/CVC limits, capacity), areas, routes, library objects; anything placed from the library also shows its definition, instance and full parameter set.",
     input_schema: { type: "object", properties: { ids }, required: ["ids"] },
   },
   {
@@ -347,6 +349,7 @@ export const TOOL_DEFS: ToolDef[] = [
     description: "Place callouts on the map to explain decisions or results (each {at: location, title, body?, tone: info|warn|good}), and/or highlight feature ids. clear:true removes previous annotations.",
     input_schema: { type: "object", properties: { notes: { type: "array", items: { type: "object" } }, highlight: ids, clear: { type: "boolean" } } },
   },
+  ...LIBRARY_TOOL_DEFS,
 ];
 
 const MUTATING = new Set(["create_building", "modify_buildings", "merge_buildings", "remove_features", "green_roofs", "edit_streets", "set_junction", "create_street", "move_streets", "realign_streets", "remove_streets", "set_street_attributes", "create_area", "convert_areas", "plant_trees", "create_transit_route", "optimize_stops", "generate_district", "optimize_emergency"]);
