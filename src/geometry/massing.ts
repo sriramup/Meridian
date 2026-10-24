@@ -87,8 +87,8 @@ export interface MassingResult {
 }
 
 /** gross floor area of masses using the use's floor heights */
-export function massesGFA(masses: Mass[], use: Use): number {
-  const { ground, typ } = floorHeights(use);
+export function massesGFA(masses: Mass[], use: Use, storeys?: { ground: number; typical: number }): number {
+  const { ground, typ } = storeys ? { ground: storeys.ground, typ: storeys.typical } : floorHeights(use);
   let g = 0;
   for (const m of masses) {
     if (m.role === "crown" || m.role === "bridge") continue;
