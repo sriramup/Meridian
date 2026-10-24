@@ -7,6 +7,7 @@ import { useSims } from "@/sim/client";
 import { RASTER_OVERLAYS, impactPins, kerbLines, overlayLayers } from "@/render/overlays";
 import { useImpact } from "@/sim/impact";
 import { toolLayers } from "@/render/toolLayers";
+import { useLod } from "@/render/lod";
 
 /** analysis overlays, recomputed only when their inputs change */
 export function useExtraLayers(): { ground: Layer[]; top: Layer[] } {
@@ -51,7 +52,10 @@ export function useImpactLayers(zoom: number): Layer[] {
 export function useKerbLayers(zoom: number): Layer[] {
   const overlay = useApp((s) => s.overlay);
   const worldVersion = useApp((s) => s.worldVersion);
+  // chunks stream in: pick up each newly built one (unchanged chunks keep their cached lines)
+  const lod = useLod((s) => s.loaded);
   const t = Math.max(0, Math.min(1, (zoom - 14.4) / 1.6));
   const opacity = Math.round(t * t * (3 - 2 * t) * 10) / 10;
-  return useMemo(() => (overlay && RASTER_OVERLAYS.has(overlay) && opacity > 0 ? kerbLines(opacity) : []), [overlay, opacity, worldVersion]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  return useMemo(() => (overlay && RASTER_OVERLAYS.has(overlay) && opacity > 0 ? kerbLines(opacity) : []), [overlay, opacity, worldVersion, lod]);
 }
