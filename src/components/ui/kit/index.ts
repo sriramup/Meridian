@@ -11,6 +11,7 @@ export * from "./context-menu";
 export * from "./dialog";
 export * from "./dropdown-menu";
 export * from "./empty-state";
+export * from "./field";
 export * from "./input";
 export * from "./kbd";
 export * from "./label";
