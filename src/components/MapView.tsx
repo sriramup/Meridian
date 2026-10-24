@@ -18,6 +18,7 @@ import { useExtraLayers, useImpactLayers, useKerbLayers, useToolLayers } from ".
 import { usePedestrianControls } from "./usePedestrian";
 import { trafficTrips, tripsLayer } from "@/render/overlays";
 import { SUN_YEAR, useSims } from "@/sim/client";
+import { slotLayers, useLayerSlots } from "@/render/layerSlots";
 
 export function MapView() {
   const el = useRef<HTMLDivElement>(null);
@@ -34,7 +35,13 @@ export function MapView() {
   const highlight = useApp((s) => s.highlight);
   const cameraMode = useApp((s) => s.cameraMode);
   const showChanges = useApp((s) => s.showChanges);
-  const extra = useExtraLayers();
+  const overlayExtra = useExtraLayers();
+  // feature modules' layers (zones, library props, street-level cursor…) join the overlay bands
+  const slots = useLayerSlots((s) => s.slots);
+  const extra = useMemo(
+    () => ({ ground: [...overlayExtra.ground, ...slotLayers(slots, "ground")], top: [...slotLayers(slots, "solid"), ...overlayExtra.top, ...slotLayers(slots, "top")] }),
+    [overlayExtra, slots],
+  );
   const toolL = useToolLayers();
   const pinL = useImpactLayers(zoom);
   const kerbL = useKerbLayers(zoom);
