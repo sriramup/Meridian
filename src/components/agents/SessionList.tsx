@@ -3,7 +3,8 @@
 import { Bot, Ellipsis, Pencil, Search, Square, SquarePen, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import type { AgentSession } from "@/agent/types";
-import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, EmptyState, Input, Kbd, Tooltip } from "@/components/ui/kit";
+import { create } from "zustand";
+import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, EmptyState, Input, Kbd, Tooltip } from "@/components/ui/kit";
 import { cx } from "../ui";
 import { editCount, GROUP_LABEL, groupSessions, matchExcerpt, relTime, rgb, sessionColor, statusText } from "./model";
 import { CloseButton, StatusIcon } from "./parts";
@@ -191,11 +192,56 @@ export function SessionMenu({ session: s, children, open, onOpenChange, onRename
           <Square /> Stop
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem variant="danger" onSelect={() => agents.deleteSession(s.id)}>
+        <DropdownMenuItem variant="danger" onSelect={() => requestDelete(s)}>
           <Trash2 /> Delete
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+/** the agent awaiting delete confirmation (an agent with no conversation is deleted straight away) */
+const usePendingDelete = create<{ id: string | null }>(() => ({ id: null }));
+
+function requestDelete(s: AgentSession) {
+  if (!s.items.length) agents.deleteSession(s.id);
+  else usePendingDelete.setState({ id: s.id });
+}
+
+/** confirms deleting an agent's conversation; mounted once by the pane */
+export function DeleteAgentDialog({ sessions }: { sessions: AgentSession[] }) {
+  const id = usePendingDelete((x) => x.id);
+  const s = sessions.find((x) => x.id === id);
+  const close = () => usePendingDelete.setState({ id: null });
+  const edits = s ? editCount(s) : 0;
+  return (
+    <Dialog open={!!s} onOpenChange={(o) => !o && close()}>
+      <DialogContent size="sm">
+        <DialogHeader>
+          <DialogTitle>Delete “{s?.title}”?</DialogTitle>
+          <DialogDescription>
+            {s?.status === "running" || s?.status === "needs_input" ? "It is still working and will be stopped. " : ""}
+            Its conversation is removed.{edits === 1 ? " The edit it made stays in the plan; undo it from the scenario history if you don't want it." : edits > 1 ? ` The ${edits} edits it made stay in the plan; undo them from the scenario history if you don't want them.` : ""}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="ghost" size="sm" onClick={close}>
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            size="sm"
+            autoFocus
+            onClick={() => {
+              if (s) agents.deleteSession(s.id);
+              close();
+            }}
+          >
+            Delete
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
