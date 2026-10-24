@@ -39,6 +39,39 @@ export function layoutForm(specs: ParamSpec[], values: ParamValues): FormLayout 
   return { sections, advanced: toSections(adv), advancedCount };
 }
 
+export interface FormGroup {
+  /** group name; "" for ungrouped params */
+  title: string;
+  basic: ParamSpec[];
+  advanced: ParamSpec[];
+}
+
+/**
+ * Active params by group (first-appearance order, ungrouped first), each group split into its basic
+ * params and the advanced ones it folds away. Groups with nothing active are dropped.
+ */
+export function groupForm(specs: ParamSpec[], values: ParamValues): FormGroup[] {
+  const by = new Map<string, FormGroup>();
+  for (const p of specs) {
+    if (!paramActive(p, values)) continue;
+    const t = p.group ?? "";
+    let g = by.get(t);
+    if (!g) by.set(t, (g = { title: t, basic: [], advanced: [] }));
+    (p.advanced ? g.advanced : g.basic).push(p);
+  }
+  return [...by.values()].sort((a, b) => (a.title === "" ? -1 : b.title === "" ? 1 : 0));
+}
+
+/** a one-line summary of a group's leading values, shown when the group is folded */
+export function groupSummary(g: FormGroup, values: ParamValues, n = 3): string {
+  return g.basic
+    .filter((p) => p.type !== "json" && p.type !== "text")
+    .slice(0, n)
+    .map((p) => (p.type === "boolean" ? (values[p.key] ? p.label : null) : formatValue(p, values[p.key])))
+    .filter(Boolean)
+    .join(" · ");
+}
+
 export type Widget = "number" | "slider" | "segmented" | "select" | "switch" | "color" | "text" | "multi" | "json";
 
 /** the input a param gets */

@@ -5,8 +5,9 @@
 
 import { ArrowLeft, X } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, Kbd, Tooltip, cn } from "@/components/ui/kit";
+import { Button, Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, Kbd, Tooltip, cn } from "@/components/ui/kit";
 import { ensureLibrary, getPrimitive, listPrimitives, searchPrimitives, type Category, type PrimitiveDef } from "@/library";
+import { rt } from "@/state/runtime";
 import { useApp } from "@/state/store";
 import { IconButton } from "../ui";
 import { CATEGORY, CATEGORY_ORDER, PrimitiveIcon } from "./icons";
@@ -22,9 +23,34 @@ const HOW: Record<PrimitiveDef["placement"], string> = {
 
 export function LibraryPanel() {
   const defId = useLibrary((s) => s.defId);
+  const moving = useLibrary((s) => s.moving);
   ensureLibrary();
   const def = defId ? getPrimitive(defId) : undefined;
-  return <div className="chrome flex max-h-[calc(100vh-190px)] w-[300px] flex-col overflow-hidden">{def ? <Configure def={def} /> : <Browse />}</div>;
+  return <div className="chrome flex max-h-[calc(100vh-190px)] w-[300px] flex-col overflow-hidden">{moving ? <Moving id={moving} /> : def ? <Configure def={def} /> : <Browse />}</div>;
+}
+
+/** while an instance is picked up: what is moving and how to put it down */
+function Moving({ id }: { id: string }) {
+  const e = rt().world.get(id);
+  const ref = e && "lib" in e ? e.lib : undefined;
+  const def = ref ? getPrimitive(ref.def) : undefined;
+  return (
+    <div className="px-3 py-2.5">
+      <div className="flex items-center gap-1.5">
+        {def && <PrimitiveIcon def={def} size={14} className="text-rose" />}
+        <span className="font-display text-[16px] leading-tight font-semibold text-ink">Moving {def?.name ?? "item"}</span>
+      </div>
+      <p className="mt-1 text-[11.5px] leading-snug text-ink-3">It follows the pointer; click to put it down where the preview isn’t red.</p>
+      <div className="mt-2 flex items-center justify-between">
+        <span className="flex items-center gap-1 text-[10.5px] text-ink-4">
+          <Kbd size="xs">Esc</Kbd> leave it where it was
+        </span>
+        <Button size="sm" variant="ghost" onClick={() => useLibrary.getState().endMove()}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 function Browse() {

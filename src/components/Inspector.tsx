@@ -19,7 +19,8 @@ import { editStreetSections, removeStreets, setNodeControl } from "@/world/ops/s
 import type { SectionEdit } from "@/world/ops/sectionEdit";
 import { checkBuilding } from "@/world/ops/validate";
 import type { Area, AreaType, Building, Entity, Parcel, Street, StreetNode, Strip, StripType, TransitRoute, Tree } from "@/world/types";
-import { Button, IconButton, Provenance, Segmented, Stat, cx } from "./ui";
+import { NumberField, Segmented, SelectField, Slider, Switch } from "@/components/ui/kit";
+import { Button, IconButton, Provenance, Stat, cx } from "./ui";
 import { LibraryInspector, hasLib } from "./library/LibraryInspector";
 
 const user = { author: "user" as const };
@@ -174,26 +175,16 @@ function BuildingPanel({ b, onClose }: { b: Building; onClose: () => void }) {
           <div className="mb-2 font-legend text-[12.5px] leading-none text-ink-3">Edit</div>
           <div className="flex items-center gap-2">
             <span className="w-14 text-[12px] text-ink-3">Floors</span>
-            <IconButton size="sm" onClick={() => setFloors(Math.max(1, floors - 1))}>
-              <Minus size={13} />
-            </IconButton>
-            <input type="number" value={floors} min={1} max={150} onChange={(e) => setFloors(Math.max(1, +e.target.value))} className="tabular h-7 w-14 rounded-[5px] border border-line-2 bg-paper text-center text-[12.5px] outline-none focus:border-ink-4" />
-            <IconButton size="sm" onClick={() => setFloors(floors + 1)}>
-              <Plus size={13} />
-            </IconButton>
+            <div className="w-28">
+              <NumberField value={floors} onChange={setFloors} min={1} max={150} step={1} unit="floors" aria-label="Floors" />
+            </div>
             <Button size="sm" className="ml-auto" disabled={floors === b.floors} onClick={() => applyOp(modifyBuildings(R.world, { ids: [b.id], floors }, user))}>
               Apply
             </Button>
           </div>
           <div className="mt-2 flex items-center gap-2">
             <span className="w-14 text-[12px] text-ink-3">Massing</span>
-            <select value={typo} onChange={(e) => setTypo(e.target.value as Typology)} className="h-7 min-w-0 flex-1 rounded-[5px] border border-line-2 bg-paper px-1.5 text-[12px] outline-none">
-              {TYPOLOGIES.map((t) => (
-                <option key={t} value={t}>
-                  {t.replace(/_/g, " ")}
-                </option>
-              ))}
-            </select>
+            <SelectField value={typo} onValueChange={(v) => setTypo(v as Typology)} options={TYPOLOGIES.map((t) => ({ value: t, label: t.replace(/_/g, " ") }))} aria-label="Massing" className="min-w-0 flex-1" />
             <Button size="sm" onClick={() => applyOp(modifyBuildings(R.world, { ids: [b.id], massing: { typology: typo, keepGFA: true } }, user))} title="Regenerate the form on this footprint, holding floor area">
               Reshape
             </Button>
@@ -289,13 +280,7 @@ function StreetPanel({ s, onClose }: { s: Street; onClose: () => void }) {
         )}
         {sel !== null && strips[sel] && (
           <div className="mx-3 mt-2 flex items-center gap-1.5 rounded-[6px] bg-paper-2 p-2">
-            <select value={strips[sel].type} onChange={(e) => setStrips(strips.map((x, k) => (k === sel ? { ...x, type: e.target.value as StripType, width: DEFAULT_WIDTH[e.target.value as StripType] } : x)))} className="h-7 min-w-0 flex-1 rounded-[5px] border border-line-2 bg-paper px-1 text-[12px]">
-              {(Object.keys(STRIP_LABEL) as StripType[]).map((t) => (
-                <option key={t} value={t}>
-                  {STRIP_LABEL[t]}
-                </option>
-              ))}
-            </select>
+            <SelectField value={strips[sel].type} onValueChange={(v) => setStrips(strips.map((x, k) => (k === sel ? { ...x, type: v as StripType, width: DEFAULT_WIDTH[v as StripType] } : x)))} options={(Object.keys(STRIP_LABEL) as StripType[]).map((t) => ({ value: t, label: STRIP_LABEL[t] }))} aria-label="Strip type" className="min-w-0 flex-1" />
             <IconButton size="sm" onClick={() => setW(sel, strips[sel].width - 0.25)}>
               <Minus size={12} />
             </IconButton>
@@ -339,8 +324,8 @@ function StreetPanel({ s, onClose }: { s: Street; onClose: () => void }) {
               { value: "corridor", label: `Corridor (${corridor.length})` },
             ]}
           />
-          <label className="flex items-center gap-1 text-[11px] text-ink-3">
-            <input type="checkbox" checked={keepRow} onChange={(e) => setKeepRow(e.target.checked)} className="accent-accent" /> Hold ROW
+          <label className="flex items-center gap-1.5 text-[11px] text-ink-3">
+            <Switch size="sm" checked={keepRow} onCheckedChange={setKeepRow} aria-label="Hold right-of-way" /> Hold ROW
           </label>
         </div>
         <div className="flex gap-1.5 px-3 pt-2">
@@ -434,16 +419,7 @@ function AreaPanel({ a, onClose }: { a: Area; onClose: () => void }) {
         {a.type === "parking" && <Row k="Spaces (est.)" v={`≈${fmt.int(polyArea(a.poly) / 30)}`} prov="estimated" />}
         <div className="mt-3 flex items-center gap-2">
           <span className="text-[12px] text-ink-3">Convert to</span>
-          <select defaultValue="" onChange={(e) => e.target.value && applyOp(convertAreas(R.world, [a.id], e.target.value as AreaType, user))} className="h-7 flex-1 rounded-[5px] border border-line-2 bg-paper px-1 text-[12px]">
-            <option value="" disabled>
-              choose…
-            </option>
-            {AREA_TYPES.filter((t) => t !== a.type).map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
+          <SelectField value={undefined} placeholder="choose…" onValueChange={(v) => applyOp(convertAreas(R.world, [a.id], v as AreaType, user))} options={AREA_TYPES.filter((t) => t !== a.type).map((t) => ({ value: t, label: t }))} aria-label="Convert to" className="flex-1" />
         </div>
         <Button size="sm" tone="danger" className="mt-3" onClick={() => applyOp(removeEntities(R.world, [a.id], user))}>
           <Trash2 size={13} /> Remove
@@ -508,18 +484,11 @@ function TreePanel({ t, onClose }: { t: Tree; onClose: () => void }) {
           <>
             <label className="mt-2.5 flex items-center justify-between gap-2 text-[12px]">
               <span className="text-ink-3">Species</span>
-              <select value={t.species ?? ""} onChange={(e) => applyOp(updateTree(R.world, t.id, { species: e.target.value }, user))} className="h-7 w-40 rounded-[5px] border border-line-2 bg-paper px-1 text-[12px]">
-                {!t.species && <option value="">Generic</option>}
-                {SPECIES.map((x) => (
-                  <option key={x.id} value={x.id}>
-                    {x.name}
-                  </option>
-                ))}
-              </select>
+              <SelectField value={t.species} placeholder="Generic" onValueChange={(v) => applyOp(updateTree(R.world, t.id, { species: v }, user))} options={SPECIES.map((x) => ({ value: x.id, label: x.name }))} aria-label="Species" className="w-40" />
             </label>
             <label className="mt-2 flex items-center gap-2 text-[12px] text-ink-3">
               Crown
-              <input type="range" min={1.5} max={10} step={0.5} defaultValue={t.r} key={t.r} onPointerUp={(e) => applyOp(updateTree(R.world, t.id, { r: +(e.target as HTMLInputElement).value }, user))} className="h-1 min-w-0 flex-1" />
+              <Slider size="sm" min={1.5} max={10} step={0.5} defaultValue={[t.r]} key={t.r} onValueCommit={([r]) => applyOp(updateTree(R.world, t.id, { r }, user))} thumbLabels={["Crown radius"]} className="min-w-0 flex-1" />
             </label>
           </>
         )}

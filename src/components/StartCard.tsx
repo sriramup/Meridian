@@ -9,19 +9,16 @@ import { switchCity } from "@/state/cities";
 import { rt } from "@/state/runtime";
 import { useApp, type Tool } from "@/state/store";
 import { CATEGORY } from "./library/icons";
-import { useLibrary } from "./library/libraryStore";
+import { openLibrary as open } from "./library/libraryStore";
+
+function openLibrary(category: Category | null) {
+  resetDraw();
+  open(category);
+}
 
 /** the categories offered as starting points, in order (those the catalog has) */
 const START: Category[] = ["housing", "buildings", "commercial", "civic", "education", "parks", "flora", "streetscape", "recreation", "water", "transport", "landmarks"];
 
-function openLibrary(category: Category | null, query = "") {
-  resetDraw();
-  const lib = useLibrary.getState();
-  lib.disarm();
-  lib.setCategory(category);
-  lib.setQuery(query);
-  useApp.getState().setTool("library");
-}
 
 /** shown on an empty canvas only: start from the library, lay out streets, or describe it */
 export function StartCard() {

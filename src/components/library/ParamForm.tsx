@@ -4,12 +4,12 @@
 // parameters folded under "More options", `when` conditions hiding what doesn't apply. Used by the
 // library palette (before placing) and the inspector (live re-configuration).
 
-import { RotateCcw } from "lucide-react";
+import { ChevronRight, RotateCcw } from "lucide-react";
 import { useState } from "react";
-import { Collapsible, CollapsibleContent, CollapsibleHeader, Segmented, cn as cx } from "@/components/ui/kit";
+import { Collapsible, CollapsibleContent, CollapsibleHeader, CollapsibleTrigger, Segmented, cn as cx } from "@/components/ui/kit";
 import type { NumberParam, ParamSpec, ParamValues, PrimitiveDef } from "@/library";
 import { ChipsInput, ColorInput, NumberInput, SelectInput, SliderInput, SwitchInput, TextInput } from "./fields";
-import { changedKeys, coerce, formatValue, layoutForm, stepOf, widgetFor, type FormSection } from "./formModel";
+import { changedKeys, coerce, formatValue, groupForm, groupSummary, stepOf, widgetFor, type FormGroup } from "./formModel";
 
 export interface ParamFormProps {
   def: PrimitiveDef;
@@ -19,31 +19,30 @@ export interface ParamFormProps {
   onReset?: () => void;
 }
 
+/** which groups are open, remembered per definition and group for the session */
+const openState = new Map<string, boolean>();
+
 export function ParamForm({ def, values, onChange, onReset }: ParamFormProps) {
-  const [more, setMore] = useState(false);
-  const layout = layoutForm(def.params, values);
+  const [, rerender] = useState(0);
+  const groups = groupForm(def.params, values);
   const set = (p: ParamSpec, raw: unknown, final = true) => onChange({ ...values, [p.key]: coerce(p, raw, values[p.key]) }, final);
   const changed = changedKeys(def.params, values).length;
   if (!def.params.length) return <p className="px-3 py-2 text-[11.5px] text-ink-4">No settings: it is placed as it is.</p>;
+  // short forms show every group open; long ones open the first two and fold the rest to a summary
+  const total = groups.reduce((n, g) => n + g.basic.length, 0);
   return (
-    <div className="pb-1">
-      {layout.sections.map((s, i) => (
-        <Section key={s.title || i} s={s} values={values} set={set} first={i === 0} />
-      ))}
-      {layout.advanced.length > 0 && (
-        <Collapsible open={more} onOpenChange={setMore} className="mt-2 border-t border-line px-1.5 pt-1">
-          <CollapsibleHeader>
-            More options <span className="font-normal text-ink-4">({layout.advancedCount})</span>
-          </CollapsibleHeader>
-          <CollapsibleContent className="-mx-1.5">
-            {layout.advanced.map((s, i) => (
-              <Section key={s.title || i} s={s} values={values} set={set} first={i === 0} />
-            ))}
-          </CollapsibleContent>
-        </Collapsible>
-      )}
+    <div className="pb-1.5">
+      {groups.map((g, i) => {
+        const k = `${def.id}|${g.title}`;
+        const open = openState.get(k) ?? (total <= 12 || i < 2 || !g.title);
+        const toggle = (o: boolean) => {
+          openState.set(k, o);
+          rerender((x) => x + 1);
+        };
+        return <Group key={g.title || i} g={g} values={values} set={set} open={open} onOpenChange={toggle} defId={def.id} />;
+      })}
       {changed > 0 && onReset && (
-        <div className="flex justify-end px-3 pt-1">
+        <div className="flex justify-end px-3 pt-1.5">
           <button type="button" onClick={onReset} className="flex items-center gap-1 text-[11px] text-ink-4 hover:text-ink">
             <RotateCcw size={11} /> Reset {changed} to defaults
           </button>
@@ -53,16 +52,39 @@ export function ParamForm({ def, values, onChange, onReset }: ParamFormProps) {
   );
 }
 
-function Section({ s, values, set, first }: { s: FormSection; values: ParamValues; set: (p: ParamSpec, raw: unknown, final?: boolean) => void; first: boolean }) {
+function Group({ g, values, set, open, onOpenChange, defId }: { g: FormGroup; values: ParamValues; set: (p: ParamSpec, raw: unknown, final?: boolean) => void; open: boolean; onOpenChange: (o: boolean) => void; defId: string }) {
+  const [more, setMore] = useState(false);
+  const body = (
+    <div className="space-y-1.5 px-3 pb-2">
+      {g.basic.map((p) => (
+        <Field key={p.key} p={p} value={values[p.key]} set={set} />
+      ))}
+      {g.advanced.length > 0 && (
+        <Collapsible open={more} onOpenChange={setMore}>
+          <CollapsibleTrigger className="flex items-center gap-1 pt-0.5 text-[11px] text-ink-4 hover:text-ink">
+            <ChevronRight size={12} className={cx("transition-transform", more && "rotate-90")} />
+            {more ? "Fewer" : "More"} {g.title ? g.title.toLowerCase() : "options"} options ({g.advanced.length})
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="space-y-1.5 pt-1.5">
+              {g.advanced.map((p) => (
+                <Field key={p.key} p={p} value={values[p.key]} set={set} />
+              ))}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+    </div>
+  );
+  if (!g.title) return <div className="pt-2">{body}</div>;
   return (
-    <section className={cx("px-3", first ? "pt-2" : "pt-2.5")}>
-      {s.title && <h4 className="font-legend mb-1 text-[12px] leading-none text-ink-3">{s.title}</h4>}
-      <div className="space-y-1.5">
-        {s.params.map((p) => (
-          <Field key={p.key} p={p} value={values[p.key]} set={set} />
-        ))}
-      </div>
-    </section>
+    <Collapsible open={open} onOpenChange={onOpenChange} className="border-t border-line first:border-t-0" data-group={`${defId}|${g.title}`}>
+      <CollapsibleHeader className="h-8 rounded-none px-2.5">
+        <span className="font-legend text-[12.5px] font-normal text-ink-2">{g.title}</span>
+        {!open && <span className="ml-auto min-w-0 truncate pl-2 text-[11px] font-normal text-ink-4">{groupSummary(g, values)}</span>}
+      </CollapsibleHeader>
+      <CollapsibleContent>{body}</CollapsibleContent>
+    </Collapsible>
   );
 }
 

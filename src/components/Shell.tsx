@@ -24,6 +24,7 @@ import { HelpDialog, NavHint } from "./Help";
 import { Inspector } from "./Inspector";
 import { StartCard } from "./StartCard";
 import { LibraryRuntime } from "./library/LibraryRuntime";
+import { openLibrary } from "./library/libraryStore";
 import { MapView } from "./MapView";
 import { Annotations, ChangeReport, Toasts } from "./Overlays";
 import { Toolbar } from "./Toolbar";
@@ -164,7 +165,9 @@ export function deleteSelection(): boolean {
   return ok;
 }
 
-const TOOL_KEYS: Record<string, Tool> = { v: "select", l: "library", b: "building", s: "street", a: "area", t: "tree", d: "district", r: "transit", m: "measure" };
+// B and T open the library on buildings / trees (the footprint and planting tools stay in the search)
+const TOOL_KEYS: Record<string, Tool> = { v: "select", l: "library", s: "street", a: "area", d: "district", r: "transit", m: "measure" };
+const LIBRARY_KEYS: Record<string, string> = { b: "buildings", t: "flora" };
 const OVERLAY_KEYS: Record<string, OverlayId> = { "1": "traffic", "2": "heat", "3": "density", "4": "access", "5": "zoning", "6": "transit", "7": "flood", "8": "runoff", "9": "sun", "0": "change" };
 
 function useShortcuts() {
@@ -230,6 +233,9 @@ function useShortcuts() {
       if (TOOL_KEYS[k]) {
         resetDraw();
         st.setTool(TOOL_KEYS[k]);
+      } else if (LIBRARY_KEYS[k]) {
+        resetDraw();
+        openLibrary(LIBRARY_KEYS[k]);
       } else if (OVERLAY_KEYS[k]) st.setOverlay(st.overlay === OVERLAY_KEYS[k] ? null : OVERLAY_KEYS[k]);
       else if (k === "n") toggleNight();
       else if (k === "p") togglePedestrian();

@@ -9,6 +9,7 @@
 // away (a detail tier per entity), which also only re-packs.
 
 import { COORDINATE_SYSTEM, type Layer, type PickingInfo } from "@deck.gl/core";
+import { ScatterplotLayer } from "@deck.gl/layers";
 import { SimpleMeshLayer } from "@deck.gl/mesh-layers";
 import type { Building, Entity, Prop, Solid, SolidMaterial, SolidShape } from "@/world/types";
 import { SOLID_SHAPES, unitMesh } from "./solidMeshes";
@@ -299,10 +300,45 @@ function binaryData(p: PackedLayer): object {
   return d;
 }
 
+const poolCache = new WeakMap<PackedLayer, object>();
+/** warm pools of light on the ground under every light source (night), sized by the lamp's height */
+function lightPools(p: PackedLayer): object {
+  let d = poolCache.get(p);
+  if (!d) {
+    const pos = new Float32Array(p.n * 3);
+    const r = new Float32Array(p.n);
+    for (let i = 0; i < p.n; i++) {
+      pos[i * 3] = p.positions[i * 3];
+      pos[i * 3 + 1] = p.positions[i * 3 + 1];
+      pos[i * 3 + 2] = 0.06;
+      r[i] = Math.min(14, 1.5 + p.positions[i * 3 + 2] * 1.1);
+    }
+    poolCache.set(p, (d = { length: p.n, attributes: { getPosition: { value: pos, size: 3 }, getRadius: { value: r, size: 1 } } }));
+  }
+  return d;
+}
+
 /** one SimpleMeshLayer per non-empty (shape, shading) group */
 export function solidLayers(packed: PackedLayer[], opt: SolidLayerOptions): Layer[] {
   const prefix = opt.idPrefix ?? "lib-solids";
-  return packed.map(
+  const pools: Layer[] = opt.night
+    ? packed
+        .filter((p) => p.shading === "light")
+        .map(
+          (p) =>
+            new ScatterplotLayer({
+              id: `${prefix}-pool-${p.key}`,
+              coordinateSystem: COORDINATE_SYSTEM.METER_OFFSETS,
+              coordinateOrigin: opt.origin,
+              data: lightPools(p) as never,
+              getFillColor: [255, 196, 120, 46],
+              radiusUnits: "meters",
+              stroked: false,
+              parameters: { depthWriteEnabled: false, blend: true, blendColorSrcFactor: "src-alpha", blendColorDstFactor: "one", blendAlphaSrcFactor: "one", blendAlphaDstFactor: "one" } as never,
+            }),
+        )
+    : [];
+  return [...pools, ...packed.map(
     (p) =>
       new SolidMeshLayer({
         id: `${prefix}-${p.key}`,
@@ -314,5 +350,5 @@ export function solidLayers(packed: PackedLayer[], opt: SolidLayerOptions): Laye
         pickable: opt.pickable ?? true,
         material: p.shading === "light" && opt.night ? (false as never) : (MATERIAL[p.shading] as never),
       }),
-  );
+  )];
 }
