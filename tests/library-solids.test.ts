@@ -129,18 +129,21 @@ describe("solid instances", () => {
     }
   });
 
-  it("packs 10k props quickly", () => {
+  it("re-packs 10k props incrementally", () => {
+    // behaviour, not wall-clock: a one-entity edit recomputes one entity and keeps untouched layers
     const props = Array.from({ length: 10000 }, (_, i) => bench(`prop:${i}`, i % 100, i));
     const c = new SolidInstances();
-    const t0 = performance.now();
     c.update(props);
-    const full = performance.now() - t0;
-    props[5] = { ...props[5], rot: 33 };
-    const t1 = performance.now();
-    c.update(props);
-    const one = performance.now() - t1;
+    expect(c.lastRebuilt).toBe(10000);
     expect(c.count).toBe(30000);
-    expect(full).toBeLessThan(2500); // generous: the suite runs in parallel on a shared machine
-    expect(one).toBeLessThan(full);
+    const before = c.layers();
+    c.update(props);
+    expect(c.lastRebuilt).toBe(0);
+    expect(c.layers()).toEqual(before);
+    props[5] = { ...props[5], rot: 33 };
+    c.update(props);
+    expect(c.lastRebuilt).toBe(1);
+    expect(c.count).toBe(30000);
   });
+
 });
