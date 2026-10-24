@@ -67,6 +67,7 @@ export function MapView() {
       // each city is its own place: the camera stays over it
       maxBounds: cityBounds(proj, R.meta.bounds),
       attributionControl: false,
+      renderWorldCopies: false,
       canvasContextAttributes: { antialias: true },
       fadeDuration: 0,
     });
@@ -148,12 +149,33 @@ export function MapView() {
     map.on("movestart", () => overlay.setProps({ _pickable: false } as never));
     map.on("moveend", () => overlay.setProps({ _pickable: true } as never));
     map.on("load", () => setReady(true));
+    // tilt opens up as the camera comes down: from 60° over the whole city to 85° near the street,
+    // so a zoomed-out view can't be tipped into a horizon of sky and grazing roofs. Fly-throughs
+    // and street level (which set their own pitch) run unlimited.
+    const pitchLimit = () => {
+      if (map.isEasing() || useApp.getState().cameraMode === "pedestrian") return 85;
+      const t = Math.max(0, Math.min(1, (map.getZoom() - 14) / 2.5));
+      return 60 + 25 * t;
+    };
+    const applyPitchLimit = () => {
+      const lim = pitchLimit();
+      if (Math.abs(map.getMaxPitch() - lim) > 0.5) map.setMaxPitch(lim);
+    };
+    map.on("movestart", () => {
+      if (map.isEasing()) map.setMaxPitch(85);
+    });
+    map.on("zoomend", applyPitchLimit);
+    map.on("moveend", applyPitchLimit);
+    map.on("zoom", () => {
+      if (!map.isEasing()) applyPitchLimit();
+    });
     // fps meter, and the chunk loader's per-frame work: it adds layers only after deck.gl has drawn
     // the previous batch, so tessellation and uploads stay spread over frames
     let frames = 0;
     let last = performance.now();
     let raf = 0;
     let lastAdmit = 0;
+    let admitted = false;
     const tick = () => {
       frames++;
       const now = performance.now();
@@ -162,8 +184,14 @@ export function MapView() {
         frames = 0;
         last = now;
       }
+      if (admitted && deckDrew) {
+        // the frame that initialised the last batch has been drawn: let the loader fit its budget
+        loader.noteFrame(now - lastAdmit);
+        admitted = false;
+      }
       if (loader.pending && (deckDrew || now - lastAdmit > 250) && loader.work()) {
         deckDrew = false;
+        admitted = true;
         lastAdmit = now;
         useLod.setState((s) => ({ version: s.version + 1 }));
       }
