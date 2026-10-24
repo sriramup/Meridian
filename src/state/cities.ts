@@ -2,6 +2,9 @@
 // The sandbox has no data of its own; it borrows the sun path, time zone and typical weather of
 // a climate city so heat, shade and runoff still run on whatever is drawn.
 
+import { saveDesign } from "./persist";
+import { rtMaybe } from "./runtime";
+
 export interface CityPreset {
   id: string;
   name: string;
@@ -27,12 +30,30 @@ export function cityFromUrl(): string {
   return id && presetOf(id) ? id : DEFAULT_CITY;
 }
 
-/** reload into another preset (the runtime, worker and caches are per city) */
-export function switchCity(id: string) {
-  const q = new URLSearchParams(window.location.search);
-  if (id === DEFAULT_CITY) q.delete("city");
-  else q.set("city", id);
-  const s = q.toString();
-  window.location.search = s ? `?${s}` : "";
-  if (!s) window.location.reload();
+/** the page address that opens a preset (keeps any other query parameters) */
+export function cityUrl(id: string, href = window.location.href): string {
+  const u = new URL(href);
+  if (id === DEFAULT_CITY) u.searchParams.delete("city");
+  else u.searchParams.set("city", id);
+  u.hash = "";
+  return u.toString();
+}
+
+/**
+ * Open another preset with one navigation (the runtime, worker and caches are per city). The blank
+ * canvas saves itself first; scenario edits to a measured city live only in this page, so leaving
+ * one with edits asks first. Returns false when the person stays.
+ *
+ * (Setting `location.search` and then calling `location.reload()` reloads the *old* address: the
+ * reload replaces the pending navigation, which is how leaving Austin for the canvas got stuck.)
+ */
+export async function switchCity(id: string): Promise<boolean> {
+  const R = rtMaybe();
+  if (R?.cityId === id) return false;
+  if (R && !R.meta.sandbox && [...R.scenarios.scenarios.values()].some((s) => s.changesets.length > 0)) {
+    if (!window.confirm(`Leave ${R.meta.name}? Scenario edits here are not saved — export the proposal first to keep it.`)) return false;
+  }
+  if (R?.meta.sandbox) await saveDesign();
+  window.location.assign(cityUrl(id));
+  return true;
 }
