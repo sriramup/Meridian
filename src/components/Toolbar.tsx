@@ -10,15 +10,14 @@ import { useApp, type Palette, type Tool } from "@/state/store";
 import { SPECIES } from "@/world/species";
 import type { Vec2 } from "@/world/types";
 import { LibraryPanel } from "./library/LibraryPanel";
-import { Button, IconButton, Segmented, Tip, cx } from "./ui";
+import { NumberField, Segmented, SelectField, Slider, Switch } from "@/components/ui/kit";
+import { Button, IconButton, Tip, cx } from "./ui";
 
 const TOOLS: { id: Tool; icon: typeof Building2; label: string; key: string; group: number }[] = [
   { id: "select", icon: MousePointer2, label: "Select", key: "V", group: 0 },
-  { id: "library", icon: LibraryBig, label: "Library: buildings, parks, furniture, trees…", key: "L", group: 0 },
+  { id: "library", icon: LibraryBig, label: "Library: buildings, homes, trees, furniture… (B buildings, T trees)", key: "L", group: 0 },
   { id: "street", icon: Spline, label: "Street", key: "S", group: 1 },
-  { id: "building", icon: Building2, label: "Building", key: "B", group: 1 },
   { id: "area", icon: Square, label: "Park, plaza or water", key: "A", group: 1 },
-  { id: "tree", icon: TreeDeciduous, label: "Trees", key: "T", group: 1 },
   { id: "district", icon: LayoutGrid, label: "District", key: "D", group: 2 },
   { id: "transit", icon: TramFront, label: "Transit line", key: "R", group: 2 },
   { id: "measure", icon: Ruler, label: "Measure", key: "M", group: 3 },
@@ -38,7 +37,8 @@ export function Toolbar() {
             {i > 0 && TOOLS[i - 1].group !== x.group && <span className="mx-1.5 my-1 h-px bg-line" />}
             <Tip label={x.label} kbd={x.key} side="right">
               <IconButton
-                active={tool === x.id}
+                aria-label={x.label}
+                active={tool === x.id || (x.id === "library" && (tool === "building" || tool === "tree"))}
                 onClick={() => {
                   resetDraw();
                   setTool(x.id);
@@ -157,9 +157,9 @@ function StreetPalette() {
           />
         </Field>
       )}
-      <label className="flex items-center gap-2 text-[12px] text-ink-3">
-        <input type="checkbox" checked={p.trees} onChange={(e) => set("street", { trees: e.target.checked })} /> Street trees
-      </label>
+      <Field label="Street trees">
+        <Switch size="sm" checked={p.trees} onCheckedChange={(trees) => set("street", { trees })} aria-label="Street trees" />
+      </Field>
     </Panel>
   );
 }
@@ -189,16 +189,10 @@ function BuildingPalette() {
         ))}
       </div>
       <Field label="Form">
-        <select value={p.typology} onChange={(e) => set("building", { typology: e.target.value })} className="h-7 w-36 rounded-[5px] border border-line-2 bg-paper px-1 text-[12px]">
-          {TYPOLOGIES.map((t) => (
-            <option key={t} value={t}>
-              {t.replace(/_/g, " ")}
-            </option>
-          ))}
-        </select>
+        <SelectField value={p.typology} onValueChange={(typology) => set("building", { typology })} options={TYPOLOGIES.map((t) => ({ value: t, label: t.replace(/_/g, " ") }))} aria-label="Form" className="w-36" />
       </Field>
       <Field label="Floors">
-        <input type="range" min={1} max={60} value={p.floors} onChange={(e) => set("building", { floors: +e.target.value })} className="h-1 min-w-0 flex-1" />
+        <Slider size="sm" min={1} max={60} step={1} value={[p.floors]} onValueChange={([floors]) => set("building", { floors })} thumbLabels={["Floors"]} className="min-w-0 flex-1" />
         <span className="tabular w-6 text-right text-ink">{p.floors}</span>
       </Field>
     </Panel>
@@ -258,15 +252,17 @@ function DistrictPalette() {
         ))}
       </div>
       <Field label="Homes">
-        <input type="number" min={0} step={100} value={p.homes || ""} placeholder="by style" onChange={(e) => set("district", { homes: Math.max(0, +e.target.value) })} className="tabular h-7 w-24 rounded-[5px] border border-line-2 bg-paper px-2 text-right text-[12px]" />
+        <div className="w-28">
+          <NumberField value={p.homes} onChange={(homes) => set("district", { homes })} min={0} max={100000} step={100} format={(v) => (v ? v.toLocaleString("en-US") : "by style")} aria-label="Homes" />
+        </div>
       </Field>
       <Field label="Max floors">
-        <input type="range" min={2} max={40} value={p.maxFloors} onChange={(e) => set("district", { maxFloors: +e.target.value })} className="h-1 min-w-0 flex-1" />
+        <Slider size="sm" min={2} max={40} step={1} value={[p.maxFloors]} onValueChange={([maxFloors]) => set("district", { maxFloors })} thumbLabels={["Max floors"]} className="min-w-0 flex-1" />
         <span className="tabular w-6 text-right text-ink">{p.maxFloors}</span>
       </Field>
-      <label className="flex items-center gap-2 text-[12px] text-ink-3">
-        <input type="checkbox" checked={p.newStreets} onChange={(e) => set("district", { newStreets: e.target.checked })} /> Add local streets through big blocks
-      </label>
+      <Field label="Local streets through big blocks">
+        <Switch size="sm" checked={p.newStreets} onCheckedChange={(newStreets) => set("district", { newStreets })} aria-label="Add local streets through big blocks" />
+      </Field>
     </Panel>
   );
 }
@@ -287,13 +283,7 @@ function TransitPalette() {
         ]}
       />
       <Field label="Every">
-        <select value={p.headway} onChange={(e) => set("transit", { headway: +e.target.value })} className="h-7 w-24 rounded-[5px] border border-line-2 bg-paper px-1 text-[12px]">
-          {[5, 7.5, 10, 15, 20, 30].map((h) => (
-            <option key={h} value={h}>
-              {h} min
-            </option>
-          ))}
-        </select>
+        <SelectField value={String(p.headway)} onValueChange={(h) => set("transit", { headway: +h })} options={[5, 7.5, 10, 15, 20, 30].map((h) => ({ value: String(h), label: `${h} min` }))} aria-label="Headway" className="w-24" />
       </Field>
     </Panel>
   );

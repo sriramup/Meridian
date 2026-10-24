@@ -92,3 +92,12 @@ export function armedParams(): ParamValues {
   const s = useLibrary.getState();
   return s.defId ? (s.params[s.defId] ?? {}) : {};
 }
+
+/** open the library palette on a category (and query), back at the list */
+export function openLibrary(category: string | null = null, query = "") {
+  const lib = useLibrary.getState();
+  lib.disarm();
+  lib.setCategory(category);
+  lib.setQuery(query);
+  useApp.getState().setTool("library");
+}

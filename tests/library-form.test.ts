@@ -70,3 +70,18 @@ describe("parameter form model", () => {
     expect(changedKeys(specs, { ...v, floors: 9 })).toEqual(["floors"]);
   });
 });
+
+import { groupForm, groupSummary } from "@/components/library/formModel";
+describe("grouped form", () => {
+  it("groups basic and advanced per group, following when", () => {
+    const d = Object.fromEntries(specs.map((p) => [p.key, p.default]));
+    const g = groupForm(specs, d);
+    expect(g.map((x) => x.title)).toEqual(["", "Massing", "Roof", "Facade", "Programme"]);
+    expect(g.find((x) => x.title === "Roof")!.advanced.map((p) => p.key)).toEqual(["parapet"]);
+    expect(g.find((x) => x.title === "Facade")!.basic).toEqual([]);
+    const g2 = groupForm(specs, { ...d, roof: "hip" });
+    expect(g2.find((x) => x.title === "Roof")!.basic.map((p) => p.key)).toEqual(["roof", "pitch"]);
+    expect(g2.find((x) => x.title === "Roof")!.advanced).toEqual([]);
+    expect(groupSummary(g.find((x) => x.title === "Massing")!, d)).toBe("4 · 20 m");
+  });
+});
