@@ -91,6 +91,8 @@ export interface BuildingStyle {
 /**
  * Unit shapes the renderer instances. A solid is one of these scaled to `size` (full extents in
  * metres: x across, y deep, z tall), yawed by `rot` and placed with its base centre at `at`.
+ * Exact unit geometry of each shape (wedge = gable prism with its ridge along x, torus = flat ring…)
+ * is documented in src/render/solidMeshes.ts.
  */
 export type SolidShape = "box" | "cylinder" | "cone" | "sphere" | "hemisphere" | "wedge" | "pyramid" | "torus";
 export type SolidMaterial = "foliage" | "wood" | "metal" | "stone" | "concrete" | "glass" | "water" | "fabric" | "plastic" | "fur" | "light";

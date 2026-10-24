@@ -20,6 +20,7 @@ import { AnalysisDock } from "./AnalysisDock";
 import { HelpDialog, NavHint } from "./Help";
 import { Inspector } from "./Inspector";
 import { StartCard } from "./StartCard";
+import { LibrarySolids } from "./library/LibrarySolids";
 import { MapView } from "./MapView";
 import { Annotations, ChangeReport, Toasts } from "./Overlays";
 import { Toolbar } from "./Toolbar";
@@ -74,6 +75,7 @@ export function Shell() {
       <div className="absolute inset-0 flex">
         <div className="@container relative min-w-0 flex-1">
           <MapView />
+          <LibrarySolids />
           <div className="relative z-[5]">
             <Annotations />
           </div>
