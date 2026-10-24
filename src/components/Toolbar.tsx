@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, LayoutGrid, MousePointer2, Ruler, Spline, Square, TramFront, TreeDeciduous } from "lucide-react";
+import { Building2, LibraryBig, LayoutGrid, MousePointer2, Ruler, Spline, Square, TramFront, TreeDeciduous } from "lucide-react";
 import { Fragment, useEffect, type ReactNode } from "react";
 import { TYPOLOGIES } from "@/geometry/massing";
 import { MODEL } from "@/render/theme";
@@ -9,10 +9,12 @@ import { draw, resetDraw } from "@/state/drawing";
 import { useApp, type Palette, type Tool } from "@/state/store";
 import { SPECIES } from "@/world/species";
 import type { Vec2 } from "@/world/types";
+import { LibraryPanel } from "./library/LibraryPanel";
 import { Button, IconButton, Segmented, Tip, cx } from "./ui";
 
 const TOOLS: { id: Tool; icon: typeof Building2; label: string; key: string; group: number }[] = [
   { id: "select", icon: MousePointer2, label: "Select", key: "V", group: 0 },
+  { id: "library", icon: LibraryBig, label: "Library: buildings, parks, furniture, trees…", key: "L", group: 0 },
   { id: "street", icon: Spline, label: "Street", key: "S", group: 1 },
   { id: "building", icon: Building2, label: "Building", key: "B", group: 1 },
   { id: "area", icon: Square, label: "Park, plaza or water", key: "A", group: 1 },
@@ -49,7 +51,7 @@ export function Toolbar() {
           );
         })}
       </div>
-      {draw.pending ? <ConfirmCard /> : tool === "tree" ? <PlantingPalette /> : tool === "street" ? <StreetPalette /> : tool === "building" ? <BuildingPalette /> : tool === "area" ? <AreaPalette /> : tool === "district" ? <DistrictPalette /> : tool === "transit" ? <TransitPalette /> : null}
+      {draw.pending ? <ConfirmCard /> : tool === "library" ? <LibraryPanel /> : tool === "tree" ? <PlantingPalette /> : tool === "street" ? <StreetPalette /> : tool === "building" ? <BuildingPalette /> : tool === "area" ? <AreaPalette /> : tool === "district" ? <DistrictPalette /> : tool === "transit" ? <TransitPalette /> : null}
     </div>
   );
 }

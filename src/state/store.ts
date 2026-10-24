@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type Tool = "select" | "building" | "street" | "area" | "measure" | "tree" | "district" | "transit";
+export type Tool = "select" | "building" | "street" | "area" | "measure" | "tree" | "district" | "transit" | "library";
 
 /** what the drawing tools make: chosen before drawing, applied when the shape is finished */
 export interface Palette {
