@@ -40,9 +40,14 @@ export class Out {
   }
 
   /** a prop at a frame (its origin and heading), solids in the prop frame */
-  prop(type: string, f: Frame, solids: Solid[], o: { name?: string; shade?: { r: number; h: number }; primary?: boolean; height?: number } = {}): Prop {
+  /**
+   * a prop at a frame (its origin and heading), solids in the prop frame. `anchorR` gives a small
+   * ground footprint (a trunk or pole base) for things whose solids overhang (trees, lamps, signals)
+   * so benches can stand under a crown and lamps beside it.
+   */
+  prop(type: string, f: Frame, solids: Solid[], o: { name?: string; shade?: { r: number; h: number }; primary?: boolean; height?: number; anchorR?: number } = {}): Prop {
     const [x0, y0, x1, y1] = solidsBounds(solids);
-    const fp: Polygon = normalizePoly([[toWorld(f, [x0, y0]), toWorld(f, [x1, y0]), toWorld(f, [x1, y1]), toWorld(f, [x0, y1])]]);
+    const fp: Polygon = o.anchorR ? [circle(f.c, Math.max(0.15, o.anchorR), 12)] : normalizePoly([[toWorld(f, [x0, y0]), toWorld(f, [x1, y0]), toWorld(f, [x1, y1]), toWorld(f, [x0, y1])]]);
     const e: Prop = {
       id: this.ctx.id("pr"),
       kind: "prop",

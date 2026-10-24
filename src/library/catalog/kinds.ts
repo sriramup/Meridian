@@ -27,6 +27,8 @@ export interface PropBuild {
   shade?: { r: number; h: number };
   cover?: PropCover;
   name?: string;
+  /** small ground footprint radius for overhanging props (trees, lamps, poles) */
+  anchorR?: number;
 }
 
 /** a single prop at a point; `build` returns solids in the prop frame */
@@ -46,7 +48,7 @@ export function propDef(o: Common & { build: (r: Reader, ctx: GenerateContext, p
       const out = new Out(ctx);
       const f = frameOf(place);
       const b = o.build(r, ctx, place);
-      const p = out.prop(o.id, f, b.solids, { shade: b.shade, name: b.name });
+      const p = out.prop(o.id, f, b.solids, { shade: b.shade, name: b.name, anchorR: b.anchorR });
       if (b.cover) p.cover = b.cover;
       o.extra?.(r, out, f);
       out.summary.push(`${o.name} (${solidsHeight(b.solids).toFixed(1)} m tall)`);
@@ -190,7 +192,7 @@ export function rowDef(o: Common & { item: (r: Reader, i: number, st: Station) =
       const st = stations(path, r.n(o.spacingKey ?? "spacing", 10));
       st.forEach((s, i) => {
         const b = o.item(r, i, s);
-        const p = out.prop(o.id, { c: s.p, a: (s.rot * Math.PI) / 180, siteW: 0, siteD: 0 }, b.solids, { shade: b.shade });
+        const p = out.prop(o.id, { c: s.p, a: (s.rot * Math.PI) / 180, siteW: 0, siteD: 0 }, b.solids, { shade: b.shade, anchorR: b.anchorR });
         if (b.cover) p.cover = b.cover;
       });
       out.summary.push(`${o.name}: ${st.length} along ${pathLength(base).toFixed(0)} m`);

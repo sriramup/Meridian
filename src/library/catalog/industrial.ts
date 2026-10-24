@@ -2,15 +2,15 @@
 
 import type { Solid } from "@/world/types";
 import type { PrimitiveDef } from "../types";
-import { frameOf, polyToWorld, subFrame } from "../geometry/frame";
+import { frameOf, polyToWorld, subFrame, toWorld } from "../geometry/frame";
 import { C, hexToRgb, shade } from "../geometry/palette";
 import { S, beam, box, cyl, moveSolids } from "../geometry/solids";
 import { benchSolids, signSolids } from "../geometry/props";
 import { BUILDING_PARAMS, buildBuilding, buildingType } from "./building";
 import { areaL, canopySolids, parkingLot, rectL } from "./decor";
-import { propDef, siteOf } from "./kinds";
+import { defaultPath, pathLength, propDef, siteOf } from "./kinds";
 import { Out } from "./make";
-import { bool, choice, color, int, num, opts, reader } from "./params";
+import { bool, choice, color, int, num, opts, reader, text } from "./params";
 
 const IN = "industrial" as const,
   TR = "transport" as const;
@@ -155,7 +155,95 @@ function shelterSolids(r: ReturnType<typeof reader>) {
 const LOT_PARAMS = [num("width", "Width", 60, { group: D, unit: "m", min: 10, max: 500, step: 1 }), num("depth", "Depth", 40, { group: D, unit: "m", min: 10, max: 500, step: 1 }), bool("lights", "Lights", true, { group: A }), bool("trees", "Edge trees", true, { group: A }), bool("permeable", "Permeable paving", false, { group: A, description: "Counted as permeable in the runoff model" })];
 const HUB_PARAMS = [int("bays", "Bus bays", 6, { group: D, min: 2, max: 24 }), num("canopyLength", "Canopy length", 70, { group: D, unit: "m", min: 15, max: 300, step: 1 }), bool("station", "Station building", true, { group: A }), bool("bikeShare", "Bike share", true, { group: A })];
 
+const STREET_CLASSES = [
+  { value: "residential", label: "Local residential street" },
+  { value: "tertiary", label: "Collector" },
+  { value: "secondary", label: "Minor arterial / avenue" },
+  { value: "primary", label: "Major arterial / boulevard" },
+  { value: "living", label: "Living street / woonerf (shared space)" },
+  { value: "pedestrian", label: "Pedestrian street" },
+  { value: "service", label: "Service road / alley" },
+  { value: "busway", label: "Busway" },
+];
+const BIKE_OPTS = [{ value: "none", label: "None" }, { value: "lane", label: "Painted bike lanes" }, { value: "track", label: "Protected cycle tracks" }];
+const STREET_PARAMS = [choice("cls", "Street type", "residential", STREET_CLASSES, { group: D, description: "Sets lanes, parking, sidewalks and design speed" }), choice("bike", "Bike facility", "none", BIKE_OPTS, { group: A }), bool("trees", "Street trees", true, { group: A }), text("name", "Street name", "", { group: A })];
+const GRID_PARAMS = [num("width", "Width (if not drawn)", 400, { group: D, unit: "m", min: 60, max: 3000, step: 5 }), num("depth", "Depth (if not drawn)", 300, { group: D, unit: "m", min: 60, max: 3000, step: 5 }), num("blockLength", "Block length", 110, { group: D, unit: "m", min: 40, max: 400, step: 5, description: "Walkable grids: 60–120 m blocks" }), num("blockWidth", "Block width", 80, { group: D, unit: "m", min: 40, max: 400, step: 5 }), choice("cls", "Local streets", "residential", STREET_CLASSES, { group: A }), choice("mainCls", "Edge / spine streets", "tertiary", STREET_CLASSES, { group: A }), bool("perimeter", "Perimeter streets", true, { group: A }), choice("bike", "Bike facility on spines", "lane", BIKE_OPTS, { group: A }), bool("trees", "Street trees", true, { group: A })];
+
 export const TRANSPORT: PrimitiveDef[] = [
+  {
+    id: "transport.street",
+    name: "Street",
+    category: TR,
+    tags: ["road", "avenue", "boulevard", "lane", "alley", "woonerf", "living street", "pedestrian street", "busway"],
+    description: "A street along a drawn line, spliced into the network: local, collector, avenue, boulevard, living street, pedestrian, service or busway, with bike facilities and street trees.",
+    icon: "route",
+    placement: "path",
+    siting: { carriageway: true, overlapProps: true },
+    params: STREET_PARAMS,
+    generate(values, place, ctx) {
+      const r = reader(values, STREET_PARAMS);
+      const out = new Out(ctx);
+      const path = place.path && place.path.length >= 2 ? place.path : defaultPath(place, 100);
+      const bike = r.s("bike");
+      out.streets.push({ path, cls: r.s("cls") as "residential", name: r.s("name") || undefined, bike: bike === "none" ? null : (bike as "lane"), trees: r.b("trees") });
+      out.summary.push(`${STREET_CLASSES.find((c) => c.value === r.s("cls"))?.label}: ${Math.round(pathLength(path))} m`);
+      return out.done();
+    },
+  },
+  {
+    id: "transport.street_grid",
+    name: "Street grid",
+    category: TR,
+    tags: ["grid", "block pattern", "street network", "subdivision streets", "urban grid", "blocks"],
+    description: "A grid of streets over a drawn area at a chosen block size (local streets inside, collectors on the edges).",
+    icon: "grid-3x3",
+    placement: "rect",
+    siting: { carriageway: true, overlapProps: true },
+    params: GRID_PARAMS,
+    generate(values, place, ctx) {
+      const r = reader(values, GRID_PARAMS);
+      const out = new Out(ctx);
+      const { frame } = siteOf(place, r.n("width"), r.n("depth"));
+      const W = frame.siteW || r.n("width"),
+        Dd = frame.siteD || r.n("depth");
+      const nx = Math.max(1, Math.round(W / r.n("blockLength"))),
+        ny = Math.max(1, Math.round(Dd / r.n("blockWidth")));
+      const P = (x: number, y: number) => toWorld(frame, [x, y]);
+      const bike = r.s("bike");
+      const edge = r.b("perimeter");
+      for (let i = edge ? 0 : 1; i <= (edge ? nx : nx - 1); i++) {
+        const x = -W / 2 + (W * i) / nx;
+        const main = i === 0 || i === nx;
+        out.streets.push({ path: [P(x, -Dd / 2), P(x, Dd / 2)], cls: (main ? r.s("mainCls") : r.s("cls")) as "residential", bike: main && bike !== "none" ? (bike as "lane") : null, trees: r.b("trees") });
+      }
+      for (let j = edge ? 0 : 1; j <= (edge ? ny : ny - 1); j++) {
+        const y = -Dd / 2 + (Dd * j) / ny;
+        const main = j === 0 || j === ny;
+        out.streets.push({ path: [P(-W / 2, y), P(W / 2, y)], cls: (main ? r.s("mainCls") : r.s("cls")) as "residential", bike: main && bike !== "none" ? (bike as "lane") : null, trees: r.b("trees") });
+      }
+      if (!out.streets.length) out.streets.push({ path: [P(-W / 2, 0), P(W / 2, 0)], cls: r.s("cls") as "residential", trees: r.b("trees") });
+      out.summary.push(`Street grid: ${nx} × ${ny} blocks of ≈ ${Math.round(W / nx)} × ${Math.round(Dd / ny)} m`);
+      return out.done();
+    },
+  },
+  propDef({
+    id: "transport.crosswalk",
+    name: "Crosswalk markings",
+    category: TR,
+    tags: ["zebra crossing", "pedestrian crossing", "continental crosswalk", "ladder crosswalk", "raised crossing"],
+    description: "High-visibility continental (zebra) crosswalk bars across a carriageway (3 m min. width, bars 0.6 m).",
+    icon: "footprints",
+    siting: { carriageway: true, overlapProps: true },
+    params: [num("length", "Crossing length", 12, { group: D, unit: "m", min: 3, max: 50, step: 0.5, description: "Kerb to kerb" }), num("width", "Crosswalk width", 3.5, { group: D, unit: "m", min: 1.8, max: 10, step: 0.1 }), bool("raised", "Raised crossing", false, { group: A })],
+    build: (r) => {
+      const L = r.n("length"),
+        W = r.n("width");
+      const s: Solid[] = r.b("raised") ? [box(0, 0, 0, W + 3, L, 0.1, [200, 188, 170], "concrete")] : [];
+      const n = Math.floor(L / 1.2);
+      for (let i = 0; i < n; i++) s.push(box(0, -L / 2 + 0.6 + i * 1.2, r.b("raised") ? 0.1 : 0, W, 0.6, 0.02, C.white, "plastic"));
+      return { solids: s, cover: "paving" };
+    },
+  }),
   propDef({
     id: "transport.bus_shelter",
     name: "Bus shelter",

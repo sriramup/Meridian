@@ -35,7 +35,7 @@ function plantTrees(out: Out, pts: Vec2[], species: string, scale: number, seed:
   for (const p of pts) {
     const id = species === "mixed" ? MIX[Math.floor(rand() * MIX.length)] : species;
     const t = speciesTree(id, scale * (0.85 + rand() * 0.3), rand());
-    out.prop("flora.tree", { c: p, a: rand() * Math.PI * 2, siteW: 0, siteD: 0 }, t.solids, { shade: { r: t.r, h: t.h }, primary: false });
+    out.prop("flora.tree", { c: p, a: rand() * Math.PI * 2, siteW: 0, siteD: 0 }, t.solids, { shade: { r: t.r, h: t.h }, primary: false, anchorR: 0.6 });
   }
 }
 
@@ -199,7 +199,7 @@ export function parkInto(out: Out, r: Reader, site: Polygon, ctx: GenerateContex
     for (const p of allPaths)
       for (const st of stations(offsetPath(p, -1.8), 22, 11, false)) {
         if (!pointInPoly(st.p, site) || !free(st.p, 0.6)) continue;
-        out.prop("streetscape.street_lamp", { c: st.p, a: 0, siteW: 0, siteD: 0 }, lampSolids("acorn", 4.2), { primary: false });
+        out.prop("streetscape.street_lamp", { c: st.p, a: 0, siteW: 0, siteD: 0 }, lampSolids("acorn", 4.2), { primary: false, anchorR: 0.3 });
         reserve.push({ c: st.p, r: 0.6 });
       }
   // trees
@@ -288,7 +288,7 @@ export const PARKS: PrimitiveDef[] = [
         }
         if (r.b("lamps")) for (const s of stations(ring, r.n("treeSpacing") * 2, r.n("treeSpacing"), false)) {
           const q: Vec2 = [s.p[0] + (c[0] - s.p[0]) * 0.12, s.p[1] + (c[1] - s.p[1]) * 0.12];
-          out.prop("streetscape.street_lamp", { c: q, a: 0, siteW: 0, siteD: 0 }, lampSolids("post_top", 5), { primary: false });
+          out.prop("streetscape.street_lamp", { c: q, a: 0, siteW: 0, siteD: 0 }, lampSolids("post_top", 5), { primary: false, anchorR: 0.3 });
         }
       }
       const cp = r.s("centre");
@@ -331,7 +331,7 @@ export const PARKS: PrimitiveDef[] = [
       }
       const c = polyCentroid(poly);
       const f = { c, a: 0, siteW: 0, siteD: 0 };
-      if (r.b("agility")) out.prop("parks.dog_agility", subFrame(f, [4, 0]), [S("wedge", [0, 0, 0], [3.6, 1.0, 0.9], C.orange, "plastic", 90), ...[0, 1, 2, 3, 4].map((i) => cyl(-3 + i * 0.6, -3, 0, 0.05, 1.0, C.yellow, "plastic")), S("torus", [3, -3, 0.3], [0.9, 0.1, 0.9], C.blue, "plastic", 0, [90, 0]), cyl(3, -3, 0, 0.08, 0.3, C.steel, "metal")], { primary: false });
+      if (r.b("agility")) out.prop("parks.dog_park", subFrame(f, [4, 0]), [S("wedge", [0, 0, 0], [3.6, 1.0, 0.9], C.orange, "plastic", 90), ...[0, 1, 2, 3, 4].map((i) => cyl(-3 + i * 0.6, -3, 0, 0.05, 1.0, C.yellow, "plastic")), S("torus", [3, -3, 0.3], [0.9, 0.1, 0.9], C.blue, "plastic", 0, [90, 0]), cyl(3, -3, 0, 0.08, 0.3, C.steel, "metal")], { primary: false });
       out.prop("streetscape.drinking_fountain", subFrame(f, [-4, 3]), [box(0, 0, 0, 0.35, 0.35, 0.95, C.blue, "metal"), cyl(0, 0.45, 0, 0.4, 0.12, C.steel, "metal")], { primary: false });
       const ins = insetPoly(poly, 2.5);
       if (ins && isValidPoly(ins)) for (const s of stations([...ins[0], ins[0][0]], pathLength([...ins[0], ins[0][0]]) / Math.max(1, r.n("benches")), 3, false).slice(0, r.n("benches"))) out.prop("streetscape.bench", { c: s.p, a: ((s.rot + 180) * Math.PI) / 180, siteW: 0, siteD: 0 }, benchSolids("backless", 1.8), { primary: false });
@@ -371,7 +371,7 @@ export const PARKS: PrimitiveDef[] = [
           n++;
         }
       if (s.length) out.prop("parks.community_garden", { ...frame, siteW: 0, siteD: 0 }, s, { primary: false }).cover = "planting";
-      if (r.b("shed")) out.prop("parks.garden_shed", subFrame(frame, [x1 - 3.5, y1 - 3.5]), [box(0, 0, 0, 3, 2.4, 2.3, [150, 112, 76], "wood"), S("wedge", [0, 0, 2.3], [3.4, 2.8, 0.9], [150, 60, 52], "metal"), ...binSolids("compost").map((q) => ({ ...q, at: [q.at[0] - 2.5, q.at[1], q.at[2]] as [number, number, number] })), cyl(2.3, 0, 0, 1.1, 1.6, [60, 70, 80], "plastic")], { primary: false });
+      if (r.b("shed")) out.prop("parks.community_garden", subFrame(frame, [x1 - 3.5, y1 - 3.5]), [box(0, 0, 0, 3, 2.4, 2.3, [150, 112, 76], "wood"), S("wedge", [0, 0, 2.3], [3.4, 2.8, 0.9], [150, 60, 52], "metal"), ...binSolids("compost").map((q) => ({ ...q, at: [q.at[0] - 2.5, q.at[1], q.at[2]] as [number, number, number] })), cyl(2.3, 0, 0, 1.1, 1.6, [60, 70, 80], "plastic")], { primary: false });
       if (r.b("fence")) {
         const ring = [...poly[0], poly[0][0]];
         for (let i = 0; i < ring.length - 1; i++) {
@@ -539,7 +539,7 @@ export const PARKS: PrimitiveDef[] = [
       const path = place.path && place.path.length >= 2 ? place.path : defaultPath(place, 60);
       out.path(path, r.s("type") as "footway", { primary: true, name: r.s("name") || undefined });
       if (r.n("benchEvery") > 0) for (const s of stations(offsetPath(path, 2.5), r.n("benchEvery"), r.n("benchEvery") / 2, false)) out.prop("streetscape.bench", { c: s.p, a: ((s.rot + 180) * Math.PI) / 180, siteW: 0, siteD: 0 }, benchSolids("park", 1.8), { primary: false });
-      if (r.n("lampEvery") > 0) for (const s of stations(offsetPath(path, -2), r.n("lampEvery"), 0, false)) out.prop("streetscape.street_lamp", { c: s.p, a: 0, siteW: 0, siteD: 0 }, lampSolids("pedestrian", 4), { primary: false });
+      if (r.n("lampEvery") > 0) for (const s of stations(offsetPath(path, -2), r.n("lampEvery"), 0, false)) out.prop("streetscape.street_lamp", { c: s.p, a: 0, siteW: 0, siteD: 0 }, lampSolids("pedestrian", 4), { primary: false, anchorR: 0.3 });
       if (r.n("treeEvery") > 0) {
         const sts = stations(offsetPath(path, 6), r.n("treeEvery"), r.n("treeEvery") / 3, false);
         plantTrees(out, sts.map((s) => s.p), r.s("species"), 0.8, seedOf(ctx));
