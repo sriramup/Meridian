@@ -241,7 +241,7 @@ function Chip({ c, on, busy, onClick }: { c: (typeof CHIPS)[number]; on: boolean
   const Icon = c.icon;
   return (
     <Tip label={c.hint} side="top">
-      <button onClick={onClick} className={cx("flex h-8 items-center gap-1.5 rounded-[6px] px-2.5 text-[12px] font-medium transition-colors", on ? "bg-accent text-on-accent" : "text-ink-2 hover:bg-paper-3 hover:text-ink")}>
+      <button onClick={onClick} aria-pressed={on} className={cx("flex h-8 items-center gap-1.5 rounded-[6px] px-2.5 text-[12px] font-medium transition-colors", on ? "bg-accent text-on-accent" : "text-ink-2 hover:bg-paper-3 hover:text-ink")}>
         {busy ? <LoaderCircle size={13} className="animate-spin" /> : <Icon size={13} strokeWidth={1.8} />}
         <span className="hidden @[560px]:inline">{c.label}</span>
       </button>
