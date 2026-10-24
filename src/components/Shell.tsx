@@ -20,7 +20,8 @@ import { AgentsPane } from "./agents/AgentsPane";
 import { ZoneDrawSurface } from "./agents/ZoneDrawSurface";
 import { ZoneLayers } from "./agents/ZoneLayers";
 import { AnalysisDock } from "./AnalysisDock";
-import { HelpDialog, NavHint } from "./Help";
+import { HelpDialog } from "./Help";
+import { ExitStreetView } from "./pedestrian/ExitStreetView";
 import { Inspector } from "./Inspector";
 import { StartCard } from "./StartCard";
 import { LibraryRuntime } from "./library/LibraryRuntime";
@@ -101,7 +102,7 @@ export function Shell() {
               <ChangeReport />
             </div>
             <div ref={dock} className="absolute right-0 bottom-3 left-0 flex flex-col items-center gap-2">
-              <NavHint />
+              <ExitStreetView />
               <AnalysisDock />
             </div>
             <div className="absolute top-16 left-1/2 -translate-x-1/2">
@@ -201,7 +202,6 @@ function useShortcuts() {
         return;
       }
       if (mod) return;
-      if (st.cameraMode === "pedestrian" && "wasdqe".includes(e.key.toLowerCase())) return;
       if (e.key === "Escape") {
         if (draw.points.length || draw.pending) resetDraw();
         else if (st.tool !== "select") st.setTool("select");
@@ -226,7 +226,8 @@ function useShortcuts() {
         return;
       }
       const k = e.key.toLowerCase();
-      if (k === "q" || k === "e") {
+      // (street level turns by dragging; its camera is its own)
+      if ((k === "q" || k === "e") && st.cameraMode !== "pedestrian") {
         import("@/render/camera").then((m) => m.turn(k === "q" ? -15 : 15));
         return;
       }

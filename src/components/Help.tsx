@@ -1,15 +1,12 @@
 "use client";
 
-// How to get around: the controls guide (the ? button, or "?"), a one-time hint for newcomers,
-// and the walking controls while at street level.
+// How to get around: the controls guide (the ? button, or "?"). Street level's only on-screen
+// control is its exit (pedestrian/ExitStreetView); everything else is explained here.
 
 import * as Dialog from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useApp } from "@/state/store";
-import { togglePedestrian } from "@/state/view";
-
-const HINT_KEY = "meridian.nav-hint-seen";
 
 function Keys({ children }: { children: ReactNode }) {
   return <kbd className="inline-flex h-5 items-center rounded-[5px] border border-line-2 bg-paper-2 px-1.5 font-sans text-[10.5px] font-medium whitespace-nowrap text-ink-2 shadow-[0_1px_0_rgb(88_60_28/0.15)]">{children}</kbd>;
@@ -62,11 +59,12 @@ export function HelpDialog() {
               <Row k={<><Keys>⇧↑</Keys><Keys>⇧↓</Keys></>}>Tilt up or down</Row>
             </Section>
             <Section title="At street level">
-              <Row k={<Keys>P</Keys>}>Step down into the street, and back up</Row>
+              <Row k={<><Keys>P</Keys><Keys>footprints</Keys></>}>Step down into the street, and back up</Row>
+              <Row k={<Keys>click</Keys>}>Walk to the spot under the cursor</Row>
+              <Row k={<Keys>click arrow</Keys>}>Step along the street</Row>
+              <Row k={<Keys>double-click</Keys>}>Jump straight to a spot</Row>
               <Row k={<Keys>drag</Keys>}>Look around</Row>
-              <Row k={<><Keys>W A S D</Keys><Keys>arrows</Keys></>}>Walk</Row>
-              <Row k={<Keys>⇧</Keys>}>Hold to run</Row>
-              <Row k={<Keys>scroll</Keys>}>Step forward or back</Row>
+              <Row k={<><Keys>scroll</Keys><Keys>pinch</Keys></>}>Zoom the view in and out</Row>
               <Row k={<Keys>Esc</Keys>}>Back up above the street</Row>
             </Section>
             <Section title="Making things">
@@ -90,53 +88,5 @@ export function HelpDialog() {
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
-  );
-}
-
-/** a line of hints along the bottom: once for newcomers in the map view, always while walking */
-export function NavHint() {
-  const cam = useApp((s) => s.cameraMode);
-  const [seen, setSeen] = useState(true);
-  useEffect(() => {
-    try {
-      setSeen(localStorage.getItem(HINT_KEY) === "1");
-    } catch {
-      setSeen(false);
-    }
-  }, []);
-  const dismiss = () => {
-    setSeen(true);
-    try {
-      localStorage.setItem(HINT_KEY, "1");
-    } catch {
-      /* private window: the hint simply shows again next time */
-    }
-  };
-  const walking = cam === "pedestrian";
-  if (!walking && seen) return null;
-  const hints = walking ? [["drag", "look around"], ["W A S D", "walk"], ["⇧", "run"], ["scroll", "step"]] : [["drag", "move"], ["right-drag", "turn & tilt"], ["scroll", "zoom"]];
-  return (
-    <div className="chrome pointer-events-auto flex items-center gap-3 rounded-full py-1 pr-1.5 pl-3.5 text-[11.5px] text-ink-2">
-      {hints.map(([k, v]) => (
-        <span key={k} className="flex items-center gap-1.5 whitespace-nowrap">
-          <Keys>{k}</Keys>
-          {v}
-        </span>
-      ))}
-      {walking ? (
-        <button onClick={togglePedestrian} className="rounded-full bg-accent px-2.5 py-0.5 font-medium text-on-accent hover:brightness-105">
-          Back up <span className="opacity-60">Esc</span>
-        </button>
-      ) : (
-        <>
-          <button onClick={() => useApp.getState().setHelpOpen(true)} className="rounded-full px-2 py-0.5 font-medium text-rose hover:bg-accent-2">
-            All controls <span className="opacity-60">?</span>
-          </button>
-          <button onClick={dismiss} className="grid h-5 w-5 place-items-center rounded-full text-ink-4 hover:bg-paper-3 hover:text-ink" aria-label="Dismiss" title="Got it">
-            <X size={12} />
-          </button>
-        </>
-      )}
-    </div>
   );
 }
