@@ -5,13 +5,17 @@
 
 import { registerPrimitive } from "../registry";
 import type { PrimitiveDef } from "../types";
+import { CIVIC, EDUCATION, HEALTH } from "./civic";
+import { COMMERCIAL } from "./commercial";
 import { FLORA } from "./flora";
+import { INDUSTRIAL, TRANSPORT } from "./industrial";
+import { RECREATION } from "./recreation";
 import { HOUSING } from "./housing";
 import { STREETSCAPE } from "./streetscape";
 import { UNIVERSAL } from "./universal";
 
 /** every catalog definition, in palette order */
-export const CATALOG: PrimitiveDef[] = [...UNIVERSAL, ...HOUSING, ...STREETSCAPE, ...FLORA];
+export const CATALOG: PrimitiveDef[] = [...UNIVERSAL, ...HOUSING, ...COMMERCIAL, ...CIVIC, ...EDUCATION, ...HEALTH, ...INDUSTRIAL, ...TRANSPORT, ...STREETSCAPE, ...RECREATION, ...FLORA];
 
 let done = false;
 

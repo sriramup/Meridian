@@ -191,7 +191,7 @@ export function buildBuilding(out: Out, r: Reader, frame: Frame, o: BuildOverrid
       skew: r.n("skew") / 100,
       sweep: r.n("sweep"),
       steps: r.n("steps"),
-      targetArea: r.n("targetArea"),
+      targetArea: r.n("targetArea") > 0 ? Math.max(10, r.n("targetArea")) : 0,
     };
     local = footprintPoly(fspec);
   }

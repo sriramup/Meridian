@@ -90,7 +90,7 @@ export class Out {
   done(): Generated {
     // guarantee one primary: promote the first entity when nobody claimed it
     if (!this.primarySet) {
-      const first = this.buildings[0] ?? this.props[0] ?? this.areas[0] ?? this.trees[0] ?? this.paths[0];
+      const first = this.buildings[0] ?? this.areas[0] ?? this.props[0] ?? this.trees[0] ?? this.paths[0];
       if (first?.lib) first.lib.primary = true;
     }
     const g: Generated = {};
