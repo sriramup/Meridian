@@ -334,7 +334,11 @@ export const RECREATION: PrimitiveDef[] = [
       const w = r.n("width"),
         d = r.n("depth");
       const s: Solid[] = [box(0, 0, 0, w, d, 0.1, [190, 188, 182], "concrete")];
-      if (r.b("bowl")) s.push(S("torus", [-w / 4, 0, 0.1], [Math.min(w / 2, d) * 0.8, Math.min(w / 2, d) * 0.8, 1.4], [176, 174, 168], "concrete"));
+      if (r.b("bowl")) {
+        // a bowl reads as a dark sunken disc with a coping ring (the renderer has no negative relief)
+        const bd = Math.min(w / 2, d) * 0.8;
+        s.push(cyl(-w / 4, 0, 0.1, bd, 0.02, [120, 118, 114], "concrete"), S("torus", [-w / 4, 0, 0.1], [bd, bd, 0.25], [150, 148, 142], "concrete"), cyl(-w / 4, 0, 0.12, bd * 0.6, 0.02, [100, 98, 94], "concrete"));
+      }
       const n = r.n("ramps");
       for (let i = 0; i < n; i++) {
         const x = w * 0.1 + ((w * 0.38) * (i % 2)) - (i > 1 ? 0 : 0);

@@ -70,7 +70,7 @@ const GROUND_LEVEL = new Set([
   "utilities.solar_farm",
   "streetscape.tree_grate",
 ]);
-for (const d of CATALOG) if (GROUND_LEVEL.has(d.id) || (d.category === "recreation" && d.placement === "rect")) d.siting = { ...d.siting, overlapProps: true };
+for (const d of CATALOG) if (GROUND_LEVEL.has(d.id) || (d.category === "recreation" && d.placement === "rect")) d.siting = { ...d.siting, overlapProps: true, ...(d.category === "water" ? { water: true } : {}) };
 
 let done = false;
 
