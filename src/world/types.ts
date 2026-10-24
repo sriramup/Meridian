@@ -77,6 +77,12 @@ export interface Building {
    * change in built volume.
    */
   existing?: { units: number; jobs: number; gfa: number; volume: number; use: Use };
+  /**
+   * Explicit occupancy (library primitives: a stated number of homes, a jobs density…) at floor area
+   * `gfa`. programmeOf scales the counts with later changes to the floor area. Omitted counts fall
+   * back to the floor-area rules.
+   */
+  occupancy?: { units?: number; jobs?: number; rooms?: number; gfa: number };
 }
 
 export interface BuildingStyle {
@@ -146,12 +152,19 @@ export interface Prop {
   footprint?: Polygon;
   /** casts shade like a tree crown in the heat / sun models (radius and height, m) */
   shade?: { r: number; h: number };
+  /**
+   * ground cover under the footprint for the land-cover models (heat, runoff, green cover). Omitted:
+   * inferred from the solids (low water solids → water, low foliage → planting), otherwise unchanged.
+   */
+  cover?: PropCover;
   name?: string;
   source: string;
   provenance: Provenance;
   createdBy?: string;
   lib?: LibraryRef;
 }
+
+export type PropCover = "water" | "paving" | "planting" | "lawn" | "permeable" | "raingarden" | "woodland" | "bare";
 
 export type StripType =
   | "sidewalk"

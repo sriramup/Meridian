@@ -213,6 +213,12 @@ export function programmeOf(b: Building, householdSize = 1.75): Programme {
     (gfa * share("health")) / PROGRAMME.healthPerJob +
     (gfa * share("hotel")) / 120;
   const rooms = (gfa * share("hotel")) / PROGRAMME.hotelPerRoom;
+  if (b.occupancy) {
+    // stated occupancy (library primitives), scaled with later changes to the floor area
+    const k = b.occupancy.gfa > 0 ? gfa / b.occupancy.gfa : 1;
+    const u = b.occupancy.units != null ? b.occupancy.units * k : units;
+    return { gfa, units: u, jobs: b.occupancy.jobs != null ? b.occupancy.jobs * k : jobs, rooms: b.occupancy.rooms != null ? b.occupancy.rooms * k : rooms, residents: u * householdSize };
+  }
   return { gfa, units, jobs, rooms, residents: units * householdSize };
 }
 

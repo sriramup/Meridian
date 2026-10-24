@@ -67,7 +67,18 @@ export interface MultiParam extends ParamBase {
   options: { value: string; label: string }[];
 }
 
-export type ParamSpec = NumberParam | EnumParam | BooleanParam | ColorParam | TextParam | MultiParam;
+/**
+ * Structured data the agent supplies as JSON (raw solids for a custom prop, a list of points…).
+ * Forms may show it read-only or as a code field; it is always `advanced`.
+ */
+export interface JsonParam extends ParamBase {
+  type: "json";
+  default: unknown;
+  /** one-line description of the expected shape, shown to the agent */
+  shape?: string;
+}
+
+export type ParamSpec = NumberParam | EnumParam | BooleanParam | ColorParam | TextParam | MultiParam | JsonParam;
 export type ParamValues = Record<string, unknown>;
 
 // ---------------------------------------------------------------- definitions
@@ -145,7 +156,24 @@ export interface PrimitiveDef {
   params: ParamSpec[];
   /** lucide icon name for the palette */
   icon?: string;
+  /**
+   * Where the primitive may stand (src/world/ops/library.ts enforces it). Defaults: props and trees
+   * stay out of carriageways, buildings and open water; buildings are carved out of street
+   * right-of-way and water.
+   */
+  siting?: Siting;
   generate(params: ParamValues, place: PlacementInput, ctx: GenerateContext): Generated;
+}
+
+export interface Siting {
+  /** may stand between the kerbs (speed humps, bollards, parklets, road markings, traffic islands) */
+  carriageway?: boolean;
+  /** may stand on open water (boats, buoys, floating docks, fountains in a pond) */
+  water?: boolean;
+  /** may stand inside / on top of a building footprint (rooftop plant, signage, solar arrays) */
+  onBuildings?: boolean;
+  /** may overlap other props (ground markings, lighting over benches) */
+  overlapProps?: boolean;
 }
 
 export type { Entity };
