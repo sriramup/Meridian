@@ -25,12 +25,12 @@ export const buttonVariants = cva(
         danger: "border border-bad/30 bg-bad-2 text-bad hover:border-bad/45 hover:bg-[#ebc5b2] active:bg-[#e5baa5]",
       },
       size: {
-        xs: "h-6 px-2 text-[11.5px] [&_svg:not([class*='size-'])]:size-3",
-        sm: "h-7 px-2.5 text-[12px] [&_svg:not([class*='size-'])]:size-3.5",
-        md: "h-8 px-3 text-[12.5px] [&_svg:not([class*='size-'])]:size-3.5",
-        icon: "size-8 [&_svg:not([class*='size-'])]:size-4",
-        "icon-sm": "size-7 [&_svg:not([class*='size-'])]:size-3.5",
-        "icon-xs": "size-6 [&_svg:not([class*='size-'])]:size-3.5",
+        xs: "h-6 px-2 text-[11.5px] [&_svg[width='24']:not([class*='size-'])]:size-3",
+        sm: "h-7 px-2.5 text-[12px] [&_svg[width='24']:not([class*='size-'])]:size-3.5",
+        md: "h-8 px-3 text-[12.5px] [&_svg[width='24']:not([class*='size-'])]:size-3.5",
+        icon: "size-8 [&_svg[width='24']:not([class*='size-'])]:size-4",
+        "icon-sm": "size-7 [&_svg[width='24']:not([class*='size-'])]:size-3.5",
+        "icon-xs": "size-6 [&_svg[width='24']:not([class*='size-'])]:size-3.5",
       },
       active: {
         true: "border-[#b98d52] bg-accent text-on-accent hover:border-[#b98d52] hover:bg-accent hover:text-on-accent hover:brightness-[1.04]",

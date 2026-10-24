@@ -171,7 +171,7 @@ export const NumberField = forwardRef<HTMLInputElement, NumberFieldProps>(functi
         className,
       )}
     >
-      {label != null && <span className="flex shrink-0 select-none items-center text-[11px] font-medium text-ink-4 [&_svg]:size-3.5">{label}</span>}
+      {label != null && <span className="flex shrink-0 select-none items-center text-[11px] font-medium text-ink-4 [&_svg[width='24']:not([class*='size-'])]:size-3.5">{label}</span>}
       <input
         ref={input}
         id={id}
