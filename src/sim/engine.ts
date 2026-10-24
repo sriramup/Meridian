@@ -13,7 +13,7 @@ import { runBike } from "./bike";
 import { optimizeEmergency, type EmChangeKind } from "./emergency";
 import { parcelCapacity, scenarioMetrics, type CapacityOptions } from "./capacity";
 import { runFlood, runRunoff, DESIGN_STORMS } from "./environment";
-import { heatReference, runHeat, sunHours, type HeatReference } from "./heat";
+import { heatReference, runHeat, sunHours, type HeatPrev, type HeatReference } from "./heat";
 import { buildContextLandcover, contextGrid, type ContextInput } from "./contextLandcover";
 import { buildLandcover, coverStats, IMPERVIOUS, LC, prepareLandcover, type Landcover } from "./landcover";
 import { prepareTraffic } from "./prepareTraffic";
@@ -82,6 +82,8 @@ export class Engine {
   }
 
   private ref: HeatReference | null = null;
+  /** the last study-area heat runs per day/parameters (own copies), so an edit re-runs only the window it reaches */
+  private heatPrev = new Map<string, HeatPrev>();
   private ctxLc: Landcover | null = null;
   /** baseline neighbourhood means shared by every scenario's heat run */
   private heatRef(changesets: SimJob["changesets"]): HeatReference {
@@ -122,14 +124,23 @@ export class Engine {
         const hours = (P.hours as number[]) ?? [7, 9, 11, 13, 15, 17, 19];
         const blocks = this.init.census.map((c) => ({ id: c.geoid, rings: c.poly }));
         const wx = (P.weather as { t: number[]; sw: number[] } | undefined) ?? meta.weather.hourly;
-        const r = runHeat(lc, { t: wx.t, sw: wx.sw }, { date: (P.date as string) ?? meta.weather.date, deltaT: (P.deltaT as number) ?? 0, hours, lat: meta.origin.lat, lon: meta.origin.lon, utcOffset: (P.utcOffset as number) ?? this.init.utcOffset, masses, trees, blocks, ref }, progress);
+        const hp = { date: (P.date as string) ?? meta.weather.date, deltaT: (P.deltaT as number) ?? 0, hours, lat: meta.origin.lat, lon: meta.origin.lon, utcOffset: (P.utcOffset as number) ?? this.init.utcOffset };
+        const pkey = JSON.stringify([hp, wx.t, wx.sw]);
+        const prev = this.heatPrev.get(pkey);
+        const t0 = performance.now();
+        const r = runHeat(lc, { t: wx.t, sw: wx.sw }, { ...hp, masses, trees, blocks, ref }, progress, prev);
+        const heatMs = performance.now() - t0;
+        // keep copies for the next edit (the result's own buffers are transferred to the page); three days' worth at most
+        this.heatPrev.delete(pkey);
+        this.heatPrev.set(pkey, { lc, result: { hours: r.hours, surface: r.surface.map((a) => a.slice()), exposure: r.exposure.map((a) => a.slice()), tiles: { ...r.tiles, hourly: r.tiles.hourly.map((a) => a.slice()) } } });
+        if (this.heatPrev.size > 3) this.heatPrev.delete(this.heatPrev.keys().next().value!);
         const cover = coverStats(lc);
         // centroid for each hottest block
         const hb = r.hottestBlocks.map((b) => {
           const c = this.init.census.find((x) => x.geoid === b.id);
           return { ...b, p: c ? polyCentroid(c.poly) : ([0, 0] as Vec2), pop: c?.pop ?? 0 };
         });
-        return { result: { ...r, shade: [], hottestBlocks: hb, cover, grid: meta.grid }, transfer: [...r.exposure, ...r.surface].map((a) => a.buffer as ArrayBuffer) };
+        return { result: { ...r, shade: [], hottestBlocks: hb, cover, grid: meta.grid, perf: { heatMs: Math.round(heatMs), incremental: !!prev && r.computedShare < 1, computedShare: r.computedShare } }, transfer: [...r.exposure, ...r.surface, ...r.tiles.hourly].map((a) => a.buffer as ArrayBuffer) };
       }
       case "context": {
         // the surrounding city (study-area edits can't reach it, so it is scenario-independent)

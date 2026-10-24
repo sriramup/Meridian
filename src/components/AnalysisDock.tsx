@@ -15,6 +15,7 @@ import { stateKey } from "@/sim/heatCache";
 import { LocalProjection } from "@/world/projection";
 import { compareWith, usePlanImpact } from "./ImpactPanel";
 import { MonthSelect } from "./MonthSelect";
+import { SelectField, Slider } from "./ui/kit";
 import { Button, Segmented, Tip, cx } from "./ui";
 
 export const CHIPS: { id: OverlayId; label: string; icon: typeof Car; sim?: SimKind; hint: string; more?: boolean }[] = [
@@ -192,21 +193,14 @@ export function AnalysisDock() {
                   }}
                 />
                 {chip?.sim && (chip.sim === "traffic" || chip.sim === "runoff") && scenarios.length > 1 && (
-                  <select
-                    value={cmpRec?.scenarioId ?? ""}
-                    onChange={(e) => compareWith(chip.sim!, e.target.value, rec?.params ?? defaultParams(chip.sim!)).then(bumpOverlay)}
-                    className="h-7 max-w-[140px] rounded-[5px] border border-line-2 bg-paper px-1 text-[11.5px] text-ink-2"
-                    title="Show the difference against another scenario"
-                  >
-                    <option value="">No comparison</option>
-                    {scenarios
-                      .filter((s) => s.id !== R.scenarios.activeId)
-                      .map((s) => (
-                        <option key={s.id} value={s.id}>
-                          Δ vs {s.name}
-                        </option>
-                      ))}
-                  </select>
+                  <SelectField
+                    size="xs"
+                    aria-label="Compare with scenario"
+                    className="max-w-[150px]"
+                    value={cmpRec?.scenarioId ?? "none"}
+                    onValueChange={(v) => compareWith(chip.sim!, v === "none" ? "" : v, rec?.params ?? defaultParams(chip.sim!)).then(bumpOverlay)}
+                    options={[{ value: "none", label: "No comparison" }, ...scenarios.filter((s) => s.id !== R.scenarios.activeId).map((s) => ({ value: s.id, label: `Δ vs ${s.name}` }))]}
+                  />
                 )}
                 {chip?.sim && !LIVE.has(chip.sim) && (
                   <Tip label="Re-run on the current scenario">
@@ -222,7 +216,7 @@ export function AnalysisDock() {
                 <button onClick={() => setPlaying(!playing)} className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-accent text-on-accent hover:brightness-110" title={playing ? "Pause" : "Play the day"}>
                   {playing ? <Pause size={11} fill="currentColor" /> : <Play size={11} fill="currentColor" className="ml-px" />}
                 </button>
-                <input type="range" min={0} max={24} step={1 / 12} value={hour} onChange={(e) => setHour(+e.target.value % 24)} className="h-1 min-w-0 flex-1" />
+                <Slider size="sm" min={0} max={24} step={1 / 12} value={[hour]} onValueChange={([v]) => setHour(v % 24)} thumbLabels={["Time of day"]} className="min-w-0 flex-1" />
                 <span className="tabular w-[66px] shrink-0 text-right text-[12px] font-medium text-ink">{clock(hour)}</span>
                 {overlay === "traffic" && (
                   <Segmented
@@ -360,20 +354,16 @@ function OverlayMode({ overlay, onChange }: { overlay: OverlayId | null; onChang
     );
   if (overlay === "access")
     return (
-      <select
+      <SelectField
+        size="xs"
+        aria-label="Destination"
         value={overlayState.accessCategory}
-        onChange={(e) => {
-          overlayState.accessCategory = e.target.value;
+        onValueChange={(v) => {
+          overlayState.accessCategory = v;
           onChange();
         }}
-        className="h-7 rounded-[5px] border border-line-2 bg-paper px-1 text-[11.5px]"
-      >
-        {["frequent_transit", "transit", "grocery", "school", "park", "health", "food", "emergency"].map((c) => (
-          <option key={c} value={c}>
-            {c === "emergency" ? "fire / EMS (drive)" : c.replace("_", " ")}
-          </option>
-        ))}
-      </select>
+        options={["frequent_transit", "transit", "grocery", "school", "park", "health", "food", "emergency"].map((c) => ({ value: c, label: c === "emergency" ? "fire / EMS (drive)" : c.replace("_", " ") }))}
+      />
     );
   return null;
 }

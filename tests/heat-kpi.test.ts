@@ -84,3 +84,44 @@ describe("heat KPIs per hour and per area", () => {
     expect(near.length).toBeLessThan(16);
   });
 });
+
+describe("incremental heat re-run after an edit", () => {
+  const M = 200;
+  const big = { x0: 0, y0: 0, cell: 4, nx: M, ny: M };
+  function bigCity(trees: [number, number][], tower?: [number, number]): Landcover {
+    const n = M * M;
+    const lc: Landcover = { grid: big, cls: new Uint8Array(n).fill(LC.PAVED), ground: new Uint8Array(n).fill(LC.PAVED), canopy: new Float32Array(n), height: new Float32Array(n) };
+    for (let j = 0; j < M; j++) for (let i = 0; i < M; i++) if (j % 25 < 5) lc.cls[j * M + i] = lc.ground[j * M + i] = LC.ROAD;
+    // a 40 m block elsewhere, whose long shadows reach across the window
+    for (let j = 150; j < 160; j++) for (let i = 20; i < 30; i++) (lc.cls[j * M + i] = lc.ground[j * M + i] = LC.ROOF), (lc.height[j * M + i] = 40);
+    for (const [ci, cj] of trees)
+      for (let j = cj - 1; j <= cj + 1; j++)
+        for (let i = ci - 1; i <= ci + 1; i++) {
+          const k = j * M + i;
+          lc.cls[k] = LC.CANOPY;
+          lc.canopy[k] = 1;
+          lc.height[k] = 9;
+        }
+    if (tower) for (let j = tower[1]; j < tower[1] + 4; j++) for (let i = tower[0]; i < tower[0] + 4; i++) (lc.cls[j * M + i] = lc.ground[j * M + i] = LC.ROOF), (lc.height[j * M + i] = 12);
+    return lc;
+  }
+  const P = (): HeatParams => ({ ...params(), hours: [0, 4, 7, 10, 13, 16, 19, 22] });
+  const a = bigCity([[100, 100]]);
+  const ra = runHeat(a, weather, P());
+
+  it.each([
+    ["a planted tree", bigCity([[100, 100], [110, 104]])],
+    ["a small building", bigCity([[100, 100]], [120, 90])],
+    ["no change", bigCity([[100, 100]])],
+  ])("%s: the windowed re-run equals a full run", (_, b) => {
+    const full = runHeat(b, weather, P());
+    const inc = runHeat(b, weather, P(), undefined, { lc: a, result: ra });
+    for (let k = 0; k < full.hours.length; k++) {
+      expect(inc.surface[k]).toEqual(full.surface[k]);
+      expect(inc.exposure[k]).toEqual(full.exposure[k]);
+      const d = inc.tiles.hourly[k].reduce((m, v, i) => Math.max(m, Math.abs(v - full.tiles.hourly[k][i])), 0);
+      expect(d).toBeLessThan(1e-2);
+    }
+    expect(inc.kpi.meanSurface).toBeCloseTo(full.kpi.meanSurface, 4);
+  });
+});
