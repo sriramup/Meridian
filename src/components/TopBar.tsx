@@ -28,6 +28,7 @@ import {
 } from "./ui/kit";
 import { IconButton, Tip, cx } from "./ui";
 import { CommandSearch } from "./CommandSearch";
+import { confirmAction } from "./ConfirmDialog";
 
 export function TopBar() {
   useApp((s) => s.scenarioVersion);
@@ -369,7 +370,7 @@ function CityMenu() {
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onSelect={async () => {
-                if (hasDesign() && !window.confirm("Clear this design and start again? Export it first (design menu → Export) to keep a copy.")) return;
+                if (hasDesign() && !(await confirmAction({ title: "Start a new blank canvas?", body: "This clears the current design. Export it first (design menu → Export) to keep a copy.", confirm: "Clear and start again", danger: true }))) return;
                 await clearDesign();
                 window.location.reload();
               }}

@@ -51,7 +51,9 @@ export async function switchCity(id: string): Promise<boolean> {
   const R = rtMaybe();
   if (R?.cityId === id) return false;
   if (R && !R.meta.sandbox && [...R.scenarios.scenarios.values()].some((s) => s.changesets.length > 0)) {
-    if (!window.confirm(`Leave ${R.meta.name}? Scenario edits here are not saved — export the proposal first to keep it.`)) return false;
+    const { confirmAction } = await import("@/components/ConfirmDialog");
+    const ok = await confirmAction({ title: `Leave ${R.meta.name}?`, body: "Proposals for a measured city are not saved in the browser. Export the proposal first (design menu → Export) to keep it.", confirm: "Leave", danger: true });
+    if (!ok) return false;
   }
   if (R?.meta.sandbox) await saveDesign();
   window.location.assign(cityUrl(id));

@@ -20,6 +20,7 @@ import { AgentsPane } from "./agents/AgentsPane";
 import { ZoneDrawSurface } from "./agents/ZoneDrawSurface";
 import { ZoneLayers } from "./agents/ZoneLayers";
 import { AnalysisDock } from "./AnalysisDock";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { HelpDialog } from "./Help";
 import { ExitStreetView } from "./pedestrian/ExitStreetView";
 import { Inspector } from "./Inspector";
@@ -113,6 +114,7 @@ export function Shell() {
             </div>
             <Attribution />
             <HelpDialog />
+            <ConfirmDialog />
           </div>
         </div>
         {agentOpen && (
