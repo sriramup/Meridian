@@ -284,9 +284,10 @@ export function treeSolids(t: TreeSpec): Solid[] {
       for (let i = 0; i < n; i++) {
         const a = (i / n) * 360 + rnd(i) * 20;
         const droop = t.shape === "fan_palm" ? 20 + rnd(i + 3) * 25 : 25 + rnd(i + 3) * 35;
-        const L = Wc / 2;
+        const L = Wc * 0.62;
         const ar = (a * Math.PI) / 180;
-        push(leaf(S("box", [topX + Math.cos(ar) * L * 0.45, Math.sin(ar) * L * 0.45, H - 0.3 - Math.sin((droop * Math.PI) / 180) * L * 0.4], [L, t.shape === "fan_palm" ? 1.0 : 0.55, 0.06], i % 2 ? col : dark, "foliage", a, [0, droop])));
+        const reach = Math.cos((droop * Math.PI) / 180) * L * 0.5;
+        push(leaf(S("box", [topX + Math.cos(ar) * reach, Math.sin(ar) * reach, H - 0.3 - Math.sin((droop * Math.PI) / 180) * L * 0.5], [L, t.shape === "fan_palm" ? Math.max(1.0, Wc * 0.28) : Math.max(0.6, Wc * 0.12), 0.08], i % 2 ? col : dark, "foliage", a, [0, droop])));
       }
       out.push(sphere(topX, 0, H - 0.6, Math.max(0.5, dbh * 2), shade(t.trunkColor, 0.9), "wood"));
       if (t.accent) out.push(sphere(topX, 0, H - 0.9, 0.5, t.accent, "foliage"));

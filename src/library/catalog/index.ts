@@ -7,6 +7,12 @@ import { registerPrimitive } from "../registry";
 import type { PrimitiveDef } from "../types";
 import { CIVIC, EDUCATION, HEALTH } from "./civic";
 import { COMMERCIAL } from "./commercial";
+import { COMPOSITES } from "./composites";
+import { FAUNA } from "./fauna";
+import { LANDMARKS } from "./landmarks";
+import { PARKS } from "./parks";
+import { UTILITIES } from "./utilities";
+import { WATER } from "./water";
 import { FLORA } from "./flora";
 import { INDUSTRIAL, TRANSPORT } from "./industrial";
 import { RECREATION } from "./recreation";
@@ -15,7 +21,7 @@ import { STREETSCAPE } from "./streetscape";
 import { UNIVERSAL } from "./universal";
 
 /** every catalog definition, in palette order */
-export const CATALOG: PrimitiveDef[] = [...UNIVERSAL, ...HOUSING, ...COMMERCIAL, ...CIVIC, ...EDUCATION, ...HEALTH, ...INDUSTRIAL, ...TRANSPORT, ...STREETSCAPE, ...RECREATION, ...FLORA];
+export const CATALOG: PrimitiveDef[] = [...UNIVERSAL, ...HOUSING, ...COMMERCIAL, ...CIVIC, ...EDUCATION, ...HEALTH, ...INDUSTRIAL, ...TRANSPORT, ...STREETSCAPE, ...PARKS, ...RECREATION, ...FLORA, ...FAUNA, ...WATER, ...UTILITIES, ...LANDMARKS, ...COMPOSITES];
 
 let done = false;
 

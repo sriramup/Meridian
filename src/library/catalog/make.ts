@@ -87,6 +87,28 @@ export class Out {
     return e;
   }
 
+  /** merge another generator's output (child primitives in composites); its primary flag is dropped */
+  include(g: Generated): void {
+    const strip = <T extends { lib?: { primary?: boolean } }>(e: T): T => {
+      if (e.lib) e.lib = { ...e.lib, ...this.ctx.ref, primary: undefined };
+      return e;
+    };
+    this.buildings.push(...(g.buildings ?? []).map(strip));
+    this.props.push(...(g.props ?? []).map(strip));
+    this.trees.push(...(g.trees ?? []).map(strip));
+    this.areas.push(...(g.areas ?? []).map(strip));
+    this.paths.push(...(g.paths ?? []).map(strip));
+    this.streets.push(...(g.streets ?? []));
+    this.warnings.push(...(g.warnings ?? []));
+  }
+
+  /** mark an already-created entity as the instance's primary */
+  setPrimary(e: { lib?: { primary?: boolean } }): void {
+    for (const x of [...this.buildings, ...this.props, ...this.trees, ...this.areas, ...this.paths]) if (x.lib) x.lib.primary = undefined;
+    if (e.lib) e.lib.primary = true;
+    this.primarySet = true;
+  }
+
   done(): Generated {
     // guarantee one primary: promote the first entity when nobody claimed it
     if (!this.primarySet) {
