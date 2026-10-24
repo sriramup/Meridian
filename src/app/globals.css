@@ -170,3 +170,101 @@ select option {
   background-size: 200px 100%;
   animation: shimmer 1.4s linear infinite;
 }
+
+/* ---- component kit (src/components/ui/kit) ---------------------------------------------- */
+
+/* floating lists and popovers: a crisp sheet, lighter than .chrome so dense menus stay legible */
+.kit-surface {
+  background:
+    var(--grain),
+    linear-gradient(180deg, #f9efd7 0%, #f3e4c3 100%);
+  border: 1px solid #b6935d;
+  border-radius: 8px;
+  box-shadow:
+    inset 0 0 0 1px rgb(252 245 228 / 0.7),
+    0 1px 2px rgb(60 36 12 / 0.22),
+    0 14px 32px -12px rgb(60 36 12 / 0.5);
+}
+
+.kit-tip {
+  background: linear-gradient(180deg, #efdcb3 0%, #e7d0a2 100%);
+  color: var(--color-ink);
+  border: 1px solid #b6935d;
+  box-shadow: 0 1px 2px rgb(60 36 12 / 0.25), 0 6px 16px -6px rgb(60 36 12 / 0.45);
+}
+
+.kit-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(156 122 72 / 0.5) transparent;
+}
+
+/* restrained motion: a short fade + 3% scale from the trigger side; nothing loops except the spinner */
+@keyframes kit-in {
+  from { opacity: 0; scale: 0.97; }
+}
+@keyframes kit-out {
+  to { opacity: 0; scale: 0.98; }
+}
+@keyframes kit-fade-in {
+  from { opacity: 0; }
+}
+@keyframes kit-fade-out {
+  to { opacity: 0; }
+}
+.kit-pop {
+  transform-origin: var(--radix-popper-transform-origin, var(--radix-dropdown-menu-content-transform-origin, center));
+}
+.kit-pop[data-state="open"],
+.kit-pop[data-state="delayed-open"],
+.kit-pop[data-state="instant-open"] {
+  animation: kit-in 120ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.kit-pop[data-state="instant-open"] {
+  animation-duration: 0ms;
+}
+.kit-pop[data-state="closed"] {
+  animation: kit-out 80ms ease-in forwards;
+}
+.kit-dialog[data-state="open"] {
+  animation: kit-in 140ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.kit-dialog[data-state="closed"] {
+  animation: kit-out 90ms ease-in forwards;
+}
+.kit-fade[data-state="open"] {
+  animation: kit-fade-in 140ms ease-out;
+}
+.kit-fade[data-state="closed"] {
+  animation: kit-fade-out 90ms ease-in forwards;
+}
+@keyframes kit-collapse-down {
+  from { height: 0; opacity: 0; }
+  to { height: var(--radix-collapsible-content-height); opacity: 1; }
+}
+@keyframes kit-collapse-up {
+  from { height: var(--radix-collapsible-content-height); opacity: 1; }
+  to { height: 0; opacity: 0; }
+}
+.kit-collapse[data-state="open"] {
+  animation: kit-collapse-down 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.kit-collapse[data-state="closed"] {
+  animation: kit-collapse-up 120ms ease-in;
+}
+@keyframes kit-spin {
+  to { rotate: 360deg; }
+}
+.kit-spin {
+  animation: kit-spin 0.9s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .kit-pop,
+  .kit-dialog,
+  .kit-fade,
+  .kit-collapse {
+    animation: none !important;
+  }
+  .kit-spin {
+    animation-duration: 2.4s;
+  }
+}
