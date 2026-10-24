@@ -164,3 +164,5 @@ export function inFrustum(c: LodCamera, box: readonly number[], z0: number, z1: 
   }
   return behind < 8 && left < 8 && rightOut < 8 && below < 8 && above < 8;
 }
+
+if (typeof window !== "undefined") (window as unknown as { __meridianLod: typeof useLod }).__meridianLod = useLod;

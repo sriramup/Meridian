@@ -268,7 +268,7 @@ export function MapView() {
     R.scene.setShowChanges(showChanges);
     if (R.scene.sync()) {
       loader.invalidate();
-      if (loader.cam) loader.setCamera(loader.cam);
+      if (loader.cam) loader.setCamera(loader.cam, false);
     }
     return buildLayers({
       rt: R,
