@@ -16,7 +16,7 @@ type Found = { error?: string; note?: string; candidates: Zone[] } | null;
  * Where the agent may edit: anywhere, a rectangle or polygon drawn on the map, the current
  * selection, or streets / a place described in words (resolved through the runtime's zones).
  */
-export function ZonePicker({ value, onChange, colorKey, disabled }: { value: Zone | null; onChange: (z: Zone | null) => void; colorKey: string; disabled?: boolean }) {
+export function ZonePicker({ value, onChange, colorKey, disabled, onClosed }: { value: Zone | null; onChange: (z: Zone | null) => void; colorKey: string; disabled?: boolean; onClosed?: () => void }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [found, setFound] = useState<Found>(null);
@@ -68,7 +68,16 @@ export function ZonePicker({ value, onChange, colorKey, disabled }: { value: Zon
           </Button>
         </PopoverTrigger>
       </Tooltip>
-      <PopoverContent align="start" side="top" className="w-[320px] p-0">
+      <PopoverContent
+        align="start"
+        side="top"
+        className="w-[320px] p-0"
+        onCloseAutoFocus={(e) => {
+          // back to the message rather than the trigger (whose tooltip would pop up)
+          e.preventDefault();
+          onClosed?.();
+        }}
+      >
         <Command shouldFilter={false} label="Agent zone">
           <CommandInput
             value={q}

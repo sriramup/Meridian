@@ -144,5 +144,5 @@ export function zoomToZone(poly: Vec2[][]) {
   }
   const sw = proj.toLonLat([x0, y0]);
   const ne = proj.toLonLat([x1, y1]);
-  R.map.fitBounds([sw, ne], { padding: 90, maxZoom: 17.5, pitch: R.map.getPitch(), bearing: R.map.getBearing(), duration: 900 });
+  R.map.fitBounds([sw, ne], { padding: 90, maxZoom: 16.5, pitch: R.map.getPitch(), bearing: R.map.getBearing(), duration: 900 });
 }
