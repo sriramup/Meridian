@@ -339,6 +339,7 @@ function generateInto(v: View, def: PrimitiveDef, params: ParamValues, place: Pl
   }
 
   // ---- buildings
+  const prog = { gfa: 0, units: 0, jobs: 0, lines: [] as string[] };
   let felled = 0,
     propsCleared = 0;
   const displaced = new Map<string, number>();
@@ -440,13 +441,20 @@ function generateInto(v: View, def: PrimitiveDef, params: ParamValues, place: Pl
     counts.building++;
     if (bld.lib?.primary) primaryId = bld.id;
     const pr = programmeOf(bld, world.meta.calibration?.householdSize);
-    summary.push(`${bld.name ?? def.name}: ${bld.floors} floor${bld.floors > 1 ? "s" : ""}, ${fmt.m(bld.height)}, ${fmt.m2(pr.gfa)} GFA${pr.units >= 0.5 ? `, ~${fmt.int(pr.units)} home${Math.round(pr.units) === 1 ? "" : "s"}` : ""}${pr.jobs >= 0.5 ? `, ~${fmt.int(pr.jobs)} job${Math.round(pr.jobs) === 1 ? "" : "s"}` : ""}`);
+    prog.gfa += pr.gfa;
+    prog.units += pr.units;
+    prog.jobs += pr.jobs;
+    prog.lines.push(`${bld.name ?? def.name}: ${bld.floors} floor${bld.floors > 1 ? "s" : ""}, ${fmt.m(bld.height)}, ${progText(pr)}`);
     for (const iss of checkBuilding(world, bld, new Set([bld.id]))) {
       if (iss.kind === "overlap" || iss.kind === "row") continue;
       if (iss.severity === "error") conflicts.push({ id: bld.id, kind: iss.kind, message: iss.message, resolved: false });
       else warnings.push(iss.message);
     }
   }
+
+  // one line per building when there is one (and the generator says nothing); otherwise the programme totals
+  if (prog.lines.length === 1 && !gen.summary?.length) summary.push(prog.lines[0]);
+  else if (prog.lines.length) summary.push(`Programme${prog.lines.length > 1 ? ` (${prog.lines.length} buildings)` : ""}: ${progText(prog)}`);
 
   // ---- areas
   for (const raw of gen.areas ?? []) {
@@ -662,6 +670,10 @@ function generateInto(v: View, def: PrimitiveDef, params: ParamValues, place: Pl
   for (const w of warnings) b.warn(w);
   for (const c of conflicts) b.conflict(c.id, c.kind, c.message, c.resolved);
   return { created, primary: primaryId, counts };
+}
+
+function progText(p: { gfa: number; units: number; jobs: number }): string {
+  return `${fmt.m2(p.gfa)} GFA${p.units >= 0.5 ? `, ~${fmt.int(p.units)} home${Math.round(p.units) === 1 ? "" : "s"}` : ""}${p.jobs >= 0.5 ? `, ~${fmt.int(p.jobs)} job${Math.round(p.jobs) === 1 ? "" : "s"}` : ""}`;
 }
 
 function streetsKey(streets: Generated["streets"]): string {
