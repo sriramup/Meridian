@@ -4,7 +4,7 @@
 // rasters. Between modelled hours the figures are interpolated linearly, like the map's crossfade.
 
 import type { HeatTiles } from "./heat";
-import { SUN_MIN_ALT } from "./heat";
+import { SUN_MIN_ALT, TILE_STRIDE } from "./heat";
 import type { GridSpec } from "./raster";
 
 /** the two modelled hours around `h` (wrapping past midnight) and how far between them it is */
@@ -27,6 +27,8 @@ export interface AreaKpi {
   canopy: number;
   /** share of walkable hard ground out of direct sun, 0..1; null while the sun is down */
   shaded: number | null;
+  /** share of the ground in scope whose surface is above 104 °F (40 °C), 0..1 */
+  hot: number | null;
   /** grid cells in scope */
   cells: number;
 }
@@ -79,13 +81,16 @@ export function areaKpi(r: { hours: number[]; sunAlt?: number[]; tiles: HeatTile
     const h = T.hourly[k];
     let s = 0,
       e = 0,
-      sd = 0;
+      sd = 0,
+      hot = 0;
     for (const x of sel) {
-      s += h[x * 3];
-      e += h[x * 3 + 1];
-      sd += h[x * 3 + 2];
+      const o = x * TILE_STRIDE;
+      s += h[o];
+      e += h[o + 1];
+      sd += h[o + 2];
+      hot += h[o + 3];
     }
-    return { s, e, sd };
+    return { s, e, sd, hot };
   };
   const a = at(i0),
     b = i1 === i0 ? a : at(i1);
@@ -101,6 +106,7 @@ export function areaKpi(r: { hours: number[]; sunAlt?: number[]; tiles: HeatTile
     feels: paths ? mix(a.e, b.e) / paths : null,
     canopy: cells ? canopy / cells : 0,
     shaded,
+    hot: cells ? mix(a.hot, b.hot) / cells : null,
     cells,
   };
 }
