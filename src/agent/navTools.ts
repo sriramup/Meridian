@@ -4,7 +4,6 @@
 // (src/agent/resolve.ts), so "take me to 21st and Guadalupe" and "go to Pine Street" behave alike.
 
 import { polyBBox } from "@/geometry/polygon";
-import { viewInsets } from "@/state/panels";
 import { rtMaybe } from "@/state/runtime";
 import { useApp } from "@/state/store";
 import { flyTo, pedestrianAt } from "@/render/camera";
@@ -67,9 +66,7 @@ export function frame(bb: BBox, zoomOverride?: number) {
     const sw = proj.toLonLat([bb[0] - pad, bb[1] - pad]);
     const ne = proj.toLonLat([bb[2] + pad, bb[3] + pad]);
     try {
-      // the zoom that fits the box in what the side panels leave visible (flyTo centres it there)
-      const ins = viewInsets();
-      const cam = map.cameraForBounds([sw, ne] as never, { padding: { top: 80, bottom: 80, left: 80 + ins.left, right: 80 + ins.right } });
+      const cam = map.cameraForBounds([sw, ne] as never, { padding: 80 });
       zoom = cam?.zoom;
     } catch {
       zoom = undefined;
