@@ -3,7 +3,7 @@
 import { AmbientLight, LightingEffect, _SunLight as SunLight, type Layer, type PickingInfo } from "@deck.gl/core";
 import { MapboxOverlay } from "@deck.gl/mapbox";
 import maplibregl from "maplibre-gl";
-import { useEffect, useRef } from "react";
+import { memo, useEffect, useRef } from "react";
 import { basemapStyle, setBasemapNight } from "@/render/basemap";
 import { buildLayers, forgetLayers, hoverLayers, stackLayers, zoomBand, type SceneLayers } from "@/render/layers";
 import { dayTheme } from "@/render/theme";
@@ -52,7 +52,8 @@ interface Inputs {
   tools: Layer[];
 }
 
-export function MapView() {
+/** memoised: it takes no props, so the workspace re-rendering around it (pane drags) never re-renders it */
+export const MapView = memo(function MapView() {
   const el = useRef<HTMLDivElement>(null);
   const overlayExtra = useExtraLayers();
   // feature modules' layers (zones, library props, street-level cursor…) join the overlay bands
@@ -99,6 +100,8 @@ export function MapView() {
       maxBounds: cityBounds(proj, R.meta.bounds),
       attributionControl: false,
       renderWorldCopies: false,
+      // resizes are handled below, redrawn before the browser paints
+      trackResize: false,
       canvasContextAttributes: { antialias: true },
       fadeDuration: 0,
     });
@@ -141,6 +144,10 @@ export function MapView() {
       effects: dbg.get("light") === "0" ? [] : [fx],
       pickingRadius: 3,
       useDevicePixels: Math.min(2, window.devicePixelRatio || 1),
+      // resizing the drawing buffer clears it; draw again at once (this runs inside luma's resize
+      // observer, before the frame is painted) rather than on the next frame, which would show the
+      // city blank for a frame
+      onResize: () => deck?.redraw("Canvas resized"),
       onHover: (info: PickingInfo) => {
         // street level has its own ground cursor; nothing highlights under it
         const st = useApp.getState();
@@ -170,9 +177,22 @@ export function MapView() {
     const deck = (overlay as unknown as { _deck?: DeckInternals })._deck;
     throttleHover(deck);
 
+    // ---- size: MapLibre's own resize tracking redraws a frame after it resizes, so for one painted
+    // frame the canvas is blank (a blink whenever a pane opens or the window resizes). Resize here
+    // and redraw synchronously instead, inside the observer, before the paint.
+    const container = el.current!;
+    const sizeObserver = new ResizeObserver(() => {
+      const c = map.getCanvas();
+      if (c.clientWidth === container.clientWidth && c.clientHeight === container.clientHeight) return;
+      map.resize();
+      if (map.isStyleLoaded()) map.redraw();
+    });
+    sizeObserver.observe(container);
+
     // ---- chunk loading and level of detail follow the camera
     const loader = new ChunkLoader(R.scene, R.context);
     (window as unknown as { __meridianLoader: ChunkLoader }).__meridianLoader = loader;
+    (window as unknown as { __meridianMap: maplibregl.Map }).__meridianMap = map;
     let moving = false;
     let lastMoveAt = 0;
     const updateCamera = () => {
@@ -398,6 +418,7 @@ export function MapView() {
       unHour();
       unImpact();
       unTheme();
+      sizeObserver.disconnect();
       composeRef.current = null;
       map.remove();
       R.map = null;
@@ -414,11 +435,12 @@ export function MapView() {
   });
 
   return (
-    <div className="absolute inset-0">
+    // clips the canvas while a side pane moves (it is pinned at one size then: render/paneTransition.ts)
+    <div className="absolute inset-0 overflow-hidden">
       <div ref={el} className="h-full w-full" />
     </div>
   );
-}
+});
 
 /** analysis overlays and feature slots by band: ground (below buildings) and top */
 function bandsOf(o: { ground: Layer[]; top: Layer[] }, slots: ReturnType<typeof useLayerSlots.getState>["slots"]) {
