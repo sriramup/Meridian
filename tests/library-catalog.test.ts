@@ -320,6 +320,19 @@ describe("search", () => {
     expect(top("townhomes")).toContain("housing.townhouse_row");
     expect(top("palm")).toEqual(expect.arrayContaining(["flora.tree_palm"]));
   });
+
+  it("matches the starts of words: “tree” finds trees, not everything on a street", () => {
+    const names = (q: string) => searchPrimitives(q, 8).map((d) => d.name);
+    const tree = names("tree");
+    expect(tree[0]).toBe("Tree (any species)");
+    expect(tree.slice(0, 3)).toContain("Row of trees");
+    expect(tree.some((n) => /street|shopfront/i.test(n))).toBe(false);
+    expect(names("trees")[0]).toBe("Tree (any species)");
+    // a phrase beats its words found apart: street trees, not streets
+    expect(names("street tree").slice(0, 3)).toEqual(expect.arrayContaining(["Tree (any species)", "Row of trees"]));
+    expect(names("benches")[0]).toBe("Bench");
+    expect(names("café")[0]).toBe("Café");
+  });
 });
 
 describe("height and floor-area targets", () => {
