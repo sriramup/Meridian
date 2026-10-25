@@ -34,7 +34,9 @@ export type FacilityKind =
   | "community_center"
   | "hotel"
   | "park"
-  | "plaza";
+  | "plaza"
+  /** shops: a main street with retail at grade (not a single building) */
+  | "shops";
 
 export interface FacilityRequest {
   kind: FacilityKind;
@@ -73,7 +75,45 @@ export interface NeighborhoodSpec {
   replaceExisting?: boolean;
   /** palette family for the whole neighbourhood (default chosen by seed) */
   palette?: PaletteName;
+  /**
+   * the request in the user's words ("a walkable high-density mixed-use neighbourhood…"): its character
+   * (urban / suburban, density words, shops) is honoured even when targets alone would read otherwise
+   */
+  brief?: string;
+  /** urban: walkable, mixed-use, shops on main streets, no surface lots; suburban: detached-house fabric */
+  character?: Character;
+  /**
+   * when the requested homes would leave an urban-character site suburban: "site" (default) builds the
+   * whole site at the brief's density and reports the extra capacity; "programme" keeps the homes target
+   */
+  fill?: "site" | "programme";
 }
+
+export type Character = "urban" | "suburban";
+
+/** what the words of a brief imply (density floor, character, shops); explicit spec fields win */
+export interface BriefIntent {
+  density?: DensityClass;
+  character?: Character;
+  shops: boolean;
+}
+
+export function readBrief(text = ""): BriefIntent {
+  const t = text.toLowerCase();
+  let density: DensityClass | undefined;
+  if (/very[- ]high[- ]density|high[- ]rise|skyscraper|towers?\b|downtown|cbd/.test(t)) density = "very_high";
+  else if (/high[- ]density|dense\b/.test(t)) density = "high";
+  else if (/medium[- ]density|mid[- ]density|missing middle/.test(t)) density = "medium";
+  else if (/low[- ]density|single[- ]family|suburb|rural|estate lots/.test(t)) density = "low";
+  const urban = /urban|walkable|mixed[- ]use|main street|transit|downtown|high[- ]density|dense\b|city/.test(t);
+  const suburban = /suburb|single[- ]family|low[- ]density|rural/.test(t);
+  const character: Character | undefined = urban && !suburban ? "urban" : suburban ? "suburban" : undefined;
+  if (character === "urban" && !density) density = "medium";
+  return { density, character, shops: /shops?\b|retail|stores?\b|shopping|main street|mixed[- ]use|storefronts?/.test(t) };
+}
+
+const ORDER: DensityClass[] = ["low", "medium", "high", "very_high"];
+export const denser = (a: DensityClass, b: DensityClass) => (ORDER.indexOf(a) >= ORDER.indexOf(b) ? a : b);
 
 export type PaletteName = "masonry" | "texas" | "modern" | "coastal";
 
@@ -121,6 +161,7 @@ export function resolveProgramme(spec: NeighborhoodSpec, blockLand: number, hous
   if (spec.far && !homesReq) homes = (spec.far * fabricLand * 0.8 * 0.82) / 78;
   const officeShare = spec.mix?.office ?? (density === "very_high" ? 0.3 : density === "high" ? 0.12 : density === "medium" ? 0.05 : 0);
   const retailShare = spec.mix?.retail ?? (density === "low" ? 0.02 : 0.06);
+  void readBrief;
   const jobs = spec.jobs ?? homes * JOBS_PER_HOME[density];
   const facilities = expandFacilities(spec.facilities ?? []);
   return {
@@ -159,6 +200,7 @@ const WORDS: [RegExp, FacilityKind][] = [
   [/community (center|centre)|rec(reation)? cent/i, "community_center"],
   [/hotel/i, "hotel"],
   [/plaza|square/i, "plaza"],
+  [/shops?\b|retail|stores?\b|storefronts?|main street/i, "shops"],
   [/parks?\b/i, "park"],
 ];
 const NUM: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, few: 3, several: 3, couple: 2 };

@@ -193,17 +193,42 @@ export function clip(a: Polygon, b: Polygon, minArea = 1): Polygon[] {
   return cleanPieces(intersection(a, b), minArea);
 }
 
+const roundPoly = (p: Polygon, q = 100): Polygon => p.map((r) => simplifyRing(r.map(([x, y]) => [Math.round(x * q) / q, Math.round(y * q) / q] as Vec2), 0.02));
+const inside = (pt: Vec2, p: Polygon) => {
+  const r = p[0];
+  let c = false;
+  for (let i = 0, j = r.length - 1; i < r.length; j = i++) if (r[i][1] > pt[1] !== r[j][1] > pt[1] && pt[0] < ((r[j][0] - r[i][0]) * (pt[1] - r[i][1])) / (r[j][1] - r[i][1]) + r[i][0]) c = !c;
+  return c;
+};
+
+/**
+ * a − b that survives polygon-clipping's precision failures (it throws on near-degenerate input and the
+ * wrapper returns nothing): retry rounded and nudged before concluding the result is empty
+ */
+function diffRobust(a: Polygon, b: Polygon): Polygon[] {
+  const r = difference(a, b);
+  if (r.length) return r;
+  // genuinely covered?
+  const ring = a[0];
+  const c: Vec2 = [ring.reduce((t, v) => t + v[0], 0) / ring.length, ring.reduce((t, v) => t + v[1], 0) / ring.length];
+  if (ring.every((v) => inside([v[0] + (c[0] - v[0]) * 0.01, v[1] + (c[1] - v[1]) * 0.01], b))) return [];
+  for (const [dx, dy] of [[0, 0], [0.011, 0.007], [-0.013, 0.009]]) {
+    const r2 = difference(roundPoly(a), roundPoly(b.map((rr) => rr.map(([x, y]) => [x + dx, y + dy] as Vec2))));
+    if (r2.length) return r2;
+  }
+  return [a];
+}
+
 /** a minus every b (only the bs whose bounds touch a are clipped) */
 export function minus(a: Polygon, bs: Polygon[], minArea = 1): Polygon[] {
   const ab = bbOf(a);
   const hit = bs.filter((b) => b.length && b[0].length >= 3 && bbHit(ab, bbOf(b)));
   if (!hit.length) return cleanPieces([a], minArea);
-  let cur: Polygon[];
-  try {
-    cur = difference(a, ...hit);
-  } catch {
-    cur = [a];
-    for (const b of hit) cur = cur.flatMap((q) => difference(q, b));
+  // one subtraction at a time: polygon-clipping can drop the whole result when many operands share edges
+  let cur: Polygon[] = [a];
+  for (const b of hit) {
+    const bb = bbOf(b);
+    cur = cur.flatMap((q) => (bbHit(bbOf(q), bb) ? diffRobust(q, b) : [q]));
   }
   return cleanPieces(cur, minArea);
 }
