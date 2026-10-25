@@ -43,7 +43,7 @@ export function StartCard() {
   const cats = START.filter((c) => counts.has(c)).slice(0, 8);
   const total = [...counts.values()].reduce((a, b) => a + b, 0);
   return (
-    <div data-testid="start-card" className="pointer-events-auto chrome relative w-[440px] max-w-[calc(100vw-32px)] p-4">
+    <div data-testid="start-card" className="pop-in pointer-events-auto chrome relative w-[440px] max-w-[calc(100vw-32px)] p-4">
       <button
         onClick={() => void setStartClosed(true)}
         aria-label="Close"
