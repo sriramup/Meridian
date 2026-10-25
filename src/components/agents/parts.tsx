@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleAlert, CircleCheck, CircleDashed, CircleX, PanelRightClose } from "lucide-react";
+import { CircleAlert, CircleCheck, CircleDashed, CircleX, PanelRightClose, SquarePen } from "lucide-react";
 import type { AgentSession } from "@/agent/types";
 import { Button, Spinner, Tooltip } from "@/components/ui/kit";
 import { cx } from "../ui";
@@ -22,6 +22,16 @@ export function CloseButton({ onClose }: { onClose: () => void }) {
     <Tooltip content="Hide agents" kbd="⌘J">
       <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Hide agents">
         <PanelRightClose strokeWidth={1.7} />
+      </Button>
+    </Tooltip>
+  );
+}
+
+export function NewAgentButton({ onNew }: { onNew: () => void }) {
+  return (
+    <Tooltip content="New agent" kbd="C">
+      <Button variant="ghost" size="icon-sm" onClick={onNew} aria-label="New agent">
+        <SquarePen strokeWidth={1.7} />
       </Button>
     </Tooltip>
   );

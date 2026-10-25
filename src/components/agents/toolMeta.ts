@@ -142,30 +142,21 @@ export const TOOL_VERB: Record<string, string> = {
   annotate: "Annotating",
 };
 
-export const EXAMPLES: { group: string; items: string[] }[] = [
-  {
-    group: "Design",
-    items: ["Build a 30-story mixed-use tower on the largest surface parking lot near Republic Square", "Turn the Congress Avenue & 6th Street intersection into a roundabout and rebuild the approaches", "Create a shaded green corridor from Republic Square to Waterloo Park with rain gardens along the way"],
-  },
-  {
-    group: "Analyse",
-    items: ["Find the five most congested intersections at 5 PM and fix them with the smallest changes that help", "Where does a low-stress bike network break down, and which links would join it up?", "Simulate closing the Congress Avenue bridge during the evening commute"],
-  },
-  {
-    group: "Plan",
-    items: ["Redesign the Rainey Street district for 3,000 more residents, improve transit, preserve parks and keep congestion manageable", "Act as an urban planning consultant: assess East Downtown, propose a masterplan, build it and test it"],
-  },
+/** a fresh agent's few starting points: a short chip that fills the composer with the full prompt */
+export interface Starter {
+  label: string;
+  prompt: string;
+}
+
+export const STARTERS: Starter[] = [
+  { label: "Fix the evening peak", prompt: "Find the five most congested intersections at 5 PM and fix them with the smallest changes that help" },
+  { label: "Shade Republic Square", prompt: "Create a shaded green corridor from Republic Square to Waterloo Park with rain gardens along the way" },
+  { label: "Tower on a parking lot", prompt: "Build a 30-story mixed-use tower on the largest surface parking lot near Republic Square" },
 ];
 
 /** on the blank canvas: build from scratch, then test it */
-export const SANDBOX_EXAMPLES: { group: string; items: string[] }[] = [
-  {
-    group: "Build",
-    items: ["Lay out a walkable neighbourhood for 5,000 people around a central square, with a boulevard to the east edge of the site", "Add a tram line through the middle of the town and put the tallest buildings within a 5-minute walk of its stops", "Give the town a school, a clinic and a fire station where they reach the most residents"],
-  },
-  {
-    group: "Test",
-    items: ["Where will people on foot be hottest at 3 PM in July, and where would trees help most?", "Run traffic for the evening peak and fix any junction that fails", "Make a second design with the same number of homes but twice the open space, and compare them"],
-  },
+export const SANDBOX_STARTERS: Starter[] = [
+  { label: "Walkable neighborhood", prompt: "Lay out a walkable neighborhood for 5,000 people around a central square, with a boulevard to the east edge of the site" },
+  { label: "Hottest walks at 3 PM", prompt: "Where will people on foot be hottest at 3 PM in July, and where would trees help most?" },
+  { label: "Fix the evening peak", prompt: "Run traffic for the evening peak and fix any junction that fails" },
 ];
-

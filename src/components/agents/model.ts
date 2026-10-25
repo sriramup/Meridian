@@ -2,7 +2,7 @@
 // and the fixed colour each session's zone is drawn in. No React, no runtime imports (tested in
 // tests/agents-pane.test.ts).
 
-import type { AgentSession, ChatItem, SessionStatus } from "@/agent/types";
+import type { AgentSession, ChatItem, Segment, SessionStatus, ToolCallView } from "@/agent/types";
 import { polyArea } from "@/geometry/polygon";
 import type { Polygon } from "@/world/types";
 
@@ -120,3 +120,132 @@ export function sessionColor(id: string): [number, number, number] {
 }
 
 export const rgb = (c: [number, number, number], a = 1) => `rgb(${c[0]} ${c[1]} ${c[2]} / ${a})`;
+
+// ---------------------------------------------------------------- runs
+
+type UserItem = Extract<ChatItem, { kind: "user" }>;
+type AssistantItem = Extract<ChatItem, { kind: "assistant" }>;
+type ApprovalItem = Extract<ChatItem, { kind: "approval" }>;
+type NoticeItem = Extract<ChatItem, { kind: "notice" }>;
+
+/** one step of a run's work: reasoning, a remark between tool calls, or a tool call */
+export type Step = { kind: "thinking"; text: string } | { kind: "note"; text: string } | { kind: "tool"; call: ToolCallView };
+
+/**
+ * One reply of the agent: everything between a user message and the next. The work (reasoning,
+ * tool calls, remarks between them) folds into `steps`; the text after the last step is the answer.
+ */
+export interface Run {
+  id: string;
+  steps: Step[];
+  answer: string;
+  approvals: ApprovalItem[];
+  notices: NoticeItem[];
+  /** first and last moment of work (ms epoch); end is undefined while live */
+  start: number;
+  end?: number;
+  live: boolean;
+  /** tool calls made */
+  tools: number;
+  /** tool calls that failed or were refused */
+  issues: number;
+}
+
+export type TranscriptEntry = { kind: "user"; item: UserItem } | { kind: "run"; run: Run };
+
+/** the conversation as user turns and runs (keyed by their user turn, so a run keeps its identity as it grows); the last run is live while the session runs */
+export function buildTranscript(items: ChatItem[], running: boolean): TranscriptEntry[] {
+  const out: TranscriptEntry[] = [];
+  let group: ChatItem[] = [];
+  let at = 0;
+  let uid = "";
+  const flush = (live: boolean) => {
+    if (group.length) out.push({ kind: "run", run: toRun(group, at, live, uid ? `${uid}:run` : undefined) });
+    group = [];
+  };
+  for (const it of items) {
+    if (it.kind === "user") {
+      flush(false);
+      out.push({ kind: "user", item: it });
+      at = it.at;
+      uid = it.id;
+    } else group.push(it);
+  }
+  const last = out[out.length - 1];
+  if (group.length) flush(running);
+  else if (running && last?.kind === "user") out.push({ kind: "run", run: toRun([], at, true, `${uid}:run`) });
+  return out;
+}
+
+function toRun(items: ChatItem[], at: number, live: boolean, id?: string): Run {
+  const segs: Segment[] = [];
+  const approvals: ApprovalItem[] = [];
+  const notices: NoticeItem[] = [];
+  let start = at || Infinity;
+  let end = 0;
+  for (const it of items) {
+    if (it.kind === "assistant") {
+      segs.push(...(it as AssistantItem).segments);
+      start = Math.min(start, it.startedAt);
+      end = Math.max(end, it.startedAt + (it.ms ?? 0));
+      for (const s of it.segments) if (s.type === "tool") end = Math.max(end, s.call.startedAt + (s.call.ms ?? 0));
+    } else if (it.kind === "approval") approvals.push(it);
+    else if (it.kind === "notice") notices.push(it);
+  }
+  // the answer is the text after the last tool call or reasoning
+  let cut = segs.length;
+  while (cut > 0 && segs[cut - 1].type === "text") cut--;
+  const work = segs.slice(0, cut);
+  const hasWork = work.some((s) => s.type !== "text");
+  const answerSegs = hasWork ? segs.slice(cut) : segs;
+  const steps: Step[] = [];
+  if (hasWork)
+    for (const s of work) {
+      if (s.type === "tool") steps.push({ kind: "tool", call: s.call });
+      else if (s.text.trim()) steps.push({ kind: s.type === "thinking" ? "thinking" : "note", text: s.text.trim() });
+    }
+  const calls = steps.flatMap((s) => (s.kind === "tool" ? [s.call] : []));
+  if (!Number.isFinite(start)) start = end || at;
+  return {
+    id: id ?? items[0]?.id ?? "run",
+    steps,
+    answer: answerSegs.map((s) => (s.type === "text" ? s.text : "")).join("\n\n").trim(),
+    approvals,
+    notices,
+    start,
+    end: live ? undefined : Math.max(end, start),
+    live,
+    tools: calls.length,
+    issues: calls.filter((c) => c.status === "error" || c.status === "blocked").length,
+  };
+}
+
+/** what a live run is doing right now, in a few words */
+export function liveLabel(run: Run, verbs: Record<string, string>): string {
+  if (run.approvals.some((a) => a.state === "pending")) return "Waiting for approval";
+  if (run.answer) return "Writing";
+  const last = run.steps[run.steps.length - 1];
+  if (!last || last.kind === "thinking") return "Thinking";
+  if (last.kind === "tool") {
+    const busy = last.call.status === "running" || last.call.status === "streaming";
+    return busy ? (verbs[last.call.name] ?? "Working") : "Thinking";
+  }
+  return "Working";
+}
+
+/** "4s", "1m 12s", "1h 3m" */
+export function formatDuration(ms: number): string {
+  const s = Math.max(1, Math.round(ms / 1000));
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return s % 60 ? `${m}m ${s % 60}s` : `${m}m`;
+  return `${Math.floor(m / 60)}h ${m % 60}m`;
+}
+
+/** the collapsed line of a finished run: "Worked for 18s · 7 steps", "Thought for 4s"; null when it did no work */
+export function runSummary(run: Run): string | null {
+  if (!run.steps.length) return null;
+  const d = formatDuration((run.end ?? run.start) - run.start);
+  if (!run.tools) return `Thought for ${d}`;
+  return `Worked for ${d} · ${run.tools} step${run.tools > 1 ? "s" : ""}`;
+}

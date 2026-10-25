@@ -2,7 +2,7 @@
 
 import { Button, Textarea, ToggleGroup, ToggleGroupItem, Tooltip } from "@/components/ui/kit";
 import { ArrowUp, Square, X } from "lucide-react";
-import { forwardRef, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 import type { AgentMode, Zone } from "@/agent/types";
 import { entityName } from "@/agent/resolve";
 import { rtMaybe } from "@/state/runtime";
@@ -22,10 +22,18 @@ export function focusComposerNext(text?: string) {
 
 /** unsent text per session (kept while you move between agents) */
 const drafts = new Map<string, string>();
+export const hasDraft = (key: string) => !!drafts.get(key)?.trim();
+
+const RING = "inset 0 1px 1px rgb(88 60 28 / 0.08), 0 0 0 4px rgb(154 62 40 / ";
+function flashBox(el: HTMLElement | null) {
+  el?.animate([{ boxShadow: RING + "0.3)" }, { boxShadow: RING + "0)" }], { duration: 650, easing: "ease-out" });
+}
 
 export interface ComposerHandle {
   focus: () => void;
   setText: (t: string) => void;
+  /** take the focus with a brief ring, so it is plain a fresh agent is ready */
+  flash: () => void;
 }
 
 interface Props {
@@ -41,11 +49,14 @@ interface Props {
   onZone: (z: Zone | null) => void;
   onSend: (text: string) => void;
   onStop: () => void;
+  /** whether the composer holds any text */
+  onTyped?: (typed: boolean) => void;
 }
 
-export const Composer = forwardRef<ComposerHandle, Props>(function Composer({ draftKey, colorKey, mode, zone, running, disabled, placeholder, onMode, onZone, onSend, onStop }, ref) {
+export const Composer = forwardRef<ComposerHandle, Props>(function Composer({ draftKey, colorKey, mode, zone, running, disabled, placeholder, onMode, onZone, onSend, onStop, onTyped }, ref) {
   const [text, setTextState] = useState(() => drafts.get(draftKey) ?? "");
   const ta = useRef<HTMLTextAreaElement>(null);
+  const box = useRef<HTMLDivElement>(null);
   const selection = useApp((s) => s.selection);
   const R = rtMaybe();
 
@@ -56,6 +67,10 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer({ dr
   };
   useImperativeHandle(ref, () => ({
     focus: () => ta.current?.focus(),
+    flash: () => {
+      ta.current?.focus();
+      flashBox(box.current);
+    },
     setText: (t: string) => {
       setText(t);
       requestAnimationFrame(() => {
@@ -80,9 +95,12 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer({ dr
       const el = ta.current;
       el?.focus();
       el?.setSelectionRange(t.length, t.length);
+      flashBox(box.current);
     }
   }, [draftKey]);
 
+  const typed = !!text.trim();
+  useEffect(() => onTyped?.(typed), [typed, onTyped]);
   const canSend = !!text.trim() && !running && !disabled;
   const submit = () => {
     if (!canSend) return;
@@ -92,7 +110,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer({ dr
 
   return (
     <div className="shrink-0 px-3 pt-2 pb-3">
-      <div className="rounded-[8px] border border-line-2 bg-[#f8eed6]/75 shadow-[inset_0_1px_1px_rgb(88_60_28/0.08)] transition-[border-color,box-shadow] focus-within:border-rose/50 focus-within:ring-2 focus-within:ring-rose/15">
+      <div ref={box} className="rounded-[10px] border border-line-2 bg-[#f8eed6]/75 shadow-[inset_0_1px_1px_rgb(88_60_28/0.08)] transition-[border-color,box-shadow] focus-within:border-rose/50 focus-within:ring-2 focus-within:ring-rose/15">
         {selection.length > 0 && (
           <div className="flex flex-wrap items-center gap-1 px-2.5 pt-2">
             <span className="text-[10.5px] text-ink-4">Referring to</span>
@@ -128,7 +146,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer({ dr
               else ta.current?.blur();
             }
           }}
-          placeholder={placeholder ?? (mode === "plan" ? "Ask for an investigation or a plan…" : "Describe a change, a question or an objective…")}
+          placeholder={placeholder ?? (mode === "plan" ? "What should we investigate?" : "What should we change?")}
           aria-label="Message the agent"
           className="border-0 bg-transparent px-3 pt-2.5 pb-1 text-[13px] leading-[19px] shadow-none hover:border-0 focus-visible:ring-0"
         />

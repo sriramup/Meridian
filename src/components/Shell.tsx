@@ -16,7 +16,7 @@ import { removeStreets } from "@/world/ops/streets";
 import { pointProblem, treeProblem } from "@/world/ops/placement";
 import { speciesOf } from "@/world/species";
 import type { TransitRoute, Vec2 } from "@/world/types";
-import { AgentsPane } from "./agents/AgentsPane";
+import { AgentsPane, useAgentShortcuts } from "./agents/AgentsPane";
 import { ZoneDrawSurface } from "./agents/ZoneDrawSurface";
 import { ZoneLayers } from "./agents/ZoneLayers";
 import { AnalysisDock } from "./AnalysisDock";
@@ -46,6 +46,7 @@ export function Shell() {
   const [width, setWidth] = useState(420);
   const drag = useRef(false);
   useShortcuts();
+  useAgentShortcuts();
   useMapInteractions();
   useEffect(() => {
     // test / automation hook (same executor the agent uses)
