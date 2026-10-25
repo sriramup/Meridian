@@ -27,7 +27,7 @@ const RESTAURANT_NAMES = ["Juniper Kitchen", "Olive & Ash", "The Pecan Table", "
 const CAFE_NAMES = ["Morning Field Coffee", "Hearth & Bean", "Corner Press"];
 
 /** street-tree species by role: one species per street keeps each street coherent */
-const TREE_SPECIES: Record<StreetRole, string[]> = { boulevard: ["live_oak"], avenue: ["live_oak", "bur_oak"], main: ["cedar_elm"], collector: ["cedar_elm", "bur_oak"], local: ["cedar_elm", "bur_oak", "live_oak", "redbud", "desert_willow"] };
+export const TREE_SPECIES: Record<StreetRole, string[]> = { boulevard: ["live_oak"], avenue: ["live_oak", "bur_oak"], main: ["cedar_elm"], collector: ["cedar_elm", "bur_oak"], local: ["cedar_elm", "bur_oak", "live_oak", "redbud", "desert_willow"] };
 
 function classifyDensity(netPerHa: number): DensityClass {
   return netPerHa < 40 ? "low" : netPerHa < 130 ? "medium" : netPerHa < 300 ? "high" : "very_high";
@@ -430,7 +430,7 @@ export function designNeighborhood(world: World, spec: NeighborhoodSpec, actor: 
   return b.finish(`Design ${name}`);
 }
 
-const SPECIES_SIZE: Record<string, { r: number; h: number }> = { live_oak: { r: 4.5, h: 9 }, cedar_elm: { r: 4, h: 10 }, bur_oak: { r: 4.5, h: 10 }, bald_cypress: { r: 2.5, h: 11 }, desert_willow: { r: 2.5, h: 6.5 }, redbud: { r: 3, h: 6 } };
+export const SPECIES_SIZE: Record<string, { r: number; h: number }> = { live_oak: { r: 4.5, h: 9 }, cedar_elm: { r: 4, h: 10 }, bur_oak: { r: 4.5, h: 10 }, bald_cypress: { r: 2.5, h: 11 }, desert_willow: { r: 2.5, h: 6.5 }, redbud: { r: 3, h: 6 } };
 
 const rank = (pref: (StreetRole | "none")[], r: StreetRole | "none") => {
   const i = pref.indexOf(r);
@@ -458,7 +458,7 @@ function countRoles(ids: { role: StreetRole; name: string }[]): string {
 }
 
 /** streets in a bbox as the builder sees them (committed and pending) */
-function streetsNear(world: World, b: OpBuilder, bb: [number, number, number, number]): Street[] {
+export function streetsNear(world: World, b: OpBuilder, bb: [number, number, number, number]): Street[] {
   const out = new Map<string, Street>();
   for (const e of world.query(bb, ["street"])) {
     const s = b.get<Street>(e.id);
@@ -481,11 +481,11 @@ function groupBy<T>(xs: T[], k: (x: T) => string): Map<string, T[]> {
 }
 
 /** a polygon minus many others in one clipping pass (falls back to one at a time) */
-function minusAll(a: Polygon, cut: Polygon[]): Polygon[] {
+export function minusAll(a: Polygon, cut: Polygon[]): Polygon[] {
   return minus(a, cut.filter((q) => isValidPoly(q)), 6);
 }
 
-function addArea(b: OpBuilder, type: Area["type"], poly: Polygon, name?: string) {
+export function addArea(b: OpBuilder, type: Area["type"], poly: Polygon, name?: string) {
   if (!isValidPoly(poly) || polyArea(poly) < 4) return;
   b.add<Area>({ id: newId("a"), kind: "area", type, poly, source: SOURCE, provenance: "proposed", createdBy: b.tag, ...(name ? { name } : {}) });
 }
@@ -497,14 +497,14 @@ function addTree(b: OpBuilder, p: Vec2, rng: Rng, species?: string) {
   b.add<Tree>({ id: newId("t"), kind: "tree", p, r: s.r * k, h: s.h * k, species: sp, source: `${SOURCE}: garden tree`, provenance: "proposed", createdBy: b.tag });
 }
 
-function yardTree(b: OpBuilder, y: Polygon, rng: Rng) {
+export function yardTree(b: OpBuilder, y: Polygon, rng: Rng) {
   if (polyArea(y) < 70 || minWidth(y) < 6) return;
   const c = polyCentroid(y);
   if (pointInPoly(c, y)) addTree(b, c, rng, rng.pick(["redbud", "desert_willow", "cedar_elm"]));
 }
 
 /** a block interior: shared courtyard garden (perimeter blocks) or rear gardens (yard blocks), with trees */
-function courtyardTrees(b: OpBuilder, poly: Polygon, family: "yard" | "perimeter", rng: Rng) {
+export function courtyardTrees(b: OpBuilder, poly: Polygon, family: "yard" | "perimeter", rng: Rng) {
   const inner = insetPoly(poly, 5.5);
   if (!inner || !isValidPoly(inner)) return;
   const [x0, y0, x1, y1] = polyBBox(inner);

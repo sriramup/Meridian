@@ -1,0 +1,30 @@
+{
+  "is_plan": true,
+  "title": "Riverbend",
+  "description": "A whiteboard sketch of a riverside neighbourhood: a thick avenue across the middle, a market street crossing it, a park, a school and a river curving along the south-east.",
+  "extent": { "width_m": 900, "height_m": 675, "basis": "street_spacing", "confidence": 0.5 },
+  "north_deg": 0,
+  "default_use": "mixed",
+  "default_density": "medium",
+  "streets": [
+    { "points": [[0.02, 0.45], [0.35, 0.44], [0.65, 0.46], [0.98, 0.45]], "class": "arterial", "name": "Grand Avenue", "weight": 5 },
+    { "points": [[0.5, 0.05], [0.5, 0.45], [0.51, 0.8]], "class": "collector", "name": "Market Street", "weight": 3 },
+    { "points": [[0.25, 0.08], [0.25, 0.45], [0.25, 0.92]], "class": "local", "weight": 1 },
+    { "points": [[0.75, 0.08], [0.75, 0.45], [0.75, 0.66]], "class": "local", "weight": 1 },
+    { "points": [[0.05, 0.2], [0.5, 0.2], [0.95, 0.2]], "class": "local", "weight": 1 },
+    { "points": [[0.05, 0.72], [0.25, 0.72], [0.51, 0.72]], "class": "local", "weight": 1 }
+  ],
+  "blocks": [
+    { "poly": [[0.52, 0.22], [0.73, 0.22], [0.73, 0.43], [0.52, 0.43]], "use": "mixed", "density": "high", "label": "MIXED USE" },
+    { "poly": [[0.05, 0.47], [0.23, 0.47], [0.23, 0.7], [0.05, 0.7]], "use": "residential", "density": "medium", "label": "HOUSING" }
+  ],
+  "areas": [
+    { "kind": "water", "line": [[0.55, 1.0], [0.62, 0.9], [0.72, 0.8], [0.84, 0.72], [0.93, 0.66], [1.0, 0.63]], "width_m": 45, "name": "River" },
+    { "kind": "park", "poly": [[0.27, 0.48], [0.48, 0.48], [0.48, 0.7], [0.27, 0.7]], "name": "Central Park" }
+  ],
+  "facilities": [
+    { "kind": "school", "at": [0.63, 0.12], "poly": [[0.54, 0.06], [0.72, 0.06], [0.72, 0.18], [0.54, 0.18]], "label": "SCHOOL" }
+  ],
+  "transit": [],
+  "notes": ["RIVERBEND", "GRAND AVE", "MARKET ST", "PARK", "SCHOOL", "MIXED USE", "HOUSING"]
+}
