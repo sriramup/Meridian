@@ -3,7 +3,7 @@
 import { useEffect, useMemo } from "react";
 import { runSim, useSims, type SimRecord } from "@/sim/client";
 import type { SimKind } from "@/sim/engine";
-import { planImpact, useImpact } from "@/sim/impact";
+import { nearestModelHour, planImpact, useImpact } from "@/sim/impact";
 import { rt } from "@/state/runtime";
 import { useApp } from "@/state/store";
 
@@ -40,7 +40,9 @@ export function usePlanImpact() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [overlay, edited, !!base, rec?.id]);
 
-  const impact = useMemo(() => (overlay === "heat" && edited && base && current ? planImpact(base.result, current.result, hour, R.meta.grid, R.scenarios.appliedChangesets()) : null), [overlay, edited, base, current, hour, R]);
+  // impacts are read at the modelled hour nearest the clock: scrubbing between two of them changes nothing
+  const modelHour = base ? nearestModelHour(base.result.hours, hour) : null;
+  const impact = useMemo(() => (overlay === "heat" && edited && base && current && modelHour !== null ? planImpact(base.result, current.result, modelHour, R.meta.grid, R.scenarios.appliedChangesets()) : null), [overlay, edited, base, current, modelHour, R]);
   useEffect(() => useImpact.getState().set(impact), [impact]);
   return { edited, base, params };
 }

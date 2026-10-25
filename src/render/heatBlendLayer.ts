@@ -144,13 +144,15 @@ void main(void) {
 }
 `;
 
+// the arrays are cached by their producers and textures are keyed by array identity, so they
+// compare by reference: a deep compare walks every cell (up to ~10⁶) on each step of the clock
 const defaultProps: DefaultProps<HeatBlendProps> = {
   grid: { type: "object", value: { x0: 0, y0: 0, cell: 1, nx: 1, ny: 1 }, compare: true },
-  valuesA: { type: "object", value: null, compare: true },
-  valuesB: { type: "object", value: null, compare: true },
+  valuesA: { type: "object", value: null, compare: false },
+  valuesB: { type: "object", value: null, compare: false },
   mix: { type: "number", value: 0 },
-  fade: { type: "object", value: new Uint8Array(1), compare: true },
-  lut: { type: "object", value: new Uint8Array(1024), compare: true },
+  fade: { type: "object", value: new Uint8Array(1), compare: false },
+  lut: { type: "object", value: new Uint8Array(1024), compare: false },
 };
 
 export class HeatBlendLayer extends Layer<HeatBlendProps> {

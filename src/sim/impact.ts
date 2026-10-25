@@ -53,12 +53,26 @@ function footprint(e: Entity): Footprint | null {
 
 const added = (o: Op): Entity | null => (o.type === "add" ? o.entity : o.type === "update" ? o.after : null);
 
-export function planImpact(base: HeatLike, cur: HeatLike, hour: number, g: GridSpec, changesets: Changeset[]): PlanImpact | null {
-  const ia = base.hours.reduce((best, h, i) => (Math.abs(h - hour) < Math.abs(base.hours[best] - hour) ? i : best), 0);
-  const ib = cur.hours.indexOf(base.hours[ia]);
-  if (ib < 0) return null;
-  const ea = base.surface[ia],
-    eb = cur.surface[ib];
+/** the modelled hour nearest `hour` (impacts are read at modelled hours, not between them) */
+export function nearestModelHour(hours: number[], hour: number): number {
+  let best = 0;
+  for (let i = 1; i < hours.length; i++) if (Math.abs(hours[i] - hour) < Math.abs(hours[best] - hour)) best = i;
+  return hours[best];
+}
+
+/** grouped ground cells the plan's features act on: geometry only, the same at every hour */
+interface ImpactGroup {
+  at: Vec2;
+  cells: Int32Array;
+  features: number;
+}
+
+let groupCache: { key: string; groups: ImpactGroup[] } | null = null;
+
+function impactGroups(g: GridSpec, changesets: Changeset[]): ImpactGroup[] {
+  // changesets are immutable once committed: their ids name the geometry
+  const key = `${g.cell}|${g.x0}|${g.y0}|${g.nx}|${g.ny}|${changesets.map((c) => c.id).join(",")}`;
+  if (groupCache?.key === key) return groupCache.groups;
   // features the plan adds or reshapes (net of later edits to the same id)
   const feats = new Map<string, Footprint>();
   for (const cs of changesets)
@@ -72,42 +86,61 @@ export function planImpact(base: HeatLike, cur: HeatLike, hour: number, g: GridS
       }
     }
   // greedy grouping: each feature joins the first group whose anchor is within 50 m
-  const groups: { at: Vec2; sx: number; sy: number; fs: Footprint[] }[] = [];
+  const raw: { at: Vec2; sx: number; sy: number; fs: Footprint[] }[] = [];
   for (const f of feats.values()) {
-    const grp = groups.find((q) => Math.hypot(q.at[0] - f.at[0], q.at[1] - f.at[1]) < 50);
+    const grp = raw.find((q) => Math.hypot(q.at[0] - f.at[0], q.at[1] - f.at[1]) < 50);
     if (grp) {
       grp.fs.push(f);
       grp.sx += f.at[0];
       grp.sy += f.at[1];
       grp.at = [grp.sx / grp.fs.length, grp.sy / grp.fs.length];
-    } else groups.push({ at: f.at, sx: f.at[0], sy: f.at[1], fs: [f] });
+    } else raw.push({ at: f.at, sx: f.at[0], sy: f.at[1], fs: [f] });
   }
-  const pins: ImpactPin[] = [];
-  const cellA = g.cell * g.cell;
-  for (const grp of groups) {
-    const seen = new Set<number>();
+  const groups: ImpactGroup[] = [];
+  for (const grp of raw) {
     // a building's own footprint is roof, not the ground around it
     const skip = new Set<number>();
     for (const f of grp.fs) if (f.rings && f.halo) rasterizeRings(g, f.rings as [number, number][][], (i) => skip.add(i));
-    let sum = 0;
+    const seen = new Set<number>();
     const take = (i: number) => {
-      if (seen.has(i) || skip.has(i) || !ea[i] || !eb[i]) return;
-      seen.add(i);
-      sum += dqT(eb[i]) - dqT(ea[i]);
+      if (!skip.has(i)) seen.add(i);
     };
     for (const f of grp.fs) {
-      if (f.disc) rasterizeDisc(g, f.disc.c, f.disc.r, (i) => take(i));
+      if (f.disc) rasterizeDisc(g, f.disc.c, f.disc.r, take);
       if (f.rings) {
         if (f.halo) {
           // the ground near the building (its shadow and surroundings)
           const [x0, y0, x1, y1] = bbox(f.rings[0]);
-          rasterizeRings(g, [[[x0 - f.halo, y0 - f.halo], [x1 + f.halo, y0 - f.halo], [x1 + f.halo, y1 + f.halo], [x0 - f.halo, y1 + f.halo]]], (i) => take(i));
-        } else rasterizeRings(g, f.rings as [number, number][][], (i) => take(i));
+          rasterizeRings(g, [[[x0 - f.halo, y0 - f.halo], [x1 + f.halo, y0 - f.halo], [x1 + f.halo, y1 + f.halo], [x0 - f.halo, y1 + f.halo]]], take);
+        } else rasterizeRings(g, f.rings as [number, number][][], take);
       }
     }
-    if (seen.size) pins.push({ at: grp.at, deltaC: sum / seen.size, areaM2: seen.size * cellA, features: grp.fs.length });
+    if (seen.size) groups.push({ at: grp.at, cells: Int32Array.from(seen), features: grp.fs.length });
   }
-  return { hour: base.hours[ia], pins };
+  groupCache = { key, groups };
+  return groups;
+}
+
+export function planImpact(base: HeatLike, cur: HeatLike, hour: number, g: GridSpec, changesets: Changeset[]): PlanImpact | null {
+  const mh = nearestModelHour(base.hours, hour);
+  const ia = base.hours.indexOf(mh);
+  const ib = cur.hours.indexOf(mh);
+  if (ib < 0) return null;
+  const ea = base.surface[ia],
+    eb = cur.surface[ib];
+  const pins: ImpactPin[] = [];
+  const cellA = g.cell * g.cell;
+  for (const grp of impactGroups(g, changesets)) {
+    let sum = 0,
+      n = 0;
+    for (const i of grp.cells) {
+      if (!ea[i] || !eb[i]) continue;
+      sum += dqT(eb[i]) - dqT(ea[i]);
+      n++;
+    }
+    if (n) pins.push({ at: grp.at, deltaC: sum / n, areaM2: n * cellA, features: grp.features });
+  }
+  return { hour: mh, pins };
 }
 
 function bbox(r: number[][]): [number, number, number, number] {
