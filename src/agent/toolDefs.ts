@@ -4,6 +4,7 @@
 
 import { LIBRARY_TOOL_DEFS } from "./libraryToolDefs";
 import { NAV_TOOL_DEFS } from "./navToolDefs";
+import { DESIGN_TOOL_DEFS } from "./designToolDefs";
 
 type Schema = Record<string, unknown>;
 export interface ToolDef {
@@ -351,10 +352,11 @@ export const TOOL_DEFS: ToolDef[] = [
     input_schema: { type: "object", properties: { notes: { type: "array", items: { type: "object" } }, highlight: ids, clear: { type: "boolean" } } },
   },
   ...NAV_TOOL_DEFS,
+  ...DESIGN_TOOL_DEFS,
   ...LIBRARY_TOOL_DEFS,
 ];
 
-const MUTATING = new Set(["create_building", "modify_buildings", "merge_buildings", "remove_features", "green_roofs", "edit_streets", "set_junction", "create_street", "move_streets", "realign_streets", "remove_streets", "set_street_attributes", "create_area", "convert_areas", "plant_trees", "create_transit_route", "optimize_stops", "generate_district", "optimize_emergency"]);
+const MUTATING = new Set(["create_building", "modify_buildings", "merge_buildings", "remove_features", "green_roofs", "edit_streets", "set_junction", "create_street", "move_streets", "realign_streets", "remove_streets", "set_street_attributes", "create_area", "convert_areas", "plant_trees", "create_transit_route", "optimize_stops", "generate_district", "optimize_emergency", "design_neighborhood"]);
 for (const t of TOOL_DEFS) if (MUTATING.has(t.name)) (t.input_schema.properties as Record<string, unknown>).dry_run = dryRun;
 
 // what each tool does to the world: gates plan mode and zones (tools not listed default to "edit")

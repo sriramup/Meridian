@@ -1,8 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { systemPromptFor } from "@/agent/prompt";
-import { TOOL_DEFS } from "@/agent/toolDefs";
-import type { Tier } from "@/agent/router";
-import { tierConfig, tierModels, type Effort } from "@/agent/models";
+import { tierModels } from "@/agent/models";
+import { API_TOOLS, buildRequest, type TurnBody } from "@/agent/request";
 import { ledger, SpendLedger } from "@/agent/spend";
 
 export const runtime = "nodejs";
@@ -37,19 +35,14 @@ export async function GET() {
   return Response.json({ configured: !!process.env.ANTHROPIC_API_KEY, model: models.standard, models, spend: L.snapshot() });
 }
 
-// one deterministic tool list for every mode and tier, so the tools + system prefix stays cached
-// (plan mode is enforced by the executor and told to the model in the turn, not by hiding tools)
-const tools = TOOL_DEFS.map((t) => ({ name: t.name, description: t.description, input_schema: t.input_schema, eager_input_streaming: true })) as unknown as Anthropic.Beta.BetaTool[];
-const TOOLS_CHARS = JSON.stringify(tools).length;
+const TOOLS_CHARS = JSON.stringify(API_TOOLS).length;
 
 export async function POST(req: Request) {
   const c = client();
   if (!c) return Response.json({ error: "ANTHROPIC_API_KEY is not set on the server. Add it to .env.local and restart." }, { status: 503 });
-  const body = (await req.json()) as { messages: Anthropic.Beta.BetaMessageParam[]; tier?: Tier; effort?: Effort; city?: string };
-  const tierName: Tier = body.tier && ["quick", "standard", "deep"].includes(body.tier) ? body.tier : "standard";
-  // an explicit effort (old agent panel's selector) overrides the tier's
-  const cfg = tierConfig(tierName, process.env, body.effort && body.tier === undefined ? body.effort : undefined);
-  const system = systemPromptFor(body.city === "sandbox" ? "sandbox" : "austin");
+  const body = (await req.json()) as TurnBody;
+  const { cfg, tier: tierName, params } = buildRequest(body);
+  const system = (params.system as { text: string }[])[0].text;
 
   const L = ledger();
   const promptChars = JSON.stringify(body.messages).length + system.length + TOOLS_CHARS;
@@ -65,25 +58,8 @@ export async function POST(req: Request) {
       let streamed = 0;
       try {
         send({ t: "route", model: cfg.model, effort: cfg.effort, tier: tierName });
-        const betas = ["compact-2026-01-12"];
-        if (cfg.fallbacks) betas.push("server-side-fallback-2026-07-01");
         const s = c.beta.messages.stream(
-          {
-            model: cfg.model,
-            max_tokens: cfg.max_tokens,
-            // server-side compaction keeps long planning sessions inside the context window;
-            // the client appends full assistant content, so compaction blocks are passed back
-            betas,
-            context_management: { edits: [{ type: "compact_20260112" }] },
-            // Haiku 5.5 has no server-side refusal fallback; Opus / Sonnet 5.5 overrides get one
-            ...(cfg.fallbacks ? { fallbacks: "default" } : {}),
-            thinking: cfg.thinking,
-            output_config: { effort: cfg.effort },
-            cache_control: { type: "ephemeral" },
-            system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
-            tools,
-            messages: body.messages,
-          } as unknown as Anthropic.Beta.MessageCreateParamsStreaming,
+          params as unknown as Anthropic.Beta.MessageCreateParamsStreaming,
           { signal: req.signal },
         );
         for await (const ev of s) {

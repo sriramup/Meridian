@@ -18,7 +18,7 @@
 //    change is re-checked against the world before it is applied.
 //
 // Persistence: sessions (items, mode, zone, changesets, and the message history when it fits) are saved
-// per city in localStorage, capped; a session restored without its history gets a short transcript of
+// per project (or per city before a project id is provided) in localStorage, capped; a session restored without its history gets a short transcript of
 // the earlier conversation with its next request. Runs interrupted by a reload are marked as stopped.
 
 import type Anthropic from "@anthropic-ai/sdk";
@@ -615,9 +615,26 @@ function load(c: string) {
   useAgents.setState({ sessions, order, viewing: data.viewing && sessions[data.viewing] ? data.viewing : (order[0] ?? null) });
 }
 
-/** follow the loaded city: save the old city's sessions, load the new one's */
+/**
+ * Persistence key: the open project when the projects sidebar provides one (set via
+ * setProjectKeyProvider), else the loaded city. Keys for cities keep their old form, so sessions saved
+ * before projects existed are still found.
+ */
+const storeProject = () => ((useApp.getState() as { projectId?: string | null }).projectId ?? null) || null;
+let projectKey: () => string | null = storeProject;
+export function setProjectKeyProvider(fn: (() => string | null) | null) {
+  projectKey = fn ?? storeProject;
+  ensureCity();
+}
+function currentKey(): string | null {
+  const p = projectKey();
+  if (p) return `project:${p}`;
+  return rtMaybe()?.cityId ?? null;
+}
+
+/** follow the open project / loaded city: save the old one's sessions, load the new one's */
 export function ensureCity() {
-  const c = rtMaybe()?.cityId ?? null;
+  const c = currentKey();
   if (!c || c === city) return;
   if (city) {
     stopAll();

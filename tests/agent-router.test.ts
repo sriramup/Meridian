@@ -8,6 +8,7 @@ const cases: [string, "quick" | "standard" | "deep"][] = [
   ["Is the zone set?", "quick"],
   ["thanks!", "quick"],
   ["What's the tallest building here?", "quick"],
+  ["What neighbourhood is this?", "quick"],
   ["Add a protected bike lane on Guadalupe between 24th and MLK", "standard"],
   ["Build a 12-storey residential block on the selected parcel", "standard"],
   ["Plant street trees along Rainey Street", "standard"],
@@ -23,6 +24,7 @@ const cases: [string, "quick" | "standard" | "deep"][] = [
   ["Give me three alternatives for the Lamar & 6th junction and compare them", "deep"],
   ["Optimise the worst bottlenecks in the PM peak", "deep"],
   ["Find the best sites for affordable housing near frequent transit", "deep"],
+  ["Design a walkable mixed-use neighbourhood for about 6,000 residents on this empty site", "deep"],
 ];
 
 describe("request router", () => {

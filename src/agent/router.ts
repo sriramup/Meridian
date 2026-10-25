@@ -21,6 +21,8 @@ const EDIT =
 const ANALYSIS = /\b(simulat|suggest|propose|recommend|find|locate|identify|where (should|could|would)|show (me )?(where|the)|(run|rerun|re-run)\b[^.?!]{0,30}\b(traffic|heat|runoff|stormwater|flood|access|bike|sun|shade|growth|capacity|model|simulation)|model the|what (would|will) happen|impact|effect of|evaluate|assess|test|check|validate|rank|estimate|forecast|measure the)\w*/i;
 const DEEP =
   /\b(masterplan|master plan|district|neighbourhood plan|neighborhood plan|optimi[sz]\w*|alternatives?|options|scenarios to|branches|compare|comparison|trade-?offs?|strategy|strategic|redesign|overhaul|transform|study|several|multiple|each of|whole (city|area|downtown|network)|network-wide|citywide|city-wide|minimi[sz]e|maximi[sz]e|best (way|site|location)s?|plan for|step by step|thorough|in depth|in-depth|comprehensive)\b/i;
+/** designing a whole place ("design a walkable neighbourhood for 6,000 people") is deep work */
+const DESIGN_PLACE = /\b(design|plan|lay out|layout|build|create|generate|masterplan|make)\b[^.?!]{0,60}\b(neighbou?rhood|town|village|quarter|district|campus|community)\b/i;
 const QUESTION = /^(what|what's|whats|which|where|who|when|how (many|much|tall|high|wide|long|big|far|old)|is|are|was|were|does|do|did|can you tell|tell me|show me what|why is|why are|any)\b/i;
 // "take me to 21st and Guadalupe", "go to Pine Street", "show me the university", "where is Republic Square?"
 // — resolve + fly the camera: one go_to call, so the quick tier. Not when the sentence also asks for an
@@ -49,7 +51,7 @@ export function routeRequest(text: string, opts: { mode?: "plan" | "edit"; hasSe
   if (SMALLTALK.test(t)) return { tier: "quick", reason: "small talk" };
   if (navigationTarget(t)) return { tier: "quick", reason: "navigation" };
   const sentences = t.split(/[.!?\n]+/).filter((s) => s.trim().split(/\s+/).length > 2).length;
-  const deep = DEEP.test(t);
+  const deep = DEEP.test(t) || DESIGN_PLACE.test(t);
   const edit = EDIT.test(t);
   const analysis = ANALYSIS.test(t);
   if (deep || words > 70 || (sentences >= 3 && (edit || analysis))) return { tier: "deep", reason: deep ? "planning / optimisation / alternatives" : "long multi-part brief" };
