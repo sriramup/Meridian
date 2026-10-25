@@ -61,6 +61,34 @@ describe("heat KPIs per hour and per area", () => {
     expect(bracket([0, 2, 22], 23)).toEqual({ i0: 2, i1: 0, t: 0.5 });
   });
 
+  it("every shown figure follows the clock through the day (no figure stuck at one hour)", () => {
+    // what the dock shows: feels-like, ground surface, air, shaded paths, sampled every 20 minutes
+    const rows = [];
+    for (let h = 0; h < 24; h += 1 / 3) rows.push(areaKpi(bare, all, h));
+    for (const key of ["feels", "surface", "air"] as const) {
+      const v = rows.map((r) => r[key]!);
+      // changes between almost every pair of samples, and spans a real daily range
+      const moved = v.filter((x, i) => i > 0 && Math.abs(x - v[i - 1]) > 1e-6).length;
+      expect(moved).toBeGreaterThan(v.length * 0.9);
+      expect(Math.max(...v) - Math.min(...v)).toBeGreaterThan(5);
+    }
+    // the afternoon is hotter than the morning on foot, on the ground and in the air
+    const am = areaKpi(bare, all, 8),
+      pm = areaKpi(bare, all, 15);
+    expect(pm.feels!).toBeGreaterThan(am.feels!);
+    expect(pm.surface!).toBeGreaterThan(am.surface!);
+    expect(pm.air!).toBeGreaterThan(am.air!);
+    // the shade share changes with the sun and is undefined at night
+    const trees: [number, number][] = [];
+    for (let i = 8; i < 50; i += 6) trees.push([i, 8], [i, 22], [i, 38]);
+    const leafy = runHeat(city(trees), weather, params());
+    const shaded = [8, 10, 12, 14, 16, 18].map((h) => areaKpi(leafy, all, h).shaded);
+    expect(new Set(shaded.map((x) => x?.toFixed(3))).size).toBeGreaterThan(2);
+    // ground surface is hotter than the air by day (sun on pavement) and close to it before dawn
+    expect(pm.surface! - pm.air!).toBeGreaterThan(5);
+    expect(Math.abs(areaKpi(bare, all, 4).surface! - areaKpi(bare, all, 4).air!)).toBeLessThan(pm.surface! - pm.air!);
+  });
+
   it("trees in view raise canopy and shaded paths and lower temperatures there", () => {
     const trees: [number, number][] = [];
     for (let i = 8; i < 30; i += 4) trees.push([i, 8], [i, 20]);
