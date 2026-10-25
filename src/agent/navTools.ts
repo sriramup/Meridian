@@ -9,6 +9,8 @@ import { useApp } from "@/state/store";
 import { flyTo, pedestrianAt } from "@/render/camera";
 import { LocalProjection } from "@/world/projection";
 import type { Street, Vec2 } from "@/world/types";
+import { searchPlaces } from "@/search";
+import { flyToPlace } from "@/search/fly";
 import { looseScore, polyOf, resolvePlace, type PlaceMatch } from "./resolve";
 import type { ToolContext, ToolOutput } from "./tools";
 
@@ -94,6 +96,38 @@ export const NAV_TOOLS: Record<string, (i: In, ctx: ToolContext) => Promise<Tool
       return { content: { went_to: { type: "point", at: pt(p) } }, display: { title: `Went to (${Math.round(p[0])}, ${Math.round(p[1])})`, status: "ok" } };
     }
     const q = String(i.place ?? "").trim();
+    // a name: the top bar's place index, so the agent lands where the search box would (an
+    // entity id, or a name the index doesn't know, falls through to the reference resolver)
+    const hits = R.world.get(q) ? [] : searchPlaces(q, 5);
+    const best = hits[0];
+    if (best && best.score >= 0.75) {
+      leaveStreetLevel();
+      if (i.street_level) {
+        pedestrianAt(best.point);
+        st.setCameraMode("pedestrian");
+      } else if (i.zoom !== undefined) flyTo(best.point, { zoom: i.zoom, pitch: 55 });
+      else void flyToPlace(best);
+      // a junction: its node(s) and the streets meeting there (set_junction takes the node id)
+      const junction = best.kind === "intersection";
+      const hl = junction ? [...best.ids, ...best.ids.flatMap((n) => R.world.incident(n).map((x) => x.id))] : best.ids;
+      if (hl.length) st.setHighlight({ ids: [...new Set(hl)], label: best.label });
+      const alternatives = hits
+        .slice(1)
+        .filter((h) => h.label !== best.label && h.score >= best.score - 0.12)
+        .slice(0, 3)
+        .map((h) => `${h.label} (${h.detail})`);
+      const [x0, y0, x1, y1] = best.bbox;
+      const size = Math.max(x1 - x0, y1 - y0);
+      const streets = (junction ? hl : best.ids).filter((id) => R.world.get(id)?.kind === "street");
+      return {
+        content: {
+          went_to: { name: best.label, type: junction ? "junction" : best.kind, what: best.detail, at: pt(best.point), id: junction || best.ids.length === 1 ? best.ids[0] : undefined, street_ids: streets.length ? streets.slice(0, 40) : undefined, extent_ft: size > 40 ? Math.round(size * 3.28084) : undefined },
+          alternatives: alternatives.length ? alternatives : undefined,
+          exact: best.score >= 1 || undefined,
+        },
+        display: { title: `Went to ${best.label}`, detail: alternatives.length ? `also: ${alternatives.join(" · ")}` : best.detail, status: "ok" },
+      };
+    }
     const matches = resolvePlace(q, 8);
     if (!matches.length) {
       const suggestions = suggest(q);

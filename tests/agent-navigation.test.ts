@@ -44,6 +44,13 @@ describe("navigation on Austin", () => {
     expect(r.went_to.name).toBe("University of Texas at Austin");
   });
 
+  it("lands where the search box would: the notable place, the whole street", async () => {
+    expect((await run("go_to", { place: "the capitol" })).went_to.name).toBe("Texas State Capitol");
+    const c = await run("go_to", { place: "congress" });
+    expect(c.went_to).toMatchObject({ name: "Congress Avenue", type: "street" });
+    expect(c.went_to.street_ids.length).toBeGreaterThan(5);
+  });
+
   it("an unknown name returns suggestions instead of a guess", async () => {
     const r = await run("go_to", { place: "Guadaloop and 21st Boulevard Zzz" });
     if (r.error) expect(Array.isArray(r.suggestions)).toBe(true);
