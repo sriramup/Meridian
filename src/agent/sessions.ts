@@ -61,7 +61,7 @@ interface Runtime {
   seen: Set<string>;
   /** transcript to prepend to the next request when the history could not be restored */
   restored?: string;
-  run?: { scenario: string; startedAt: number; zone: Zone | null; mode: AgentMode };
+  run?: { scenario: string; startedAt: number; zone: Zone | null; mode: AgentMode; request: string };
 }
 
 const RESULT_CHARS = 16000;
@@ -366,6 +366,7 @@ function toolCtx(sessionId: string, signal: AbortSignal): ToolContext {
       patch(sessionId, (s) => ({ changesets: [...s.changesets, cs.id], scenarioId: R?.scenarios.activeId }));
     },
     setZone: (input) => setZoneFromTool(sessionId, input),
+    request: r.run?.request,
   };
 }
 
@@ -478,7 +479,7 @@ export async function send(id: string, text: string, opts: { mode?: AgentMode; z
     lastRun: { tier: route.tier, reason: route.reason, startedAt: t0, tools: 0 },
   }));
   touch(id);
-  r.run = { scenario: R?.scenarios.activeId ?? "baseline", startedAt: t0, zone, mode };
+  r.run = { scenario: R?.scenarios.activeId ?? "baseline", startedAt: t0, zone, mode, request: text };
   r.seen = new Set(R?.scenarios.appliedChangesets().map((c) => c.id) ?? []);
   const blocks: Anthropic.Beta.BetaTextBlockParam[] = [{ type: "text", text: contextBlock(id, mode, zone) }];
   if (r.restored) {
