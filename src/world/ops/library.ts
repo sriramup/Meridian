@@ -442,7 +442,7 @@ function generateInto(v: View, def: PrimitiveDef, params: ParamValues, place: Pl
       const nm = nameOf(other);
       if (o.onConflict === "replace" && !other.historic) {
         v.del(other.id);
-        conflicts.push({ id: other.id, kind: "overlap", message: `Demolished ${nm} (${Math.round(ov)} m² overlap)`, resolved: true });
+        conflicts.push({ id: other.id, kind: "overlap", message: `Demolished ${nm} (${fmt.area(ov)} overlap)`, resolved: true });
       } else {
         cut(bufferPoly(other.footprint, 1.5));
         conflicts.push({ id: other.id, kind: "overlap", message: other.historic && o.onConflict === "replace" ? `Kept historic-designated ${nm}; ${def.name} carved around it` : `Kept ${nm}; ${def.name} carved around it`, resolved: true });
@@ -712,8 +712,8 @@ function generateInto(v: View, def: PrimitiveDef, params: ParamValues, place: Pl
   for (const w of gen.warnings ?? []) warnings.push(w);
   if (felled) summary.push(`${felled} existing tree${felled > 1 ? "s" : ""} removed under the new footprint`);
   if (propsCleared) summary.push(`${propsCleared} existing object${propsCleared > 1 ? "s" : ""} removed under the new footprint`);
-  for (const [t, m2] of displaced) if (m2 > 1) summary.push(t === "parking" ? `Displaces ${fmt.m2(m2)} of surface parking (≈${fmt.int(m2 / 30)} spaces)` : `Displaces ${fmt.m2(m2)} of ${t}`);
-  if ((displaced.get("park") ?? 0) > 50) warnings.push(`Takes ${fmt.m2(displaced.get("park")!)} of parkland`);
+  for (const [t, m2] of displaced) if (m2 > 1) summary.push(t === "parking" ? `Displaces ${fmt.area(m2)} of surface parking (≈${fmt.int(m2 / 30)} spaces)` : `Displaces ${fmt.area(m2)} of ${t}`);
+  if ((displaced.get("park") ?? 0) > 50) warnings.push(`Takes ${fmt.area(displaced.get("park")!)} of parkland`);
   const sk = Object.entries(skipped);
   if (sk.length) summary.push(`Skipped ${sk.map(([k, n]) => `${n} ${k}`).join(", ")}`);
   for (const s of summary) b.summary(s);

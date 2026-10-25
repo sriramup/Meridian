@@ -2,6 +2,7 @@
 // cascades can compose (a building trimmed by one rule and demolished by
 // another ends as one consistent op), plus the cascade report.
 
+import { fmtArea, fmtFloorArea, fmtLen } from "@/lib/units";
 import { polyArea } from "@/geometry/polygon";
 import { massesGFA } from "@/geometry/massing";
 import type { Building, Entity, Use } from "../types";
@@ -95,13 +96,13 @@ export class OpBuilder {
     const lines: string[] = [];
     if (c.demolished) lines.push(`${c.demolished} building${c.demolished > 1 ? "s" : ""} demolished in the new right-of-way (−${fmt.m2(c.gfaLost)} GFA${c.unitsLost >= 1 ? `, −${fmt.int(c.unitsLost)} units` : ""})`);
     if (c.trimmed) lines.push(`${c.trimmed} building façade${c.trimmed > 1 ? "s" : ""} set back to the new property line`);
-    if (c.parcels) lines.push(`Right-of-way acquisition: ${fmt.m2(c.taken)} from ${c.parcels} parcel${c.parcels > 1 ? "s" : ""}`);
+    if (c.parcels) lines.push(`Right-of-way acquisition: ${fmt.area(c.taken)} from ${c.parcels} parcel${c.parcels > 1 ? "s" : ""}`);
     if (c.trees) lines.push(`${c.trees} tree${c.trees > 1 ? "s" : ""} removed from the new carriageway`);
     if (c.inlets) lines.push(`${c.inlets} kerb inlet${c.inlets > 1 ? "s" : ""} relocated to the new kerb line`);
     if (c.minor) lines.push(`${c.minor} façade${c.minor > 1 ? "s" : ""} within 0.6 m of the new ROW edge — absorbed in sidewalk detailing, no building change`);
     if (c.stops) lines.push(`${c.stops} bus stop${c.stops > 1 ? "s" : ""} moved to the new kerb`);
-    for (const [k, v] of c.areas) if (v > 1) lines.push(`${k} reduced by ${fmt.m2(v)}`);
-    if (c.parkTaken > 1) this.warn(`Takes ${fmt.m2(c.parkTaken)} of park land`);
+    for (const [k, v] of c.areas) if (v > 1) lines.push(`${k} reduced by ${fmt.area(v)}`);
+    if (c.parkTaken > 1) this.warn(`Takes ${fmt.area(c.parkTaken)} of park land`);
     this.report.summary.push(...lines);
     this.cascade = { trimmed: 0, demolished: 0, gfaLost: 0, unitsLost: 0, parcels: 0, taken: 0, trees: 0, inlets: 0, stops: 0, minor: 0, areas: new Map(), parkTaken: 0 };
   }
@@ -222,9 +223,14 @@ export function programmeOf(b: Building, householdSize = 1.75): Programme {
   return { gfa, units, jobs, rooms, residents: units * householdSize };
 }
 
+// user-facing figures are imperial (lib/units); the model itself stays in metres
 export const fmt = {
-  m: (x: number) => `${x.toFixed(x < 10 ? 1 : 0)} m`,
-  m2: (x: number) => `${Math.round(x).toLocaleString()} m²`,
+  /** a length: "12 ft", "850 ft", "0.4 mi" */
+  m: (x: number) => fmtLen(x),
+  /** a floor area or small area: "12,400 sq ft", "1.24M sq ft" */
+  m2: (x: number) => fmtFloorArea(x),
+  /** a land area: "8,000 sq ft", "2.3 acres" */
+  area: (x: number) => fmtArea(x),
   int: (x: number) => Math.round(x).toLocaleString(),
   pct: (x: number) => `${(x * 100).toFixed(0)}%`,
 };

@@ -2,6 +2,7 @@
 // validate tool: right-of-way encroachment, building overlap, height limits
 // (zoning + Capitol View Corridors), buried utilities, floodplain, heritage.
 
+import { fmtArea } from "@/lib/units";
 import { rowBand } from "@/geometry/streetGeometry";
 import { intersection, overlapArea, pointInPoly, polyArea, polyBBox, polyCentroid, polyDistance } from "@/geometry/polygon";
 import { closestOnPath } from "@/geometry/polyline";
@@ -106,9 +107,9 @@ export function inFloodplain(poly: Polygon): string | null {
 export function checkBuilding(world: World, b: Building, exclude: Set<string> = new Set([b.id])): Issue[] {
   const issues: Issue[] = [];
   for (const { street, area } of rowConflicts(world, b.footprint))
-    issues.push({ severity: "error", kind: "row", message: `Footprint encroaches ${area.toFixed(0)} m² into the right-of-way of ${street.name ?? street.id}`, ids: [street.id] });
+    issues.push({ severity: "error", kind: "row", message: `Footprint encroaches ${fmtArea(area)} into the right-of-way of ${street.name ?? street.id}`, ids: [street.id] });
   for (const { building, area } of buildingOverlaps(world, b.footprint, exclude))
-    issues.push({ severity: "error", kind: "overlap", message: `Overlaps ${building.name ?? "building " + building.id} by ${area.toFixed(0)} m²`, ids: [building.id] });
+    issues.push({ severity: "error", kind: "overlap", message: `Overlaps ${building.name ?? "building " + building.id} by ${fmtArea(area)}`, ids: [building.id] });
   const hl = heightLimit(world, b.footprint, b.ground);
   if (hl.limit != null && b.height > hl.limit + 0.5) {
     const cvc = hl.source.some((s) => s.startsWith("Capitol"));

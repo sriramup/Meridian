@@ -1,3 +1,4 @@
+import { fmtVol } from "@/lib/units";
 import { PED_REALM, stripOffsets } from "@/geometry/crossSection";
 import { difference, isValidPoly, overlapArea, pointInPoly, polyArea, polyBBox, polyCentroid } from "@/geometry/polygon";
 import { closestOnPath, offsetPath, pointAt, polyLength } from "@/geometry/polyline";
@@ -87,12 +88,12 @@ export function createArea(world: World, p: CreateAreaParams, actor: Actor, ob?:
     total += polyArea(q);
   }
   if (!created.length) return b.fail("No usable area after removing right-of-way and existing buildings");
-  const label = p.type === "retention" ? `retention pond (${fmt.m2(total)}, ${((total * (p.depth ?? 1.5)) / 1).toFixed(0)} m³ storage)` : `${p.type} (${fmt.m2(total)})`;
+  const label = p.type === "retention" ? `retention pond (${fmt.area(total)}, ${fmtVol(total * (p.depth ?? 1.5))} storage)` : `${p.type} (${fmt.area(total)})`;
   b.summary(`New ${label}${p.name ? ` “${p.name}”` : ""}`);
   if (displaced.buildings) b.summary(`Displaced ${displaced.buildings} building${displaced.buildings > 1 ? "s" : ""}: −${fmt.m2(displaced.gfa)} GFA${displaced.units >= 1 ? `, −${fmt.int(displaced.units)} units` : ""}`);
-  if (displaced.parking) b.summary(`Displaced ${fmt.m2(displaced.parking)} of surface parking (≈${fmt.int(displaced.parkingSpaces)} spaces at 30 m²/space)`);
+  if (displaced.parking) b.summary(`Displaced ${fmt.area(displaced.parking)} of surface parking (≈${fmt.int(displaced.parkingSpaces)} spaces at 320 sq ft each)`);
   if (displaced.trees) b.summary(`${displaced.trees} trees removed for excavation`);
-  for (const [t, m2] of displaced.green) b.summary(`Replaces ${fmt.m2(m2)} of existing ${t}`);
+  for (const [t, m2] of displaced.green) b.summary(`Replaces ${fmt.area(m2)} of existing ${t}`);
   if (p.shadeTrees && (p.type === "park" || p.type === "plaza")) {
     const sp = p.shadeTrees.spacing ?? 11;
     let n = 0;
@@ -109,7 +110,7 @@ export function createArea(world: World, p: CreateAreaParams, actor: Actor, ob?:
           n++;
         }
     }
-    if (n) b.summary(`${n} shade trees on an ${sp} m grid (mature canopy ≈ ${fmt.m2(n * Math.PI * 4.5 * 4.5)})`);
+    if (n) b.summary(`${n} shade trees on a ${fmt.m(sp)} grid (mature canopy ≈ ${fmt.area(n * Math.PI * 4.5 * 4.5)})`);
   }
   b.data.areaIds = created;
   if (ob) return { ok: true, report: b.report, created, removed: [], modified: [], data: b.data };
@@ -125,7 +126,7 @@ export function convertAreas(world: World, ids: string[], type: AreaType, actor:
     b.update<Area>({ ...a, type, provenance: "proposed", createdBy: a.createdBy ?? b.tag });
     total += polyArea(a.poly);
   }
-  b.summary(`${ids.length} area${ids.length > 1 ? "s" : ""} (${fmt.m2(total)}) converted to ${type}`);
+  b.summary(`${ids.length} area${ids.length > 1 ? "s" : ""} (${fmt.area(total)}) converted to ${type}`);
   return b.finish(`Convert to ${type}`);
 }
 
@@ -237,7 +238,7 @@ export function plantTrees(world: World, p: PlantTreesParams, actor: Actor, ob?:
   const h = sp ? sp.h * (r / sp.r) : 2.2 * r;
   for (const c of cands) b.add<Tree>({ id: newId("t"), kind: "tree", p: c.p, r, h, species: sp?.id, streetId: c.streetId, source: sp ? `Proposed street tree (${sp.name.toLowerCase()})` : "Proposed street tree", provenance: "proposed", createdBy: b.tag });
   if (!cands.length) return b.fail("No feasible tree locations (sidewalks too narrow or constrained)");
-  b.summary(`Planted ${cands.length} trees (≈${fmt.m2(cands.length * Math.PI * r * r)} mature canopy)`);
+  b.summary(`Planted ${cands.length} trees (≈${fmt.area(cands.length * Math.PI * r * r)} mature canopy)`);
   const rj = Object.entries(rejected).filter(([, v]) => v > 0);
   if (rj.length) b.summary(`Skipped candidate positions — ${rj.map(([k, v]) => `${v} ${k === "narrow" ? "sidewalk < 3 m" : k === "junction" ? "within 11 m of a junction (sight lines)" : k === "utility" ? "over a kerb inlet" : k === "stop" ? "at a bus stop" : k === "existing" ? "existing tree" : "inside a building"}`).join(", ")}`);
   b.data.treeCount = cands.length;
@@ -282,7 +283,7 @@ export function plantTreesAt(world: World, p: PlantParams, actor: Actor): OpResu
     .filter(([, v]) => v > 0)
     .map(([k, v]) => `${v} ${TREE_PROBLEM_LABEL[k as TreeProblem].toLowerCase()}`);
   if (!placed.length) return b.fail(`Nothing planted: ${why.join(", ") || "no position"}`);
-  b.summary(`Planted ${placed.length} ${sp.name.toLowerCase()}${placed.length > 1 ? "s" : ""} (≈${fmt.m2(placed.length * Math.PI * sp.r * sp.r)} mature canopy)`);
+  b.summary(`Planted ${placed.length} ${sp.name.toLowerCase()}${placed.length > 1 ? "s" : ""} (≈${fmt.area(placed.length * Math.PI * sp.r * sp.r)} mature canopy)`);
   if (why.length) b.summary(`Skipped ${why.join(", ")}`);
   b.data.treeCount = placed.length;
   return b.finish(placed.length > 1 ? `Plant a row of ${placed.length} ${sp.name.toLowerCase()}s` : `Plant a ${sp.name.toLowerCase()}`);
