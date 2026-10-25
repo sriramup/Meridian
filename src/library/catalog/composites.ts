@@ -11,13 +11,15 @@ import { C } from "../geometry/palette";
 import { BUILDING_PARAMS, buildBuilding } from "./building";
 import { COMMERCIAL } from "./commercial";
 import { HOUSING } from "./housing";
-import { rectL, parkingLot } from "./decor";
+import { areaL, rectL, parkingLot } from "./decor";
+import { playgroundSolids } from "./recreation";
 import { Out } from "./make";
 import { parkInto } from "./parks";
 import { bool, choice, int, num, opts, reader } from "./params";
 import { PARKS, fountainSolids, statueSolids } from "./parks";
 import { CIVIC, EDUCATION } from "./civic";
 import { seedOf } from "./kinds";
+import { RECREATION } from "./recreation";
 
 const CO = "composites" as const;
 const L = "Layout",
@@ -344,6 +346,237 @@ export const COMPOSITES: PrimitiveDef[] = [
     },
   },
 ];
+
+// ---------------------------------------------------------------- urban schools and campus blocks
+
+const SCHOOL_LEVELS: Record<string, { pupils: number; m2: number; floors: number; field: "soccer" | "track"; fieldL: number; fieldW: number; gym: [number, number]; courts: number; play: boolean; label: string }> = {
+  // m² GFA per pupil and youth field sizes: US state school-facility guides / US Youth Soccer small-sided fields
+  primary: { pupils: 600, m2: 10, floors: 3, field: "soccer", fieldL: 60, fieldW: 40, gym: [32, 24], courts: 1, play: true, label: "Elementary school" },
+  middle: { pupils: 800, m2: 13, floors: 3, field: "soccer", fieldL: 91, fieldW: 55, gym: [40, 30], courts: 2, play: false, label: "Middle school" },
+  high: { pupils: 1600, m2: 15, floors: 4, field: "track", fieldL: 176, fieldW: 92, gym: [50, 36], courts: 3, play: false, label: "High school" },
+};
+
+const SCHOOL_FACADES = ["brick_red", "brick_buff", "limestone", "brick_brown", "precast_white"];
+
+function urbanSchool(values: ParamValues, place: PlacementInput, ctx: GenerateContext, params: PrimitiveDef["params"]) {
+  const r = reader(values, params);
+  const out = new Out(ctx);
+  const f = siteFrame(place, r.n("width"), r.n("depth"));
+  const W = f.siteW,
+    D = f.siteD;
+  const lv = SCHOOL_LEVELS[r.s("level")] ?? SCHOOL_LEVELS.primary;
+  const rand = rng(seedOf(ctx, r));
+  const pupils = r.n("enrolment") > 0 ? r.n("enrolment") : lv.pupils;
+  const floors = r.n("floors") > 0 ? r.n("floors") : lv.floors;
+  const gfa = pupils * lv.m2;
+  const facade = r.s("facade") !== "auto" ? r.s("facade") : SCHOOL_FACADES[Math.floor(rand() * SCHOOL_FACADES.length)];
+  const name = r.s("name") || lv.label;
+  out.area("campus", polyToWorld(f, rectL(0, 0, W, D)), { primary: false, name });
+  // ---- academic building: a double-loaded classroom bar along the street, with a wing when needed
+  const forecourt = 8,
+    bd = 20;
+  const gym = lv.gym;
+  const academic = gfa - gym[0] * gym[1] * 1.6;
+  const barW = Math.max(40, Math.min(W - 12, academic / floors / bd));
+  const yBar = D / 2 - forecourt - bd / 2;
+  const main = bld(out, f, [0, yBar], 0, { use: "education", width: barW, depth: bd, floors, groundFloorHeight: 4.5, floorHeight: 4.0, facade, roofType: "flat", parapetHeight: 1.1, penthouse: true, name, entrance: true, awning: false, solar: rand() < 0.5 }, true);
+  let wingLen = Math.max(0, (academic / floors - barW * bd) / 18);
+  const wingSide = rand() < 0.5 ? -1 : 1;
+  if (wingLen > 8) {
+    wingLen = Math.min(wingLen, D * 0.45);
+    bld(out, f, [wingSide * (barW / 2 - 9), yBar - bd / 2 - wingLen / 2 + 0.2], 0, { use: "education", width: 18, depth: wingLen, floors: Math.max(2, floors - 1), groundFloorHeight: 4.5, floorHeight: 4.0, facade, roofType: "flat", parapetHeight: 1.1 });
+  }
+  // gymnasium / auditorium: a tall hall on the other side, behind the bar
+  const gx = -wingSide * (barW / 2 - gym[0] / 2);
+  const gy = yBar - bd / 2 - gym[1] / 2 - 0.2;
+  bld(out, f, [gx, gy], 0, { use: "education", width: gym[0], depth: gym[1], floors: 1, groundFloorHeight: lv.field === "track" ? 11 : 8, facade: r.s("facade") !== "auto" ? facade : SCHOOL_FACADES[(SCHOOL_FACADES.indexOf(facade) + 2) % SCHOOL_FACADES.length], roofType: "barrel", roofRise: 0.25, roofMaterial: "metal_standing_seam", name: `${name} gymnasium`, entrance: false });
+  // forecourt with trees, and a drop-off lay-by along the street
+  areaL(out, f, "plaza", rectL(0, D / 2 - forecourt / 2, Math.min(W - 4, barW + 10), forecourt - 1));
+  for (let x = -barW / 2 + 5; x <= barW / 2 - 5; x += 11) streetTree(out, toWorld(f, [x, D / 2 - 3]), x, 0.65);
+  const dropX = W / 2 - 7;
+  if (W - barW > 18) areaL(out, f, "parking", rectL(dropX, D / 2 - 30, 9, 44), { name: "Drop-off" });
+  // ---- grounds behind: field at real dimensions where it fits, courts, playground
+  const backTop = Math.min(gy - gym[1] / 2, yBar - bd / 2 - (wingLen > 8 ? wingLen : 0)) - 4;
+  const backD = backTop + D / 2 - 3;
+  let fieldPlaced = false;
+  const tryField = (sport: "track" | "soccer" | "football", L0: number, W0: number) => {
+    for (const rot of [0, 90]) {
+      const Lx = rot ? W0 : L0,
+        Ly = rot ? L0 : W0;
+      if (Lx + 8 <= W - 6 && Ly + 8 <= backD) {
+        const cy = -D / 2 + 3 + (Ly + 8) / 2;
+        const cx = W / 2 - 3 - (Lx + 8) / 2;
+        const def = byId(RECREATION, sport === "track" ? "recreation.running_track" : sport === "football" ? "recreation.football_field" : "recreation.soccer_field");
+        child(out, def, { length: L0, width: W0, runoff: 4, lights: sport === "track", benches: 4 }, { site: polyToWorld(f, rectL(cx, cy, Lx + 8, Ly + 8)), rotation: ((f.a * 180) / Math.PI + rot + 360) % 360 });
+        return { cx, cy, Lx: Lx + 8, Ly: Ly + 8 };
+      }
+    }
+    return null;
+  };
+  let field = lv.field === "track" ? tryField("track", 176, 92) ?? tryField("football", 110, 49) ?? tryField("soccer", 100, 64) : tryField("soccer", lv.fieldL, lv.fieldW) ?? tryField("soccer", lv.fieldL * 0.75, lv.fieldW * 0.75);
+  if (field) fieldPlaced = true;
+  else field = { cx: W / 2, cy: -D / 2, Lx: 0, Ly: 0 };
+  // hard-court play yard in the remaining back corner
+  const yardW = W - 6 - field.Lx - 4,
+    yardD = Math.max(0, backD - 2);
+  if (yardW > 16 && yardD > 16) {
+    const cx = -W / 2 + 3 + yardW / 2,
+      cy = -D / 2 + 3 + yardD / 2;
+    areaL(out, f, "plaza", rectL(cx, cy, yardW, yardD), { name: "Play yard" });
+    let y = -D / 2 + 3 + 10;
+    for (let k = 0; k < lv.courts && y + 10 < -D / 2 + 3 + yardD; k++, y += 21) if (yardW >= 32) child(out, byId(RECREATION, "recreation.basketball_court"), { benches: 0 }, { site: polyToWorld(f, rectL(cx, y + 2, 32, 19)), rotation: ((f.a * 180) / Math.PI + 360) % 360 });
+    if (lv.play && yardD > 40) out.prop("recreation.playground", subFrame(f, [cx, -D / 2 + 3 + yardD - 14]), playgroundSolids("school", Math.min(22, yardW * 0.6)), { primary: false });
+  } else if (field.Lx === 0 && backD > 12) areaL(out, f, "grass", rectL(0, -D / 2 + 3 + backD / 2, W - 6, backD - 1), { name: "Play lawn" });
+  // shade trees along the back and sides
+  for (let x = -W / 2 + 4; x <= W / 2 - 4; x += 10) streetTree(out, toWorld(f, [x, -D / 2 + 1.5]), x * 0.3, 0.75);
+  for (let y = -D / 2 + 12; y <= D / 2 - 20; y += 11) for (const sg of [-1, 1]) if (!(sg > 0 && W - barW > 18 && y > D / 2 - 55)) streetTree(out, toWorld(f, [sg * (W / 2 - 1.5), y]), y * 0.7 + sg, 0.7);
+  if (main) out.setPrimary(main.building);
+  out.summary.unshift(`${name}: ${fmtInt(pupils)} pupils, ${Math.round(gfa).toLocaleString()} m² over ${floors} floors${fieldPlaced ? "" : " (no room for a full field)"}`);
+  return out.done();
+}
+
+const fmtInt = (x: number) => Math.round(x).toLocaleString();
+
+const CAMPUS_ROLES = ["academic", "library", "science", "residential", "union", "athletics"] as const;
+const HALL_NAMES: Record<string, string[]> = {
+  academic: ["Hall of Letters", "Founders Hall", "Commons Hall", "Hall of Business", "Law School", "Arts Building", "Humanities Hall", "Education Hall"],
+  library: ["Main Library", "Library Annex", "Graduate Hall", "Admissions"],
+  science: ["Engineering Building", "Life Sciences", "Physics Laboratory", "Computer Science", "Chemistry Building", "Medical Research"],
+  residential: ["Residence Hall", "Graduate Housing", "Student Apartments", "Residence Hall East", "Residence Hall West"],
+  union: ["Student Union", "Performing Arts Center", "Dining Commons", "Student Services"],
+  athletics: ["Recreation Center", "Athletics Hall", "Natatorium"],
+};
+const CAMPUS_STYLE: Record<string, { facades: string[]; roof: ParamValues }> = {
+  collegiate: { facades: ["brick_red", "brick_red", "brick_brown", "limestone"], roof: { roofType: "hip", roofPitch: 24, roofMaterial: "slate", parapetHeight: 0 } },
+  mission: { facades: ["stucco_cream", "limestone", "sandstone", "stucco_white"], roof: { roofType: "hip", roofPitch: 22, roofMaterial: "terracotta", parapetHeight: 0 } },
+  modern: { facades: ["glass_green", "precast_white", "metal_silver", "glass_clear", "brick_brown"], roof: { roofType: "flat", parapetHeight: 1 } },
+};
+
+function campusBlock(values: ParamValues, place: PlacementInput, ctx: GenerateContext, params: PrimitiveDef["params"]) {
+  const r = reader(values, params);
+  const out = new Out(ctx);
+  const f = siteFrame(place, r.n("width"), r.n("depth"));
+  const W = f.siteW,
+    D = f.siteD;
+  const rand = rng(seedOf(ctx, r));
+  const role = r.s("role");
+  const style = CAMPUS_STYLE[r.s("style")] ?? CAMPUS_STYLE.collegiate;
+  const floors = r.n("floors");
+  const names = [...(HALL_NAMES[role] ?? HALL_NAMES.academic)];
+  const takeName = () => names.splice(Math.floor(rand() * names.length), 1)[0] ?? "Hall";
+  out.area("campus", polyToWorld(f, rectL(0, 0, W, D)), { primary: false, name: r.s("name") || "Campus" });
+  const setback = 5;
+  let first: ReturnType<typeof bld> = null;
+  const hall = (x: number, y: number, rot: number, w: number, d: number, extra: ParamValues = {}) => {
+    const sci = role === "science";
+    const res = role === "residential";
+    const fl = Math.max(2, floors + Math.round((rand() - 0.5) * 3) + (res ? 2 : 0));
+    const pitched = !sci && fl <= 6 && style.roof.roofType !== "flat";
+    const b = bld(out, f, [x, y], rot, {
+      use: res ? "residential" : "education",
+      unitSize: res ? 40 : 78,
+      width: w,
+      depth: d,
+      floors: fl,
+      groundFloorHeight: 4.8,
+      floorHeight: sci ? 4.6 : res ? 3.2 : 4.2,
+      facade: sci && rand() < 0.6 ? (rand() < 0.5 ? "metal_silver" : "glass_green") : style.facades[Math.floor(rand() * style.facades.length)],
+      ...(pitched ? style.roof : { roofType: "flat", parapetHeight: 1.1, penthouse: sci }),
+      balconies: res && rand() < 0.4,
+      name: takeName(),
+      ...extra,
+    }, !first);
+    if (b && !first) first = b;
+    return b;
+  };
+  if (role === "athletics") {
+    const L0 = Math.min(105, W - 30),
+      W0 = Math.min(68, D - 50);
+    if (L0 > 50 && W0 > 30) child(out, byId(RECREATION, "recreation.soccer_field"), { length: L0, width: W0, runoff: 4, lights: true }, { site: polyToWorld(f, rectL(0, -D / 2 + setback + (W0 + 8) / 2, L0 + 8, W0 + 8)), rotation: ((f.a * 180) / Math.PI + 360) % 360 });
+    hall(0, D / 2 - setback - 15, 0, Math.min(70, W - 20), 30, { floors: 2, groundFloorHeight: 9, roofType: "barrel", roofRise: 0.3, roofMaterial: "metal_standing_seam" });
+  } else {
+    // halls framing a central quad, with passages into it on every side
+    const bd = role === "residential" ? 17 : 19;
+    const qx = W - 2 * (setback + bd),
+      qy = D - 2 * (setback + bd);
+    for (const sg of [-1, 1]) {
+      const n = W > 150 ? 3 : W > 90 ? 2 : 1;
+      const gap = 10;
+      const len = (W - 2 * setback - (n - 1) * gap) / n;
+      for (let i = 0; i < n; i++) {
+        const x = -W / 2 + setback + len / 2 + i * (len + gap);
+        const big = role === "library" && sg > 0 && i === Math.floor(n / 2);
+        const b = hall(x, sg * (D / 2 - setback - bd / 2 - (big ? 4 : 0)), sg > 0 ? 180 : 0, len, big ? bd + 8 : bd, big ? { floors: Math.max(3, floors - 1), groundFloorHeight: 6, floorHeight: 5, roofType: "flat", parapetHeight: 1.2, name: "Main Library" } : {});
+        if (big && b) {
+          const [x0, y0, x1, y1] = b.bbox;
+          b.addSolids([{ shape: "cylinder", at: [(x0 + x1) / 2, (y0 + y1) / 2, b.height], size: [16, 16, 4], color: [236, 230, 216], material: "stone" }, { shape: "hemisphere", at: [(x0 + x1) / 2, (y0 + y1) / 2, b.height + 4], size: [16, 16, 10], color: [110, 168, 150], material: "metal" }]);
+        }
+      }
+    }
+    if (qy > 30)
+      for (const sg of [-1, 1]) {
+        const len = Math.max(12, qy - 2 * 10);
+        if (rand() < 0.85) hall(sg * (W / 2 - setback - bd / 2), 0, sg > 0 ? 90 : -90, len, bd);
+      }
+    if (qx > 20 && qy > 16) {
+      out.area("grass", polyToWorld(f, rectL(0, 0, qx - 4, qy - 4)), { primary: false, name: role === "residential" ? "Courtyard" : "Quad" });
+      for (const [a, b] of [[[-qx / 2 - setback - bd, 0], [qx / 2 + setback + bd, 0]], [[0, -qy / 2 - setback - bd], [0, qy / 2 + setback + bd]]] as [Vec2, Vec2][]) out.path([toWorld(f, a), toWorld(f, b)], "footway", { primary: false });
+      if (qx > 50 && qy > 40) for (const [a, b] of [[[-qx / 2 + 2, -qy / 2 + 2], [qx / 2 - 2, qy / 2 - 2]], [[-qx / 2 + 2, qy / 2 - 2], [qx / 2 - 2, -qy / 2 + 2]]] as [Vec2, Vec2][]) out.path([toWorld(f, a), toWorld(f, b)], "footway", { primary: false });
+      for (let x = -qx / 2 + 6; x <= qx / 2 - 6; x += 11) for (const y of [-qy / 2 + 4, qy / 2 - 4]) streetTree(out, toWorld(f, [x, y]), x * 0.2 + y, 0.85);
+    }
+  }
+  if (first) out.setPrimary((first as NonNullable<typeof first>).building);
+  out.summary.unshift(`Campus block (${role}) ${Math.round(W)} × ${Math.round(D)} m`);
+  return out.done();
+}
+
+const URBAN_SCHOOL_PARAMS: PrimitiveDef["params"] = [
+  choice("level", "Level", "primary", [{ value: "primary", label: "Primary / elementary (K–5)" }, { value: "middle", label: "Middle (6–8)" }, { value: "high", label: "High (9–12)" }], { group: B }),
+  int("enrolment", "Enrolment", 0, { group: B, min: 0, max: 5000, unit: "pupils", description: "0 = typical for the level (600 / 800 / 1,600)" }),
+  int("floors", "Floors", 0, { group: B, min: 0, max: 8, description: "0 = typical for the level" }),
+  choice("facade", "Facade", "auto", [{ value: "auto", label: "Automatic" }, ...SCHOOL_FACADES.map((v) => ({ value: v, label: v.replace(/_/g, " ") }))], { group: B }),
+  num("width", "Width (if not drawn)", 110, { group: L, unit: "m", min: 50, max: 600, step: 1 }),
+  num("depth", "Depth (if not drawn)", 90, { group: L, unit: "m", min: 40, max: 600, step: 1 }),
+  int("seed", "Variation seed", 0, { group: L, min: 0, max: 9999, advanced: true }),
+];
+
+const CAMPUS_BLOCK_PARAMS: PrimitiveDef["params"] = [
+  choice("role", "Block role", "academic", opts(...CAMPUS_ROLES), { group: B }),
+  choice("style", "Architecture", "collegiate", STYLE_OPTS, { group: B }),
+  int("floors", "Typical floors", 4, { group: B, min: 2, max: 20 }),
+  num("width", "Width (if not drawn)", 110, { group: L, unit: "m", min: 50, max: 600, step: 1 }),
+  num("depth", "Depth (if not drawn)", 80, { group: L, unit: "m", min: 40, max: 600, step: 1 }),
+  int("seed", "Variation seed", 0, { group: L, min: 0, max: 9999, advanced: true }),
+];
+
+COMPOSITES.push(
+  {
+    id: "composites.urban_school",
+    name: "Urban school",
+    category: CO,
+    tags: ["school", "elementary school", "primary school", "middle school", "high school", "school campus", "schoolyard"],
+    description: "A compact multi-storey school on a city block: classroom bar on the street with a forecourt and drop-off, gymnasium, play yard and courts, and a field at real youth / regulation dimensions where it fits.",
+    icon: "school",
+    placement: "rect",
+    params: URBAN_SCHOOL_PARAMS,
+    generate(values, place, ctx) {
+      return urbanSchool(values, place, ctx, URBAN_SCHOOL_PARAMS);
+    },
+  },
+  {
+    id: "composites.campus_block",
+    name: "Campus block",
+    category: CO,
+    tags: ["university", "college", "campus", "quad", "academic block", "residence halls"],
+    description: "One block of a university campus: varied halls framing a quad with paths and trees (academic, library, science, residential, student union or athletics).",
+    icon: "graduation-cap",
+    placement: "rect",
+    params: CAMPUS_BLOCK_PARAMS,
+    generate(values, place, ctx) {
+      return campusBlock(values, place, ctx, CAMPUS_BLOCK_PARAMS);
+    },
+  },
+);
 
 void EDUCATION;
 void ({} as GenerateContext);
