@@ -5,6 +5,7 @@ import { useApp } from "@/state/store";
 import { focusComposerNext, hasDraft, type ComposerHandle } from "./Composer";
 import { DeleteAgentDialog, SessionList } from "./SessionList";
 import { SessionView } from "./SessionView";
+import { SerpFootnote } from "../serp/SerpFootnote";
 import { agents, checkAgent, getSessions, useAgents, useSession, useSessions, useViewing } from "./store";
 
 /** the mounted pane's composer, so a new agent asked for from anywhere can take the focus */
@@ -93,6 +94,7 @@ export function AgentsPane({ onClose }: { onClose: () => void }) {
       ) : (
         <SessionList sessions={sessions} onNew={() => openNewAgent()} onClose={onClose} />
       )}
+      <SerpFootnote />
       <DeleteAgentDialog sessions={sessions} />
     </aside>
   );

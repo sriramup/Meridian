@@ -12,6 +12,7 @@ import { buildTranscript, formatDuration, liveLabel, runSummary, type Run, type 
 import { useNow } from "./SessionList";
 import { agents } from "./store";
 import { TOOL_ICON, TOOL_VERB } from "./toolMeta";
+import { SerpCards } from "../serp/SerpCards";
 
 /**
  * One session's conversation. Each reply of the agent reads as its answer under a single quiet
@@ -70,6 +71,7 @@ function RunView({ sessionId, run }: { sessionId: string; run: Run }) {
   return (
     <div className="flex flex-col gap-2.5">
       {hasWork && <Work run={run} />}
+      <SerpCards steps={run.steps} />
       {run.approvals.map((a) => (
         <Approval key={a.id} sessionId={sessionId} item={a} />
       ))}

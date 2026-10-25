@@ -15,6 +15,7 @@ import {
   Church,
   Fence,
   Footprints,
+  Globe,
   GraduationCap,
   History,
   Hospital,
@@ -53,6 +54,7 @@ import { PlaceHighlight } from "@/search/PlaceHighlight";
 import { clearRecents, loadRecents, rememberPlace, type RecentPlace } from "@/search/recent";
 import { Command, CommandItem, CommandList } from "./ui/kit";
 import { cx } from "./ui";
+import { searchGoogleMaps } from "./serp/mapsSearch";
 
 const ICONS: Record<string, LucideIcon> = {
   BedDouble,
@@ -245,7 +247,15 @@ export function PlaceSearch() {
     useApp.getState().askAgent(text);
   };
 
-  const listOpen = open && (results.length > 0 || searching || askAgent || showRecents);
+  // real cities: a last row searches Google Maps (SerpApi) around the view — spent only when chosen
+  const offerMaps = !!q.trim() && !sandbox && q.trim().length >= 2;
+  const mapsSearch = () => {
+    const text = q.trim();
+    leave();
+    void searchGoogleMaps(text);
+  };
+
+  const listOpen = open && (results.length > 0 || searching || askAgent || showRecents || offerMaps);
 
   let body: ReactNode = null;
   if (showRecents)
@@ -295,6 +305,17 @@ export function PlaceSearch() {
             <span className="min-w-0 flex-1 truncate text-[12px] text-ink-3">
               Ask the agent: “{q.trim()}”
             </span>
+          </CommandItem>
+        )}
+        {offerMaps && (
+          <CommandItem value="serp-maps" onSelect={mapsSearch} className="gap-2.5 py-1.5" data-serp-row>
+            <span className="flex size-6 shrink-0 items-center justify-center">
+              <Globe size={13} strokeWidth={1.7} className="text-rose" />
+            </span>
+            <span className="min-w-0 flex-1 truncate text-[12px] text-ink-2">
+              Search Google Maps for “{q.trim()}” nearby
+            </span>
+            <span className="shrink-0 text-[9.5px] text-ink-4">SerpApi</span>
           </CommandItem>
         )}
         {showGeoCredit && (

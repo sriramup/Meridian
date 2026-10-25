@@ -8,6 +8,7 @@ import { entityName } from "@/agent/resolve";
 import { rtMaybe } from "@/state/runtime";
 import { useApp } from "@/state/store";
 import { ZonePicker } from "./ZonePicker";
+import { SearchToggle } from "../serp/SearchToggle";
 
 const MODES: { value: AgentMode; label: string; title: string }[] = [
   { value: "plan", label: "Plan", title: "Investigate and propose; never edits the map" },
@@ -159,6 +160,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer({ dr
             ))}
           </ToggleGroup>
           <ZonePicker value={zone} onChange={onZone} colorKey={colorKey} onClosed={() => ta.current?.focus()} />
+          <SearchToggle sessionKey={draftKey} disabled={disabled} />
           <div className="ml-auto flex items-center">
             {running ? (
               <Tooltip content="Stop" kbd="Esc" side="top">

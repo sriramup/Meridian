@@ -30,6 +30,7 @@ import { openLibrary } from "./library/libraryStore";
 import { MapView } from "./MapView";
 import { Annotations, ChangeReport, Toasts } from "./Overlays";
 import { Toolbar } from "./Toolbar";
+import { DiscoveredPlaces } from "./serp/DiscoveredPlaces";
 import { TopBar, ViewControls } from "./TopBar";
 
 export function Shell() {
@@ -91,6 +92,9 @@ export function Shell() {
           <ZoneLayers paneOpen={agentOpen} />
           <div className="relative z-[5]">
             <Annotations />
+          </div>
+          <div className="pointer-events-none absolute inset-0 z-[6]">
+            <DiscoveredPlaces />
           </div>
           <div className="pointer-events-none absolute inset-0 z-10">
             <div className="absolute top-3 right-3 left-3 flex items-start justify-between gap-2">
