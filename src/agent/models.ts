@@ -6,6 +6,11 @@
 // high). Per-tier overrides: MERIDIAN_MODEL_QUICK / MERIDIAN_MODEL_STANDARD / MERIDIAN_MODEL_DEEP
 // (MERIDIAN_MODEL sets standard + deep at once), e.g. MERIDIAN_MODEL_DEEP=claude-sonnet-5-5 for
 // heavier design work.
+//
+// Plan-mode turns go to Gemini when GEMINI_API_KEY is set (./providers.ts): Gemini 3.6 Flash on every
+// tier (3.5 Flash-Lite when it is overloaded), thinking level from the tier's effort. Overrides:
+// MERIDIAN_GEMINI_MODEL (all tiers), MERIDIAN_GEMINI_MODEL_QUICK / _STANDARD / _DEEP and
+// MERIDIAN_GEMINI_OVERFLOW_MODEL.
 
 import type { Tier } from "./router";
 
@@ -34,6 +39,14 @@ export const PRICES: Record<string, Price> = {
   "claude-sonnet-4-6": { input: 3, output: 15 },
   "claude-opus-4-8": { input: 5, output: 25 },
   "claude-fable-5-1": { input: 10, output: 50, cacheRead: 0.25 },
+  // Gemini API paid tier (ai.google.dev pricing, 2026-10), plan-mode turns (./providers.ts). Output
+  // includes thinking; implicit-cache reads are billed at cacheRead, with no cache-write charge.
+  // Google's listed rates double for 4 Argon on 2026-12-01 and for 3.6 / 3.8 Flash on 2027-01-01.
+  "gemini-3.8-flash": { input: 0.75, output: 3.75, cacheRead: 0.075 },
+  "gemini-3.6-flash": { input: 0.75, output: 3.75, cacheRead: 0.075 },
+  "gemini-3.5-flash-lite": { input: 0.3, output: 2.5, cacheRead: 0.03 },
+  "gemini-3.1-pro-preview": { input: 2, output: 12, cacheRead: 0.2, long: { above: 200_000, input: 4, output: 18 } },
+  "gemini-4-argon": { input: 2, output: 10, cacheRead: 0.1 },
 };
 const UNKNOWN: Price = { input: 10, output: 50 };
 
@@ -120,6 +133,40 @@ export function tierConfig(tier: Tier, env: Record<string, string | undefined> =
   // adaptive thinking (low effort lets the model skip it on simple turns). Summaries feed the pane.
   const thinking = /sonnet-5-5/.test(model) && tier === "quick" ? { type: "between_tools" } : { type: "adaptive", display: "summarized" };
   return { model, effort: e, thinking, max_tokens: MAX_TOKENS[tier], fallbacks: supportsFallbacks(model) };
+}
+
+// Gemini 3.8 Flash is newer at the same price but answered 503 "high demand" through 2026-10;
+// MERIDIAN_GEMINI_MODEL=gemini-3.8-flash switches to it
+const GEMINI_DEFAULT_MODEL = "gemini-3.6-flash";
+// answers when the tier's model is overloaded (503), before the turn moves to Claude;
+// MERIDIAN_GEMINI_OVERFLOW_MODEL overrides it, "off" disables it
+const GEMINI_OVERFLOW_MODEL = "gemini-3.5-flash-lite";
+
+export interface GeminiTierConfig {
+  model: string;
+  /** a second Gemini model for when `model` is overloaded */
+  overflow?: string;
+  thinkingLevel: "LOW" | "MEDIUM" | "HIGH";
+  max_tokens: number;
+}
+
+/** env → Gemini model per tier (plan mode) */
+export function geminiModels(env: Record<string, string | undefined> = process.env): Record<Tier, string> {
+  const all = env.MERIDIAN_GEMINI_MODEL;
+  return {
+    quick: env.MERIDIAN_GEMINI_MODEL_QUICK || all || GEMINI_DEFAULT_MODEL,
+    standard: env.MERIDIAN_GEMINI_MODEL_STANDARD || all || GEMINI_DEFAULT_MODEL,
+    deep: env.MERIDIAN_GEMINI_MODEL_DEEP || all || GEMINI_DEFAULT_MODEL,
+  };
+}
+
+/** Gemini request settings for a tier: same output ceiling, thinking level from the effort */
+export function geminiTierConfig(tier: Tier, env: Record<string, string | undefined> = process.env, effort?: Effort): GeminiTierConfig {
+  const e = effort ?? EFFORT[tier];
+  const model = geminiModels(env)[tier];
+  const o = env.MERIDIAN_GEMINI_OVERFLOW_MODEL?.trim() || GEMINI_OVERFLOW_MODEL;
+  const overflow = /^(off|none|0)$/i.test(o) || o === model ? undefined : o;
+  return { model, overflow, thinkingLevel: e === "low" ? "LOW" : e === "medium" ? "MEDIUM" : "HIGH", max_tokens: MAX_TOKENS[tier] };
 }
 
 /** agent loop bound: model turns per request, per tier */

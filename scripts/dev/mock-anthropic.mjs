@@ -4,6 +4,9 @@
 //
 // Usage: node scripts/dev/mock-anthropic.mjs [port]
 // then run the app with ANTHROPIC_API_KEY=mock MERIDIAN_ANTHROPIC_BASE_URL=http://localhost:<port>
+// and, for plan mode (served by Gemini, src/agent/providers.ts), GEMINI_API_KEY=mock
+// MERIDIAN_GEMINI_BASE_URL=http://localhost:<port> — otherwise a real GEMINI_API_KEY in .env.local
+// sends plan-mode turns to the real Gemini API.
 //
 // The flow is picked from the latest user request text (the block after the <context> snapshot),
 // first match wins (case-insensitive):
@@ -55,6 +58,11 @@
 // (src/agent/spend.ts) records realistic entries; point MERIDIAN_SPEND_LEDGER at a scratch file when
 // testing against the mock, and set MERIDIAN_SPEND_CAP_USD low to exercise the cap.
 // Turn latency: quick answers are immediate; other turns wait MOCK_DELAY ms (default 250; long flow 1200).
+// Gemini: POST /v1beta/models/<model>:streamGenerateContent runs the same flows on the translated request
+// (functionCall / functionResponse parts read as tool_use / tool_result) and streams Gemini SSE chunks
+// (a thought part first on tool turns, then text and function calls). A request mentioning "rate limit"
+// or "429" gets 429 RESOURCE_EXHAUSTED (retryDelay 15s), "overloaded" or "503" a 503 UNAVAILABLE, so
+// the route's fallback to Claude can be exercised; MOCK_GEMINI_STATUS=429|503 fails every Gemini request.
 import http from "node:http";
 import { readFileSync } from "node:fs";
 
@@ -385,11 +393,75 @@ function researchFlow(query, r, last) {
 const seenModels = new Set();
 const prevHistory = new Map();
 
+/** a Gemini generateContent request as the Messages API body the flows read */
+function fromGemini(model, g) {
+  const part = (p) => {
+    if (p.functionCall) return { type: "tool_use", id: p.functionCall.id, name: p.functionCall.name, input: p.functionCall.args ?? {} };
+    if (p.functionResponse) {
+      const r = p.functionResponse.response ?? {};
+      return { type: "tool_result", tool_use_id: p.functionResponse.id, content: JSON.stringify("error" in r ? r.error : "output" in r ? r.output : r), is_error: "error" in r || undefined };
+    }
+    if (p.inlineData) return { type: "image", source: { type: "base64", media_type: p.inlineData.mimeType, data: p.inlineData.data } };
+    return { type: "text", text: p.text ?? "" };
+  };
+  return {
+    model,
+    system: g.systemInstruction,
+    tools: (g.tools ?? []).flatMap((t) => t.functionDeclarations ?? []).map((d) => ({ name: d.name })),
+    messages: (g.contents ?? []).map((c) => ({ role: c.role === "model" ? "assistant" : "user", content: (c.parts ?? []).map(part) })),
+  };
+}
+
+function gemini(res, model, g) {
+  const body = fromGemini(model, g);
+  const { request } = conversation(body.messages);
+  const fail = process.env.MOCK_GEMINI_STATUS ?? (/\b(rate.?limit|429)\b/i.test(request) ? "429" : /\b(overloaded|503)\b/i.test(request) ? "503" : "");
+  if (fail) {
+    console.log(JSON.stringify({ gemini: true, model, status: Number(fail) }));
+    const error =
+      fail === "503"
+        ? { code: 503, message: "This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.", status: "UNAVAILABLE" }
+        : { code: 429, message: "Resource has been exhausted (e.g. check quota).", status: "RESOURCE_EXHAUSTED", details: [{ "@type": "type.googleapis.com/google.rpc.RetryInfo", retryDelay: "15s" }] };
+    res.writeHead(Number(fail), { "Content-Type": "application/json" }).end(JSON.stringify({ error }));
+    return;
+  }
+  const { turn, delay } = nextTurn(body);
+  const [blocks, stop] = turn;
+  console.log(JSON.stringify({ gemini: true, model, msgs: body.messages.length, tools: body.tools.length, thinking: g.generationConfig?.thinkingConfig?.thinkingLevel ?? g.thinkingConfig?.thinkingLevel, stop }));
+  const parts = [];
+  if (blocks.some((b) => b.type === "tool_use")) parts.push([{ text: "**Planning the next step**\n\nChoosing the tool for this request.", thought: true }]);
+  let signed = false;
+  for (const b of blocks) {
+    if (b.type === "text") for (const piece of b.text.match(/.{1,24}/gs) ?? []) parts.push([{ text: piece }]);
+    else {
+      // like Gemini 3: parallel calls carry one signature, on the first call of the step
+      parts.push([{ functionCall: { id: `call_mock_${++n}`, name: b.name, args: b.input }, ...(signed ? {} : { thoughtSignature: "bW9jay1zaWduYXR1cmU=" }) }]);
+      signed = true;
+    }
+  }
+  parts.push([{ text: "" }]);
+  const prompt = Math.round(JSON.stringify(g).length / 3.5);
+  const warm = seenModels.has(model);
+  seenModels.add(model);
+  const usageMetadata = { promptTokenCount: prompt, cachedContentTokenCount: warm ? Math.round(prompt * 0.6) : 0, candidatesTokenCount: 42, thoughtsTokenCount: 30, totalTokenCount: prompt + 72 };
+  const chunks = parts.map((p, i) => ({ candidates: [{ content: { role: "model", parts: p }, index: 0, ...(i === parts.length - 1 ? { finishReason: stop === "max_tokens" ? "MAX_TOKENS" : "STOP" } : {}) }], usageMetadata, modelVersion: model, responseId: `mock_${n}` }));
+  setTimeout(() => {
+    res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
+    for (const c of chunks) res.write(`data: ${JSON.stringify(c)}\r\n\r\n`);
+    res.end();
+  }, delay ?? BASE_DELAY);
+}
+
 http
   .createServer((req, res) => {
     let raw = "";
     req.on("data", (d) => (raw += d));
     req.on("end", () => {
+      const gm = req.method === "POST" && /^\/v1beta\/models\/([^:/]+):streamGenerateContent/.exec(req.url);
+      if (gm) {
+        gemini(res, decodeURIComponent(gm[1]), JSON.parse(raw));
+        return;
+      }
       if (req.method !== "POST" || !req.url.startsWith("/v1/messages")) {
         res.writeHead(404).end("{}");
         return;
@@ -424,4 +496,4 @@ http
       setTimeout(() => sse(res, message(turn[0], turn[1], body.model, usage)), delay ?? BASE_DELAY);
     });
   })
-  .listen(port, () => console.log(`mock Anthropic API on :${port}`));
+  .listen(port, () => console.log(`mock Anthropic + Gemini API on :${port}`));

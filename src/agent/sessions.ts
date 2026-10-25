@@ -200,10 +200,12 @@ export async function checkAgent() {
 
 // ---------------------------------------------------------------- transport
 
-export type StreamEvent = { t: "text" | "thinking"; d: string } | { t: "tool"; id: string; name: string } | { t: "final"; message: Anthropic.Beta.BetaMessage; cost?: { usd: number; total_usd: number; cap_usd: number | null } } | { t: "route"; model: string; effort: string } | { t: "error"; message: string };
-export type Transport = (body: { messages: MsgParam[]; tier: Tier; city: string }, signal: AbortSignal) => AsyncIterable<StreamEvent>;
+export type StreamEvent = { t: "text" | "thinking"; d: string } | { t: "tool"; id: string; name: string } | { t: "final"; message: Anthropic.Beta.BetaMessage; cost?: { usd: number; total_usd: number; cap_usd: number | null } } | { t: "route"; model: string; effort: string; provider?: "claude" | "gemini"; fallback?: string } | { t: "error"; message: string };
+/** the server picks the provider from the mode: plan → Gemini (Claude when it is rate-limited), otherwise Claude */
+export type TurnRequest = { messages: MsgParam[]; tier: Tier; city: string; mode: AgentMode };
+export type Transport = (body: TurnRequest, signal: AbortSignal) => AsyncIterable<StreamEvent>;
 
-async function* fetchTransport(body: { messages: MsgParam[]; tier: Tier; city: string }, signal: AbortSignal): AsyncIterable<StreamEvent> {
+async function* fetchTransport(body: TurnRequest, signal: AbortSignal): AsyncIterable<StreamEvent> {
   const res = await fetch("/api/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal });
   if (!res.ok || !res.body) {
     const j = await res.json().catch(() => ({ error: res.statusText }));
@@ -373,10 +375,12 @@ function toolCtx(sessionId: string, signal: AbortSignal): ToolContext {
   };
 }
 
-async function streamTurn(sessionId: string, itemId: string, tier: Tier, signal: AbortSignal, onFirst: () => void): Promise<{ msg: Anthropic.Beta.BetaMessage | null; model?: string; usd?: number }> {
+async function streamTurn(sessionId: string, itemId: string, tier: Tier, signal: AbortSignal, onFirst: () => void): Promise<{ msg: Anthropic.Beta.BetaMessage | null; model?: string; usd?: number; provider?: "claude" | "gemini"; fallback?: string }> {
   const r = rtOf(sessionId);
   let final: Anthropic.Beta.BetaMessage | null = null;
   let model: string | undefined;
+  let provider: "claude" | "gemini" | undefined;
+  let fallback: string | undefined;
   let firstSeen = false;
   let usd: number | undefined;
   const append = (type: "thinking" | "text", d: string) =>
@@ -388,7 +392,7 @@ async function streamTurn(sessionId: string, itemId: string, tier: Tier, signal:
       else segs.push({ type, text: d });
       return { ...it, segments: segs };
     });
-  for await (const ev of transport({ messages: r.messages, tier, city: rtMaybe()?.cityId ?? "sandbox" }, signal)) {
+  for await (const ev of transport({ messages: r.messages, tier, city: rtMaybe()?.cityId ?? "sandbox", mode: r.run?.mode ?? getS(sessionId)?.mode ?? "edit" }, signal)) {
     if (signal.aborted) throw Object.assign(new Error("Stopped"), { name: "AbortError" });
     if (!firstSeen && (ev.t === "text" || ev.t === "tool" || ev.t === "final")) {
       firstSeen = true;
@@ -397,14 +401,18 @@ async function streamTurn(sessionId: string, itemId: string, tier: Tier, signal:
     if (ev.t === "text") append("text", ev.d);
     else if (ev.t === "thinking") append("thinking", ev.d);
     else if (ev.t === "tool") patchItem(sessionId, itemId, (it) => (it.kind === "assistant" ? { ...it, segments: [...it.segments, { type: "tool", call: { id: ev.id, name: ev.name, status: "streaming", startedAt: Date.now() } }] } : it));
-    else if (ev.t === "route") model = ev.model;
+    else if (ev.t === "route") {
+      model = ev.model;
+      provider = ev.provider;
+      fallback = ev.fallback;
+    }
     else if (ev.t === "final") {
       final = ev.message;
       usd = ev.cost?.usd;
     }
     else if (ev.t === "error") throw new Error(ev.message);
   }
-  return { msg: final, model, usd };
+  return { msg: final, model, usd, provider, fallback };
 }
 
 const asView = (d: ToolOutput["display"]): ToolCallView["display"] => d;
@@ -523,6 +531,12 @@ export async function send(id: string, text: string, opts: { mode?: AgentMode; z
   let tools = 0;
   let firstMs: number | undefined;
   let model: string | undefined;
+  let provider: "claude" | "gemini" | undefined;
+  let fallback: string | undefined;
+  /** "Gemini rate limit: Claude answered 2 of 5 turns of this plan-mode run." — added when the run ends */
+  let fellBack = 0,
+    turns = 0;
+  const providerNote = () => (fellBack ? [{ kind: "notice" as const, id: nid("n"), tone: "info" as const, text: `${fallback}: Claude answered ${fellBack < turns ? `${fellBack} of ${turns} turns of ` : turns > 1 ? "every turn of " : ""}this plan-mode run.` }] : []);
   try {
     const maxSteps = MAX_STEPS[route.tier];
     for (let step = 0; step < maxSteps; step++) {
@@ -536,6 +550,12 @@ export async function send(id: string, text: string, opts: { mode?: AgentMode; z
       pushItem(id, { kind: "assistant", id: itemId, segments: [], done: false, startedAt: ts });
       const turn = await streamTurn(id, itemId, route.tier, signal, () => (firstMs ??= Date.now() - t0));
       model = turn.model ?? model;
+      provider = turn.provider ?? provider;
+      turns++;
+      if (turn.fallback) {
+        fellBack++;
+        fallback = turn.fallback;
+      }
       cost += turn.usd ?? 0;
       const msg = turn.msg;
       if (!msg) throw new Error("The model stream ended without a message");
@@ -568,8 +588,8 @@ export async function send(id: string, text: string, opts: { mode?: AgentMode; z
     }
     patch(id, (x) => ({
       status: "idle",
-      items: signal.aborted ? [...x.items, { kind: "notice", id: nid("n"), tone: "info", text: "Stopped." }] : x.items,
-      lastRun: { ...x.lastRun!, model, ms: Date.now() - t0, firstTokenMs: firstMs, tools, costUsd: cost },
+      items: [...x.items, ...providerNote(), ...(signal.aborted ? [{ kind: "notice" as const, id: nid("n"), tone: "info" as const, text: "Stopped." }] : [])],
+      lastRun: { ...x.lastRun!, model, provider, fallback, ms: Date.now() - t0, firstTokenMs: firstMs, tools, costUsd: cost },
     }));
   } catch (e) {
     const err = e as Error;
@@ -583,8 +603,8 @@ export async function send(id: string, text: string, opts: { mode?: AgentMode; z
     patch(id, (x) => ({
       status: aborted ? "idle" : "error",
       error: aborted ? undefined : err.message,
-      items: [...x.items.map((it) => (it.kind === "assistant" && !it.done ? { ...it, done: true } : it)), { kind: "notice", id: nid("n"), tone: aborted ? "info" : "error", text: aborted ? "Stopped." : err.message }],
-      lastRun: x.lastRun ? { ...x.lastRun, model, ms: Date.now() - t0, firstTokenMs: firstMs, tools, costUsd: cost } : undefined,
+      items: [...x.items.map((it) => (it.kind === "assistant" && !it.done ? { ...it, done: true } : it)), ...providerNote(), { kind: "notice", id: nid("n"), tone: aborted ? "info" : "error", text: aborted ? "Stopped." : err.message }],
+      lastRun: x.lastRun ? { ...x.lastRun, model, provider, fallback, ms: Date.now() - t0, firstTokenMs: firstMs, tools, costUsd: cost } : undefined,
     }));
   } finally {
     r.abort = null;

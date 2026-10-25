@@ -1,7 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { tierModels } from "@/agent/models";
+import { GoogleGenAI } from "@google/genai";
+import { geminiModels, geminiTierConfig, tierModels } from "@/agent/models";
+import { chooseProvider, serveTurn, type ClaudeClient, type GeminiClient } from "@/agent/providers";
 import { API_TOOLS, buildRequest, type TurnBody } from "@/agent/request";
 import { ledger, SpendLedger } from "@/agent/spend";
+import type { AgentMode } from "@/agent/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,34 +22,62 @@ export const dynamic = "force-dynamic";
  *
  * Spend: every response is priced from its usage and recorded in the ledger (src/agent/spend.ts);
  * a request whose worst case would cross MERIDIAN_SPEND_CAP_USD is refused before it is sent.
+ *
+ * Provider (src/agent/providers.ts): plan-mode turns go to Gemini when GEMINI_API_KEY is set, with the
+ * Claude-format request translated (src/agent/gemini.ts) so the stream keeps its shape; a Gemini rate
+ * limit retries the turn on Claude. Every other mode is Claude. MERIDIAN_GEMINI_BASE_URL points the
+ * Gemini client at the dev mock (scripts/dev/mock-anthropic.mjs).
  */
 
-function client() {
+function claude(): ClaudeClient | null {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return null;
   // explicit base URL so a host-level ANTHROPIC_BASE_URL meant for other tools is not picked up
-  return new Anthropic({ apiKey, baseURL: process.env.MERIDIAN_ANTHROPIC_BASE_URL ?? "https://api.anthropic.com" });
+  return new Anthropic({ apiKey, baseURL: process.env.MERIDIAN_ANTHROPIC_BASE_URL ?? "https://api.anthropic.com" }) as unknown as ClaudeClient;
+}
+
+let geminiClient: { key: string; client: GeminiClient } | null = null;
+function gemini(): GeminiClient | null {
+  // read here, server-side only: the key never reaches a client bundle (no NEXT_PUBLIC_ prefix)
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+  if (geminiClient?.key !== apiKey) {
+    const baseUrl = process.env.MERIDIAN_GEMINI_BASE_URL;
+    geminiClient = { key: apiKey, client: new GoogleGenAI({ apiKey, ...(baseUrl ? { httpOptions: { baseUrl } } : {}) }) };
+  }
+  return geminiClient.client;
 }
 
 export async function GET() {
   const models = tierModels();
   const L = ledger();
   L.refresh();
-  return Response.json({ configured: !!process.env.ANTHROPIC_API_KEY, model: models.standard, models, spend: L.snapshot() });
+  const plan = chooseProvider("plan");
+  return Response.json({
+    configured: !!process.env.ANTHROPIC_API_KEY,
+    model: models.standard,
+    models,
+    plan: { provider: plan.provider, reason: plan.reason, models: plan.provider === "gemini" ? geminiModels() : models },
+    spend: L.snapshot(),
+  });
 }
 
 const TOOLS_CHARS = JSON.stringify(API_TOOLS).length;
 
 export async function POST(req: Request) {
-  const c = client();
-  if (!c) return Response.json({ error: "ANTHROPIC_API_KEY is not set on the server. Add it to .env.local and restart." }, { status: 503 });
-  const body = (await req.json()) as TurnBody;
+  const body = (await req.json()) as TurnBody & { mode?: AgentMode };
+  const choice = chooseProvider(body.mode);
+  const c = claude();
+  if (!c && choice.provider === "claude") return Response.json({ error: "ANTHROPIC_API_KEY is not set on the server. Add it to .env.local and restart." }, { status: 503 });
   const { cfg, tier: tierName, params } = buildRequest(body);
+  const gcfg = geminiTierConfig(tierName, process.env, body.effort && body.tier === undefined ? body.effort : undefined);
   const system = (params.system as { text: string }[])[0].text;
 
   const L = ledger();
   const promptChars = JSON.stringify(body.messages).length + system.length + TOOLS_CHARS;
-  const r = L.reserve(SpendLedger.estimate(cfg.model, promptChars, cfg.max_tokens));
+  // a Gemini turn may fall back to Claude: reserve the dearer of the two
+  const worst = Math.max(SpendLedger.estimate(cfg.model, promptChars, cfg.max_tokens), choice.provider === "gemini" ? SpendLedger.estimate(gcfg.model, promptChars, gcfg.max_tokens) : 0);
+  const r = L.reserve(worst);
   if (!r.ok) return Response.json({ error: r.message, spend: L.snapshot() }, { status: 402 });
   const ticket = r.ticket;
 
@@ -54,40 +85,9 @@ export async function POST(req: Request) {
   const stream = new ReadableStream({
     async start(controller) {
       const send = (o: unknown) => controller.enqueue(enc.encode(JSON.stringify(o) + "\n"));
-      let committed = false;
-      let streamed = 0;
       try {
-        send({ t: "route", model: cfg.model, effort: cfg.effort, tier: tierName });
-        const s = c.beta.messages.stream(
-          params as unknown as Anthropic.Beta.MessageCreateParamsStreaming,
-          { signal: req.signal },
-        );
-        for await (const ev of s) {
-          if (ev.type === "content_block_start" && ev.content_block.type === "tool_use") send({ t: "tool", id: ev.content_block.id, name: ev.content_block.name });
-          else if (ev.type === "content_block_delta") {
-            if (ev.delta.type === "text_delta") {
-              streamed += ev.delta.text.length;
-              send({ t: "text", d: ev.delta.text });
-            } else if (ev.delta.type === "thinking_delta") {
-              streamed += ev.delta.thinking.length;
-              send({ t: "thinking", d: ev.delta.thinking });
-            } else if (ev.delta.type === "input_json_delta") streamed += ev.delta.partial_json.length;
-          }
-        }
-        const final = await s.finalMessage();
-        const usd = L.commit(ticket, final.model || cfg.model, final.usage as never, tierName);
-        committed = true;
-        send({ t: "final", message: final, cost: { usd, total_usd: L.total, cap_usd: L.cap } });
-      } catch (e) {
-        const err = e as Error & { status?: number };
-        send({ t: "error", message: err.message, status: err.status ?? (err instanceof Anthropic.APIError ? err.status : undefined) });
+        await serveTurn({ choice, claude: c, gemini: choice.provider === "gemini" ? gemini() : null, params, cfg, gcfg, tier: tierName, ledger: L, ticket, promptChars, signal: req.signal, send });
       } finally {
-        if (!committed) {
-          // stopped or failed mid-stream: what was generated is billed but its usage never arrived,
-          // so book an estimate (prompt once + the streamed characters as output) instead of nothing
-          if (streamed > 0) L.commit(ticket, cfg.model, { input_tokens: Math.round(promptChars / 3.5), output_tokens: Math.round(streamed / 3) }, `${tierName}:interrupted`);
-          else L.release(ticket);
-        }
         try {
           controller.close();
         } catch {

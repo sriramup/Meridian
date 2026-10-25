@@ -20,6 +20,7 @@
     "@deck.gl/layers": "^9.4.0",
     "@deck.gl/mapbox": "^9.4.0",
     "@deck.gl/mesh-layers": "^9.4.0",
+    "@google/genai": "^2.31.0",
     "@luma.gl/core": "^9.4.2",
     "@luma.gl/engine": "^9.4.2",
     "@luma.gl/shadertools": "^9.4.2",

@@ -86,6 +86,10 @@ export interface RunStats {
   reason?: string;
   /** model that served it (reported by the server) */
   model?: string;
+  /** provider of its last model turn: Gemini serves plan mode, Claude everything else */
+  provider?: "claude" | "gemini";
+  /** set when Gemini was rate-limited and Claude answered, e.g. "Gemini rate limit" */
+  fallback?: string;
   startedAt: number;
   /** total run time */
   ms?: number;
