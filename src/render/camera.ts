@@ -1,3 +1,4 @@
+import { centreOffset } from "@/state/panels";
 import { rtMaybe } from "@/state/runtime";
 import { LocalProjection } from "@/world/projection";
 import type { Vec2 } from "@/world/types";
@@ -25,6 +26,8 @@ export function flyTo(p: Vec2, opts: { zoom?: number; pitch?: number; bearing?: 
     bearing: opts.bearing ?? c.map.getBearing(),
     duration: opts.duration ?? 2200,
     curve: 1.3,
+    // land between the side panels, not behind one
+    offset: centreOffset(),
     essential: true,
   });
 }
@@ -34,7 +37,7 @@ export function overview() {
   if (!c) return;
   stopOrbit();
   const iv = c.R.meta.initialView;
-  c.map.flyTo({ center: c.proj.toLonLat(iv.center), zoom: iv.zoom - 0.3, pitch: iv.pitch, bearing: iv.bearing, duration: 2400, curve: 1.2 });
+  c.map.flyTo({ center: c.proj.toLonLat(iv.center), zoom: iv.zoom - 0.3, pitch: iv.pitch, bearing: iv.bearing, offset: centreOffset(), duration: 2400, curve: 1.2 });
 }
 
 // street level (the eye-height camera) lives in streetView.ts
@@ -44,7 +47,7 @@ export function orbit(p: Vec2, seconds = 30) {
   const c = ctx();
   if (!c) return;
   stopOrbit();
-  c.map.flyTo({ center: c.proj.toLonLat(p), zoom: 17, pitch: 62, duration: 1800 });
+  c.map.flyTo({ center: c.proj.toLonLat(p), zoom: 17, pitch: 62, offset: centreOffset(), duration: 1800 });
   const start = performance.now() + 1900;
   const b0 = c.map.getBearing();
   const step = () => {
@@ -72,7 +75,7 @@ export async function flyover(points: Vec2[]) {
     const bearing = (Math.atan2(next[0] - p[0], next[1] - p[1]) * 180) / Math.PI;
     await new Promise<void>((resolve) => {
       c.map.once("moveend", () => resolve());
-      c.map.flyTo({ center: c.proj.toLonLat(p), zoom: 17.2, pitch: 65, bearing: i === points.length - 1 ? c.map.getBearing() + 40 : bearing, duration: 3000, curve: 1.1 });
+      c.map.flyTo({ center: c.proj.toLonLat(p), zoom: 17.2, pitch: 65, bearing: i === points.length - 1 ? c.map.getBearing() + 40 : bearing, offset: centreOffset(), duration: 3000, curve: 1.1 });
     });
     await new Promise((r) => setTimeout(r, 600));
   }
