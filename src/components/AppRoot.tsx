@@ -38,7 +38,7 @@ export function AppRoot() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
   return (
-    <main className="fixed inset-0 flex overflow-hidden bg-paper" style={{ backgroundImage: "var(--parchment), radial-gradient(90% 80% at 50% 40%, #f8eccf 0%, #eedcb5 62%, #d9bd8a 100%)" }}>
+    <main className="app-backdrop fixed inset-0 flex overflow-hidden">
       {mounted && (
         <TooltipPrimitive.Provider>
           {loaded && sidebarOpen && (

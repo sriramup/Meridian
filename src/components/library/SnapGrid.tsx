@@ -9,7 +9,8 @@ import { COORDINATE_SYSTEM, type Layer, type Position } from "@deck.gl/core";
 import { PathLayer } from "@deck.gl/layers";
 import { useEffect, useMemo, useState } from "react";
 import { useLayerSlot } from "@/render/layerSlots";
-import { MODEL, NIGHT } from "@/render/theme";
+import { dayTheme, NIGHT } from "@/render/theme";
+import { useTheme } from "@/state/theme";
 import { rtMaybe } from "@/state/runtime";
 import { gridOn, useSnap } from "@/state/snap";
 import { useApp } from "@/state/store";
@@ -87,7 +88,9 @@ export function SnapGrid() {
   const snap = useSnap();
   const on = gridOn(snap);
   // the grid follows the clock: light lines on dark ground at night (render/daylight.ts)
-  const theme = useNight((s) => (s.night ? "night" : "model"));
+  const night = useNight((s) => s.night);
+  const ui = useTheme((s) => s.theme);
+  const theme = night ? "night" : ui === "dark" ? "graphite" : "model";
   const status = useApp((s) => s.status);
   const mpp = useMapScale();
   const layers = useMemo((): Layer[] | null => {
@@ -98,8 +101,8 @@ export function SnapGrid() {
     const b = R.meta.bounds;
     const origin: [number, number, number] = [R.meta.origin.lon, R.meta.origin.lat, 0];
     const common = { coordinateSystem: COORDINATE_SYSTEM.METER_OFFSETS, coordinateOrigin: origin };
-    const T = theme === "night" ? NIGHT : MODEL;
-    const ink = (theme === "night" ? T.land.map((c) => Math.min(255, c + 40)) : T.land.map((c) => Math.max(0, c - 44))) as [number, number, number];
+    const T = theme === "night" ? NIGHT : dayTheme();
+    const ink = (theme !== "model" ? T.land.map((c) => Math.min(255, c + 40)) : T.land.map((c) => Math.max(0, c - 44))) as [number, number, number];
     const out: Layer[] = [];
     if (on) {
       const step = snap.sizeFt * FT;

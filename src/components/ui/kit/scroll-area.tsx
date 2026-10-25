@@ -43,7 +43,7 @@ export const ScrollBar = forwardRef<ElementRef<typeof SA.Scrollbar>, ComponentPr
       )}
       {...props}
     >
-      <SA.Thumb className="relative flex-1 rounded-full bg-[#9c7a48]/45 transition-colors hover:bg-[#9c7a48]/70" />
+      <SA.Thumb className="relative flex-1 rounded-full bg-accent-edge/45 transition-colors hover:bg-accent-edge/70" />
     </SA.Scrollbar>
   );
 });

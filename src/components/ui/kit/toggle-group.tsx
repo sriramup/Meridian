@@ -33,7 +33,7 @@ const itemVariants = cva(
     variants: {
       variant: {
         segmented:
-          "rounded-[4px] text-ink-3 hover:text-ink [&:is([aria-checked=true],[aria-pressed=true])]:bg-[#f8eed6] [&:is([aria-checked=true],[aria-pressed=true])]:text-rose [&:is([aria-checked=true],[aria-pressed=true])]:shadow-[0_1px_2px_rgb(88_60_28/0.22)]",
+          "rounded-[4px] text-ink-3 hover:text-ink [&:is([aria-checked=true],[aria-pressed=true])]:bg-field [&:is([aria-checked=true],[aria-pressed=true])]:text-rose [&:is([aria-checked=true],[aria-pressed=true])]:shadow-[0_1px_2px_rgb(88_60_28/0.22)]",
         ghost: "rounded-[6px] text-ink-2 hover:bg-paper-3 [&:is([aria-checked=true],[aria-pressed=true])]:bg-accent [&:is([aria-checked=true],[aria-pressed=true])]:text-on-accent",
       },
       size: {

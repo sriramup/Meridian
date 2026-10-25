@@ -15,7 +15,7 @@ export const surface = "kit-surface kit-pop z-50 text-ink";
 
 /** Shared text-field chrome (Input, Textarea, Select trigger, NumberField). */
 export const fieldBase =
-  "rounded-[6px] border border-line-2 bg-[#f8eed6]/70 text-ink shadow-[inset_0_1px_1px_rgb(88_60_28/0.08)] transition-[border-color,box-shadow,background-color] duration-100 placeholder:text-ink-4 hover:border-ink-4/70 focus-visible:border-rose/55 focus-visible:ring-2 focus-visible:ring-rose/20 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-45 aria-invalid:border-bad/60 aria-invalid:ring-bad/20";
+  "rounded-[6px] border border-line-2 bg-field/70 text-ink shadow-[inset_0_1px_1px_rgb(88_60_28/0.08)] transition-[border-color,box-shadow,background-color] duration-100 placeholder:text-ink-4 hover:border-ink-4/70 focus-visible:border-rose/55 focus-visible:ring-2 focus-visible:ring-rose/20 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-45 aria-invalid:border-bad/60 aria-invalid:ring-bad/20";
 
 export const fieldSizes = {
   xs: "h-6 text-[11.5px]",

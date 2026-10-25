@@ -38,10 +38,9 @@ export function LoadingScreen() {
     <div
       data-testid="loading-card"
       aria-busy={busy}
-      className="absolute inset-0 z-40 grid place-items-center"
+      // over the app: a sheet laid on the map (a blur would cost every frame under it)
+      className={`absolute inset-0 z-40 ${over ? "loading-veil" : "app-backdrop"}`}
       style={{
-        // over the app: a sheet of parchment laid on the map (a blur would cost every frame under it)
-        background: over ? "rgb(241 226 194 / 0.72)" : "var(--parchment), radial-gradient(90% 80% at 50% 40%, #f8eccf 0%, #eedcb5 62%, #d9bd8a 100%)",
         opacity: busy ? 1 : 0,
         transition: "opacity 200ms ease-out",
         animation: "kit-fade-in 160ms ease-out",

@@ -43,6 +43,14 @@
   --color-sky: #b3c9cf;
   --color-lavender: #cdbfd6;
   --color-sage: #c6d3b0;
+  /* text fields, selected tabs and keys: a lighter sheet laid on the panel */
+  --color-field: #f8eed6;
+  /* the rim of accent fills (checked boxes, switches, primary buttons, slider ranges) */
+  --color-accent-edge: #a67b42;
+  /* switch and slider knobs */
+  --color-knob: #fbf3e1;
+  /* behind modal dialogs */
+  --color-scrim: rgb(46 28 14 / 0.25);
   --radius-panel: 7px;
 }
 
@@ -53,6 +61,14 @@
   /* creases of a sheet that has been folded and handled: ridged noise lit from the upper left */
   --crinkle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='900'%3E%3Cfilter id='c'%3E%3CfeTurbulence type='turbulence' baseFrequency='0.006 0.009' numOctaves='4' seed='3' stitchTiles='stitch' result='t'/%3E%3CfeDiffuseLighting in='t' surfaceScale='4.5' lighting-color='%23fff'%3E%3CfeDistantLight azimuth='225' elevation='58'/%3E%3C/feDiffuseLighting%3E%3CfeColorMatrix values='0 0 0 0 0.36 0 0 0 0 0.22 0 0 0 0 0.09 -0.9 0 0 0 0.84'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23c)'/%3E%3C/svg%3E");
   --parchment: var(--grain), var(--crinkle);
+}
+
+/* the page behind the app and the loading card's veil */
+.app-backdrop {
+  background: var(--parchment), radial-gradient(90% 80% at 50% 40%, #f8eccf 0%, #eedcb5 62%, #d9bd8a 100%);
+}
+.loading-veil {
+  background: rgb(241 226 194 / 0.72);
 }
 
 html,
@@ -267,4 +283,111 @@ select option {
   .kit-spin {
     animation-duration: 2.4s;
   }
+}
+
+/* ---- themes ------------------------------------------------------------------------------- */
+
+/* Cartography (above) is the default. Dark: the same layout in a clean, neutral dark UI, with no
+   paper texture or engraved faces; the map itself keeps its own palette. Chosen in Settings
+   (src/components/SettingsMenu.tsx) and set as <html data-theme> before the first paint. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --grain: none;
+  --crinkle: none;
+  --font-display: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-legend: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-brand: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --color-ink: #ececef;
+  --color-ink-2: #c8c8ce;
+  --color-ink-3: #9b9ba4;
+  --color-ink-4: #6f6f79;
+  --color-line: #2a2a30;
+  --color-line-2: #3a3a42;
+  --color-paper: #19191c;
+  --color-paper-2: #202024;
+  --color-paper-3: #2b2b30;
+  /* one crisp blue for everything interactive; violet marks what a plan proposes */
+  --color-accent: #4a7dff;
+  --color-accent-2: #1c2642;
+  --color-on-accent: #ffffff;
+  --color-rose: #8eb0ff;
+  --color-gold: #7f9dff;
+  --color-gold-2: #1f2844;
+  --color-proposed: #b598ff;
+  --color-proposed-2: #2a2342;
+  --color-good: #86b66f;
+  --color-good-2: #1f2d1d;
+  --color-warn: #e8a94f;
+  --color-warn-2: #33280f;
+  --color-bad: #ec7a65;
+  --color-bad-2: #3e201b;
+  --color-sky: #3c5a63;
+  --color-lavender: #4a4258;
+  --color-sage: #3e4a33;
+  --color-field: #141417;
+  --color-accent-edge: #3f6ce6;
+  --color-knob: #f1f1f3;
+  --color-scrim: rgb(0 0 0 / 0.55);
+}
+
+:root[data-theme="dark"] .app-backdrop {
+  background: radial-gradient(90% 80% at 50% 40%, #1f1f23 0%, #141416 70%, #0e0e10 100%);
+}
+:root[data-theme="dark"] .loading-veil {
+  background: rgb(14 14 16 / 0.72);
+}
+
+:root[data-theme="dark"] .chrome,
+:root[data-theme="dark"] .panel {
+  background: #1c1c20;
+  border: 1px solid rgb(255 255 255 / 0.08);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.04),
+    0 1px 2px rgb(0 0 0 / 0.4),
+    0 16px 34px -16px rgb(0 0 0 / 0.7);
+}
+:root[data-theme="dark"] .scroll-ends,
+:root[data-theme="dark"] .agent-sheet {
+  background: #1c1c20;
+}
+:root[data-theme="dark"] .agent-sheet {
+  border-left: 1px solid rgb(255 255 255 / 0.08);
+}
+
+:root[data-theme="dark"] .kit-surface {
+  background: #212125;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 14px 32px -12px rgb(0 0 0 / 0.7);
+}
+:root[data-theme="dark"] .kit-tip {
+  background: #2b2b30;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  box-shadow: 0 6px 16px -6px rgb(0 0 0 / 0.6);
+}
+:root[data-theme="dark"] .kit-scroll,
+:root[data-theme="dark"] .scroll-thin {
+  scrollbar-color: rgb(255 255 255 / 0.18) transparent;
+}
+
+/* a sans legend reads as a small uppercase label rather than spaced small capitals */
+:root[data-theme="dark"] .font-legend {
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+:root[data-theme="dark"] .font-display {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+:root[data-theme="dark"] .font-brand {
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+/* the projects pane's sheet */
+.sidebar-sheet {
+  background: var(--parchment), linear-gradient(270deg, #d8bd8c 0, #ecdab4 12px, #f4e6c7 60%, #eedcb6 100%);
+}
+:root[data-theme="dark"] .sidebar-sheet {
+  background: #161619;
 }

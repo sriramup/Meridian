@@ -17,12 +17,12 @@ export const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "border border-line-2 bg-[#f8eed6]/80 text-ink shadow-[0_1px_1px_rgb(88_60_28/0.10)] hover:border-ink-4/70 hover:bg-paper-2 active:bg-paper-3",
+          "border border-line-2 bg-field/80 text-ink shadow-[0_1px_1px_rgb(88_60_28/0.10)] hover:border-ink-4/70 hover:bg-paper-2 active:bg-paper-3",
         primary:
-          "border border-[#b98d52] bg-accent text-on-accent shadow-[inset_0_1px_0_rgb(255_244_220/0.45),0_1px_1px_rgb(88_60_28/0.18)] hover:brightness-[1.06] active:brightness-95",
+          "border border-accent-edge bg-accent text-on-accent shadow-[inset_0_1px_0_rgb(255_244_220/0.45),0_1px_1px_rgb(88_60_28/0.18)] hover:brightness-[1.06] active:brightness-95",
         outline: "border border-line-2 bg-transparent text-ink-2 hover:bg-paper-3/70 hover:text-ink active:bg-paper-3",
         ghost: "border border-transparent text-ink-2 hover:bg-paper-3 hover:text-ink active:bg-line",
-        danger: "border border-bad/30 bg-bad-2 text-bad hover:border-bad/45 hover:bg-[#ebc5b2] active:bg-[#e5baa5]",
+        danger: "border border-bad/30 bg-bad-2 text-bad hover:border-bad/45 hover:brightness-95 active:brightness-90",
       },
       size: {
         xs: "h-6 px-2 text-[11.5px] [&_svg[width='24']:not([class*='size-'])]:size-3",
@@ -33,7 +33,7 @@ export const buttonVariants = cva(
         "icon-xs": "size-6 [&_svg[width='24']:not([class*='size-'])]:size-3.5",
       },
       active: {
-        true: "border-[#b98d52] bg-accent text-on-accent hover:border-[#b98d52] hover:bg-accent hover:text-on-accent hover:brightness-[1.04]",
+        true: "border-accent-edge bg-accent text-on-accent hover:border-accent-edge hover:bg-accent hover:text-on-accent hover:brightness-[1.04]",
         false: "",
       },
     },

@@ -5,7 +5,7 @@
 import type maplibregl from "maplibre-gl";
 import type { MapboxOverlay } from "@deck.gl/mapbox";
 import { SceneCache } from "@/render/scene";
-import { MODEL } from "@/render/theme";
+import { dayTheme } from "@/render/theme";
 import { ScenarioManager } from "@/world/scenarios";
 import type { CensusBlock, CityMeta, CountStation, Entity, Polygon } from "@/world/types";
 import { World } from "@/world/world";
@@ -180,7 +180,7 @@ export function sandboxRuntime(climateId: string, climate: CityMeta): Runtime {
   const world = new World(meta);
   world.load([]);
   const scenarios = new ScenarioManager(world, { baselineName: "Blank site", baselineDescription: "Empty site: everything here is designed", branchPrefix: "Design" });
-  const scene = new SceneCache(world, MODEL, chunkTarget());
+  const scene = new SceneCache(world, dayTheme(), chunkTarget());
   world.takeDirty();
   return {
     cityId: "sandbox",
@@ -237,7 +237,7 @@ export async function buildCity(cityId: string, onProgress: (p: number, label: s
   onProgress(0.97, "Preparing scene");
   await new Promise((r) => setTimeout(r, 0));
   const scenarios = new ScenarioManager(world);
-  const scene = new SceneCache(world, MODEL, chunkTarget());
+  const scene = new SceneCache(world, dayTheme(), chunkTarget());
   world.takeDirty();
   const b = meta.bounds;
   const fadeAt = (pts: [number, number][]) => {
