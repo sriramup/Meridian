@@ -117,7 +117,8 @@ export function Shell() {
             <div className="absolute top-16 left-1/2 -translate-x-1/2">
               <Toasts />
             </div>
-            <div className="absolute inset-0 grid place-items-center">
+            {/* centred on the window, not the map area (which the projects and agent panes narrow) */}
+            <div className="fixed inset-0 grid place-items-center">
               <StartCard />
             </div>
             <Attribution />
