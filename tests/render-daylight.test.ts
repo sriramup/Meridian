@@ -17,6 +17,8 @@ describe("day and night follow the clock", () => {
       prev = n;
     }
     expect(nightAt(20)).toBe(0);
+    // surfaces start dimming before the night looks switch on
+    for (let alt = 30; alt >= -20; alt -= 1) expect(lightsAt(alt).dim).toBeGreaterThanOrEqual(lightsAt(alt).night - 1e-9);
     expect(nightAt(-12)).toBe(1);
   });
 
