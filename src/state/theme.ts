@@ -25,8 +25,9 @@ function stored(): ThemeId {
 export const useTheme = create<{ theme: ThemeId }>(() => ({ theme: typeof window === "undefined" ? "cartography" : stored() }));
 
 export function setTheme(theme: ThemeId) {
-  useTheme.setState({ theme });
+  // the attribute first: subscribers (the map) read it to pick their palette
   document.documentElement.dataset.theme = theme;
+  useTheme.setState({ theme });
   try {
     localStorage.setItem(KEY, theme);
   } catch {
