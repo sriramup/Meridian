@@ -22,6 +22,23 @@ const ANALYSIS = /\b(simulat|suggest|propose|recommend|find|locate|identify|wher
 const DEEP =
   /\b(masterplan|master plan|district|neighbourhood plan|neighborhood plan|optimi[sz]\w*|alternatives?|options|scenarios to|branches|compare|comparison|trade-?offs?|strategy|strategic|redesign|overhaul|transform|study|several|multiple|each of|whole (city|area|downtown|network)|network-wide|citywide|city-wide|minimi[sz]e|maximi[sz]e|best (way|site|location)s?|plan for|step by step|thorough|in depth|in-depth|comprehensive)\b/i;
 const QUESTION = /^(what|what's|whats|which|where|who|when|how (many|much|tall|high|wide|long|big|far|old)|is|are|was|were|does|do|did|can you tell|tell me|show me what|why is|why are|any)\b/i;
+// "take me to 21st and Guadalupe", "go to Pine Street", "show me the university", "where is Republic Square?"
+// — resolve + fly the camera: one go_to call, so the quick tier. Not when the sentence also asks for an
+// edit or analysis ("go to 6th and widen it"), and "show me" followed by an overlay / model is not a place.
+const NAV = /^(?:(?:can|could|would) you |please |now |ok(?:ay)?,? |and )*(?:take me (?:to|back to)|bring me to|go (?:to|back to)|fly (?:me )?to|zoom (?:in )?(?:to|on)|jump to|navigate to|head to|center (?:on|the map on)|centre (?:on|the map on)|focus on|show me|where(?:'s| is| are))\s+(.+?)[\s?.!]*$/i;
+const NOT_PLACE = /\b(heat|traffic|overlay|map of|model|simulation|density|access|runoff|flood|zoning|growth|transit coverage|bike stress|sun|shadow|shade|kpis?|results?|options?|alternatives?|how|why|what|where (?:to|i|we|should|could)|best|sites?|spots?|gaps?|bottlenecks?|changes?|history|difference|compare)\b/i;
+
+/** "take me to X" → X (null when the request is not plain navigation) */
+export function navigationTarget(text: string): string | null {
+  const m = NAV.exec(text.trim());
+  if (!m) return null;
+  const target = m[1].trim();
+  if (!target || target.split(/\s+/).length > 10 || NOT_PLACE.test(target)) return null;
+  const rest = target.replace(/\b(and|&|at)\b/gi, " ");
+  if (EDIT.test(rest) && !/\b(street|st|avenue|ave|road|rd|park|square|plaza|blvd|boulevard|drive|lane)\b/i.test(rest)) return null;
+  return target;
+}
+
 const SMALLTALK = /^(hi|hello|hey|thanks|thank you|ok|okay|cool|great|nice|yes|no|sure|got it|perfect)\b[\s!.,]*$/i;
 
 /** classify one request (plan mode never uses the quick tier for edit-like requests, since those are proposals) */
@@ -30,6 +47,7 @@ export function routeRequest(text: string, opts: { mode?: "plan" | "edit"; hasSe
   const words = t.split(/\s+/).filter(Boolean).length;
   if (!t) return { tier: "quick", reason: "empty" };
   if (SMALLTALK.test(t)) return { tier: "quick", reason: "small talk" };
+  if (navigationTarget(t)) return { tier: "quick", reason: "navigation" };
   const sentences = t.split(/[.!?\n]+/).filter((s) => s.trim().split(/\s+/).length > 2).length;
   const deep = DEEP.test(t);
   const edit = EDIT.test(t);

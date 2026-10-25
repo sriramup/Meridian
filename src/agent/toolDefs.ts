@@ -3,6 +3,7 @@
 // city origin. Most location parameters also accept a place name or feature id.
 
 import { LIBRARY_TOOL_DEFS } from "./libraryToolDefs";
+import { NAV_TOOL_DEFS } from "./navToolDefs";
 
 type Schema = Record<string, unknown>;
 export interface ToolDef {
@@ -349,6 +350,7 @@ export const TOOL_DEFS: ToolDef[] = [
     description: "Place callouts on the map to explain decisions or results (each {at: location, title, body?, tone: info|warn|good}), and/or highlight feature ids. clear:true removes previous annotations.",
     input_schema: { type: "object", properties: { notes: { type: "array", items: { type: "object" } }, highlight: ids, clear: { type: "boolean" } } },
   },
+  ...NAV_TOOL_DEFS,
   ...LIBRARY_TOOL_DEFS,
 ];
 

@@ -14,22 +14,60 @@ import { streetBand } from "@/world/ops/validate";
 export type Loc = Vec2 | string;
 export type AreaRef = Vec2[] | string | { center: Vec2; radius: number };
 
-const norm = (s: string) =>
-  s
+const ORDINALS: Record<string, number> = { first: 1, second: 2, third: 3, fourth: 4, fifth: 5, sixth: 6, seventh: 7, eighth: 8, ninth: 9, tenth: 10, eleventh: 11, twelfth: 12, thirteenth: 13, fourteenth: 14, fifteenth: 15, sixteenth: 16, seventeenth: 17, eighteenth: 18, nineteenth: 19, twentieth: 20, thirtieth: 30, fortieth: 40, fiftieth: 50 };
+const TENS: Record<string, number> = { twenty: 20, thirty: 30, forty: 40, fifty: 50 };
+// common abbreviations people type for long official names (general, not city-specific: initials of honorific names)
+const ALIASES: [RegExp, string][] = [[/\bmlk\b/g, "martin luther king jr"], [/\bjunior\b/g, "jr"], [/\bsaint\b/g, "st"], [/\bmount\b/g, "mt"], [/\bfort\b/g, "ft"]];
+
+/** normalised name: lower case, standard suffix / directional abbreviations, ordinals as numbers, no articles */
+export const norm = (s: string) => {
+  let x = s
     .toLowerCase()
-    .replace(/[.,'’]/g, "")
+    .replace(/[.,'’()]/g, "")
+    .replace(/-/g, " ");
+  for (const [re, to] of ALIASES) x = x.replace(re, to);
+  x = x.replace(/\b(twenty|thirty|forty|fifty)[\s-]?(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth)\b/g, (_, t: string, o: string) => String(TENS[t] + ORDINALS[o]));
+  x = x.replace(/\b(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|thirteenth|fourteenth|fifteenth|sixteenth|seventeenth|eighteenth|nineteenth|twentieth|thirtieth|fortieth|fiftieth)\b/g, (o) => String(ORDINALS[o]));
+  return x
     .replace(/\bstreet\b/g, "st")
     .replace(/\bavenue\b/g, "ave")
+    .replace(/\bav\b/g, "ave")
     .replace(/\bboulevard\b/g, "blvd")
     .replace(/\bdrive\b/g, "dr")
     .replace(/\broad\b/g, "rd")
+    .replace(/\blane\b/g, "ln")
+    .replace(/\bplace\b/g, "pl")
+    .replace(/\bparkway\b/g, "pkwy")
+    .replace(/\bhighway\b/g, "hwy")
+    .replace(/\bcourt\b/g, "ct")
+    .replace(/\bterrace\b/g, "ter")
+    .replace(/\bcircle\b/g, "cir")
     .replace(/\beast\b/g, "e")
     .replace(/\bwest\b/g, "w")
     .replace(/\bnorth\b/g, "n")
     .replace(/\bsouth\b/g, "s")
     .replace(/\b(\d+)(st|nd|rd|th)\b/g, "$1")
+    .replace(/\bthe\b/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+};
+
+const DIRS = new Set(["n", "s", "e", "w", "ne", "nw", "se", "sw"]);
+const TYPES = new Set(["st", "ave", "blvd", "dr", "rd", "ln", "pl", "pkwy", "hwy", "way", "ct", "cir", "ter", "trl", "loop", "expy", "fwy", "sq", "plz", "aly", "row", "walk"]);
+/** the distinctive tokens of a normalised street name: no directional prefix, no street type */
+const core = (n: string) => n.split(" ").filter((t) => t && !DIRS.has(t) && !TYPES.has(t));
+const typeOf = (n: string) => n.split(" ").filter((t) => TYPES.has(t));
+
+/** edit distance (small strings only) */
+function lev(a: string, b: string): number {
+  if (Math.abs(a.length - b.length) > 2) return 3;
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...new Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[a.length][b.length];
+}
+/** typo-tolerant token equality: numbers and short words must match exactly ("5" never matches "15") */
+const tokEq = (a: string, b: string) => a === b || (!/\d/.test(a + b) && Math.min(a.length, b.length) >= 5 && lev(a, b) <= (Math.min(a.length, b.length) >= 8 ? 2 : 1));
 
 /** fuzzy name score (0..1) */
 export function nameScore(query: string, name?: string): number {
@@ -38,13 +76,25 @@ export function nameScore(query: string, name?: string): number {
     n = norm(name);
   if (!q) return 0;
   if (n === q) return 1;
+  // same distinctive tokens, differing only in directional prefix / street type: "21st" ≡ "W 21st St",
+  // "Guadalupe" ≡ "Guadalupe St"; a conflicting type ("Pine Ave" for "Pine St") scores lower
+  const qc = core(q),
+    nc = core(n);
+  const streetish = typeOf(q).length + typeOf(n).length > 0 || /\d/.test(q);
+  if (streetish && qc.length && qc.join(" ") === nc.join(" ")) {
+    const qt = typeOf(q),
+      ntp = typeOf(n);
+    return qt.length && ntp.length && !qt.some((t) => ntp.includes(t)) ? 0.7 : 0.95;
+  }
   // whole-token matches only: "5th" must not match "15th" or "TX 165"
   const tok = (x: string) => ` ${x} `;
   if (tok(n).startsWith(tok(q)) || tok(q).startsWith(tok(n))) return 0.9;
   if (tok(n).includes(tok(q))) return 0.8;
+  // typos: every distinctive token matches (allowing one or two letters off) → nearly as good as exact
+  if (qc.length && nc.length && qc.length === nc.length && qc.every((t, i) => tokEq(t, nc[i]))) return 0.85;
   const qt = q.split(" ").filter((t) => t.length > 1);
-  const nt = new Set(n.split(" "));
-  const hits = qt.filter((t) => nt.has(t)).length;
+  const nt = n.split(" ");
+  const hits = qt.filter((t) => nt.some((x) => tokEq(t, x))).length;
   return qt.length ? (0.7 * hits) / qt.length : 0;
 }
 
@@ -108,21 +158,54 @@ export function streetsNamed(name: string, slack = 0): Street[] {
   return scored.filter((x) => x.sc >= best - slack - 1e-9).map((x) => x.s);
 }
 
-/** junction where two named streets meet */
+/** streets matching a name with their scores (≥ min), best first */
+export function streetMatches(name: string, min = 0.6): { s: Street; sc: number }[] {
+  return rt()
+    .world.all("street")
+    .map((s) => ({ s, sc: nameScore(name, s.name) }))
+    .filter((x) => x.sc >= min)
+    .sort((a, b) => b.sc - a.sc);
+}
+
+/**
+ * Junction where two named streets meet. Every street matching each name is considered (not only
+ * the best match), and the meeting with the best combined score wins — so "21st & Guadalupe" finds
+ * West 21st Street × Guadalupe Street even when an "East 21st Street" scores the same and never meets
+ * Guadalupe. Works the same on any world: city data or a canvas with user-named streets.
+ */
 export function junctionOf(a: string, b: string): StreetNode | null {
   const w = rt().world;
-  const A = streetsNamed(a),
-    B = streetsNamed(b);
+  const A = streetMatches(a),
+    B = streetMatches(b);
   if (!A.length || !B.length) return null;
-  const nodesA = new Set(A.flatMap((s) => [s.from, s.to]));
-  for (const s of B) for (const n of [s.from, s.to]) if (nodesA.has(n)) return w.get<StreetNode>(n) ?? null;
-  // nearest pair of endpoints (streets that cross with a short offset)
-  let best: StreetNode | null = null,
-    bd = 40;
-  for (const s of B)
+  const at = new Map<string, { sc: number; name: string }>();
+  for (const { s, sc } of A)
     for (const n of [s.from, s.to]) {
-      const nn = w.get<StreetNode>(n)!;
-      for (const t of A) {
+      const k = at.get(n);
+      if (!k || k.sc < sc) at.set(n, { sc, name: norm(s.name ?? "") });
+    }
+  let best: StreetNode | null = null,
+    bs = -1;
+  for (const { s, sc } of B)
+    for (const n of [s.from, s.to]) {
+      const k = at.get(n);
+      // a node where one street continues into itself is not a junction of two streets
+      if (!k || k.name === norm(s.name ?? "")) continue;
+      if (k.sc + sc > bs) {
+        bs = k.sc + sc;
+        best = w.get<StreetNode>(n) ?? null;
+      }
+    }
+  if (best) return best;
+  // nearest pair (streets that cross with a short offset, or meet mid-segment): best-scoring names first
+  const topA = A.filter((x) => x.sc >= A[0].sc - 0.15).map((x) => x.s);
+  const topB = B.filter((x) => x.sc >= B[0].sc - 0.15).map((x) => x.s);
+  let bd = 40;
+  for (const s of topB)
+    for (const n of [s.from, s.to]) {
+      const nn = w.get<StreetNode>(n);
+      if (!nn) continue;
+      for (const t of topA) {
         const d = closestOnPath(nn.p, t.path).d;
         if (d < bd) {
           bd = d;
@@ -143,13 +226,16 @@ export interface PlaceMatch {
   score: number;
 }
 
+/** among equally good name matches, prefer the place a person most likely means */
+const PLACE_RANK: Record<string, number> = { campus: 0.04, district: 0.03, park: 0.02, neighbourhood: 0.01 };
+
 export function resolvePlace(query: string, limit = 5): PlaceMatch[] {
   const R = rt();
   const w = R.world;
-  const q = query.trim();
+  const q = query.trim().replace(/^(the|a)\s+/i, "");
   const out: PlaceMatch[] = [];
   // intersection "A & B" / "A and B" / "A at B"
-  const m = q.split(/\s*(?:&|\band\b|\bat\b|\/|\+)\s*/i).filter(Boolean);
+  const m = q.split(/\s*(?:&|\band\b|\bat\b|\/|\+|\bx\b|\bcorner of\b)\s*/i).filter(Boolean);
   if (m.length === 2) {
     const n = junctionOf(m[0], m[1]);
     if (n) out.push({ name: entityName(n), type: "junction", p: n.p, id: n.id, score: 1 });
@@ -159,7 +245,12 @@ export function resolvePlace(query: string, limit = 5): PlaceMatch[] {
   if (byId) out.push({ name: entityName(byId), type: byId.kind, p: entityPoint(byId), id: byId.id, score: 1 });
   for (const p of w.all("place")) {
     const sc = nameScore(q, p.name);
-    if (sc >= 0.6) out.push({ name: p.name, type: p.type, p: p.p, id: p.refs?.[0] ?? p.id, poly: p.poly, score: sc + (p.type === "district" || p.type === "park" ? 0.02 : 0) });
+    if (sc >= 0.6) out.push({ name: p.name, type: p.type, p: p.poly ? polyCentroid(p.poly) : p.p, id: p.refs?.[0] ?? p.id, poly: p.poly, score: sc + (PLACE_RANK[p.type] ?? 0) });
+  }
+  // named open spaces, plazas and water drawn on the map (a designed canvas has no gazetteer)
+  for (const a of w.all("area")) {
+    const sc = nameScore(q, a.name);
+    if (sc >= 0.7) out.push({ name: a.name!, type: a.type, p: polyCentroid(a.poly), id: a.id, poly: a.poly, score: sc - 0.01 });
   }
   const st = streetsNamed(q);
   if (st.length) {

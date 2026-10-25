@@ -33,6 +33,7 @@ import type { Typology } from "@/geometry/massing";
 import { checkBuilding, frontage, heightLimit, parcelsUnder, rowConflicts, streetBand } from "@/world/ops/validate";
 import type { Area, AreaType, Building, Entity, Parcel, Polygon, Street, StreetNode, TransitRoute, Use, Vec2 } from "@/world/types";
 import type { Changeset } from "@/world/world";
+import { NAV_TOOLS } from "./navTools";
 import { LIBRARY_TOOLS, libraryBrief, libraryDetail, libraryMatch } from "./libraryTools";
 import { blockAt, entityName, entityPoint, junctionOf, polyOf, resolveArea, resolveLocation, resolvePlace, resolveStreets, viewBounds, viewCenter, type AreaRef, type Loc } from "./resolve";
 
@@ -2211,6 +2212,7 @@ export const TOOLS: Record<string, (i: In, ctx: ToolContext) => Promise<ToolOutp
     if (i.highlight) st.setHighlight({ ids: i.highlight });
     return { content: { placed: notes.length }, display: { title: `Annotated ${notes.length} location${notes.length === 1 ? "" : "s"}`, status: "ok" } };
   },
+  ...NAV_TOOLS,
   ...LIBRARY_TOOLS,
 };
 
