@@ -95,6 +95,19 @@ export const TOOL_ICON: Record<string, typeof Search> = {
   camera: Video,
   show: Layers,
   annotate: MessageSquareText,
+  library_search: Search,
+  library_describe: Info,
+  place: Shapes,
+  configure: SlidersHorizontal,
+  move_instance: MoveHorizontal,
+  rotate_instance: RotateCcw,
+  duplicate_instance: Combine,
+  remove_instance: Trash2,
+  custom_building: Building2,
+  custom_prop: Shapes,
+  optimize_massing: Building,
+  set_zone: MapPin,
+  go_to: Navigation,
 };
 
 export const TOOL_VERB: Record<string, string> = {
@@ -123,7 +136,7 @@ export const TOOL_VERB: Record<string, string> = {
   convert_areas: "Converting areas",
   plant_trees: "Planting trees",
   create_transit_route: "Routing transit",
-  optimize_stops: "Optimising stops",
+  optimize_stops: "Optimizing stops",
   generate_district: "Masterplanning district",
   scenario: "Managing scenarios",
   history: "Reading history",
@@ -140,6 +153,19 @@ export const TOOL_VERB: Record<string, string> = {
   camera: "Moving camera",
   show: "Updating view",
   annotate: "Annotating",
+  library_search: "Searching the library",
+  library_describe: "Reading the library",
+  place: "Placing",
+  configure: "Configuring",
+  move_instance: "Moving",
+  rotate_instance: "Rotating",
+  duplicate_instance: "Duplicating",
+  remove_instance: "Removing",
+  custom_building: "Shaping building",
+  custom_prop: "Shaping object",
+  optimize_massing: "Optimizing massing",
+  set_zone: "Setting zone",
+  go_to: "Flying there",
 };
 
 /** a fresh agent's few starting points: a short chip that fills the composer with the full prompt */
