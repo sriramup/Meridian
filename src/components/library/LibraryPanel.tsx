@@ -4,7 +4,7 @@
 // category; picking one opens its parameter form and arms it for placement on the map.
 
 import { ArrowLeft, X } from "lucide-react";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Button, Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, Kbd, Tooltip, cn } from "@/components/ui/kit";
 import { ensureLibrary, getPrimitive, listPrimitives, searchPrimitives, type Category, type PrimitiveDef } from "@/library";
 import { rt } from "@/state/runtime";
@@ -81,6 +81,15 @@ function Browse() {
     for (const d of listPrimitives()) m.set(d.category, (m.get(d.category) ?? 0) + 1);
     return m;
   }, [total]);
+  // a new query or category starts at its best match, scrolled to the top (cmdk would otherwise
+  // keep the row picked for the previous letters, deep in the list)
+  const first = groups[0]?.defs[0]?.id ?? "";
+  const [picked, setPicked] = useState(first);
+  const list = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    setPicked(first);
+    if (list.current) list.current.scrollTop = 0;
+  }, [query, category, first]);
   const item = (d: PrimitiveDef) => (
     <CommandItem key={d.id} value={d.id} onSelect={() => arm(d.id)} className="items-start gap-2.5 py-1.5">
       <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-[5px] border border-line bg-paper">
@@ -93,7 +102,7 @@ function Browse() {
     </CommandItem>
   );
   return (
-    <Command shouldFilter={false} className="min-h-0 flex-1" label="Library">
+    <Command shouldFilter={false} value={picked} onValueChange={setPicked} className="min-h-0 flex-1" label="Library">
       <CommandInput
         ref={input}
         value={query}
@@ -134,7 +143,7 @@ function Browse() {
           );
         })}
       </div>
-      <CommandList className="max-h-none min-h-0 flex-1">
+      <CommandList ref={list} className="max-h-none min-h-0 flex-1">
         <CommandEmpty>{total ? `Nothing matches “${query}”.` : "The library is loading…"}</CommandEmpty>
         {groups.map((g) =>
           g.cat && !category ? (

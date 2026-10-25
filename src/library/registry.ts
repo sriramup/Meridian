@@ -25,29 +25,80 @@ export function getPrimitive(id: string): PrimitiveDef | undefined {
   return DEFS.get(id);
 }
 
-/** ranked by name, then tags, then description; every word of the query must match somewhere */
+/** lower-case words, accents folded: "Main-street café" → ["main", "street", "cafe"] */
+const wordsOf = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/[^a-z0-9]+/).filter(Boolean);
+
+/** a query word and its singular: "trees" → tree, "benches" → bench, "nurseries" → nursery */
+function formsOf(w: string): string[] {
+  const stem = w.length > 3 ? (/ies$/.test(w) ? w.slice(0, -3) + "y" : /(ch|sh|ss|x|z)es$/.test(w) ? w.slice(0, -2) : /[^s]s$/.test(w) ? w.slice(0, -1) : w) : w;
+  return stem !== w ? [w, stem] : [w];
+}
+
+interface SearchIdx {
+  name: string[];
+  tags: string[];
+  desc: string[];
+  /** name and each tag as word strings, for phrase matches ("street tree") */
+  phrases: string[];
+}
+const IDX = new Map<string, SearchIdx>();
+function idxOf(d: PrimitiveDef): SearchIdx {
+  let x = IDX.get(d.id);
+  if (!x) {
+    const tags = d.tags ?? [];
+    x = { name: wordsOf(d.name), tags: tags.flatMap(wordsOf), desc: wordsOf(`${d.id} ${d.category} ${d.description}`), phrases: [d.name, ...tags].map((t) => wordsOf(t).join(" ")) };
+    IDX.set(d.id, x);
+  }
+  return x;
+}
+
+/** how a word list matches a query word: 2 = a whole word, 1 = the start of a word, 0 = not at all ("tree" is not in "street") */
+function hit(words: string[], forms: string[]): number {
+  let best = 0;
+  for (const w of words)
+    for (const f of forms) {
+      if (w === f) return 2;
+      if (w.startsWith(f)) best = 1;
+    }
+  return best;
+}
+
+/**
+ * Ranked by name, then tags (synonyms), then description; every word of the query must match the
+ * start of a word somewhere. A whole word beats a prefix, and the query as a phrase in the name or
+ * a tag ("street tree") beats words found apart.
+ */
 export function searchPrimitives(query: string, limit = 50): PrimitiveDef[] {
-  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-  if (!words.length) return listPrimitives().slice(0, limit);
+  const qw = wordsOf(query);
+  if (!qw.length) return listPrimitives().slice(0, limit);
+  const phrase = qw.join(" ");
   const scored: { d: PrimitiveDef; s: number }[] = [];
   for (const d of DEFS.values()) {
-    const name = d.name.toLowerCase();
-    const tags = (d.tags ?? []).join(" ").toLowerCase();
-    const desc = `${d.id} ${d.category} ${d.description}`.toLowerCase();
+    const x = idxOf(d);
     let s = 0;
     let all = true;
-    for (const w0 of words) {
-      // plain plural / stem tolerance: "kiosks" finds "kiosk", "benches" finds "bench"
-      const forms = [w0, w0.replace(/(es|s)$/, ""), w0.replace(/s$/, "")].filter((w, i, a) => w.length > 1 && a.indexOf(w) === i);
-      const w = forms.find((f) => name.includes(f)) ?? forms.find((f) => tags.includes(f)) ?? forms.find((f) => desc.includes(f));
-      if (!w) all = false;
-      else if (name.includes(w)) s += name.startsWith(w) ? 4 : 3;
-      else if (tags.includes(w)) s += 2;
-      else s += 1;
+    for (let i = 0; i < qw.length && all; i++) {
+      const forms = formsOf(qw[i]);
+      const n = hit(x.name, forms);
+      if (n) {
+        s += n === 2 ? 5 : 4;
+        if (forms.some((f) => x.name[0]?.startsWith(f))) s += 0.5;
+        continue;
+      }
+      const t = hit(x.tags, forms);
+      if (t) {
+        s += t === 2 ? 3 : 2.5;
+        continue;
+      }
+      const ds = hit(x.desc, forms);
+      if (ds) s += ds === 2 ? 1.2 : 1;
+      else all = false;
     }
-    if (all) scored.push({ d, s });
+    if (!all) continue;
+    if (qw.length > 1 && x.phrases.some((p) => p === phrase || p.startsWith(phrase + " ") || p.startsWith(phrase) || p.includes(" " + phrase))) s += 3;
+    scored.push({ d, s });
   }
-  return scored.sort((a, b) => b.s - a.s || a.d.name.localeCompare(b.d.name)).slice(0, limit).map((x) => x.d);
+  return scored.sort((a, b) => b.s - a.s || a.d.name.length - b.d.name.length || a.d.name.localeCompare(b.d.name)).slice(0, limit).map((x) => x.d);
 }
 
 export function defaultParams(def: PrimitiveDef): ParamValues {
