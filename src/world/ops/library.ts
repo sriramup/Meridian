@@ -6,9 +6,12 @@
 //
 // Conflict policy (consistent with createBuilding / createArea / plantTreesAt):
 //  - buildings never stand in street right-of-way or open water: they are carved out of both.
-//  - a building over another instance's / existing building: carve (default; keep the other one and
-//    cut the new footprint around it), refuse (fail, nothing changes) or replace (demolish the other
-//    one; historic-designated buildings are never auto-demolished, they are carved around instead).
+//  - solid things never overlap (src/world/ops/collision.ts). A building over another instance's /
+//    existing building or a solid prop: safe (default; the main building is refused with the reason
+//    and the nearest free spot, a composite's secondary buildings that collide are skipped), refuse
+//    (fail on any collision), carve (keep the other one and cut the new footprint around it) or
+//    replace (demolish the other one; historic-designated buildings are never auto-demolished, they
+//    are carved around instead). Move / rotate / duplicate / re-configure use the same default.
 //  - land under a new building (lawns, parking, plazas) is cut back; trees and props inside it go.
 //  - areas stay out of right-of-way (plazas excepted) and stop at the shoreline; they keep existing
 //    buildings (cut around them) unless `replace`, which clears buildings mostly inside the area.
@@ -33,8 +36,12 @@ import { OpBuilder, fmt, programmeOf, type OpResult } from "./core";
 import { inStudyArea } from "./placement";
 import { createStreet, type ConflictPolicy } from "./streets";
 import { checkBuilding, streetBand } from "./validate";
+import { blockedAt, clashes, describeOffset, nearestFreeOffset, obstacles } from "./collision";
 
-export type ConflictMode = "carve" | "refuse" | "replace";
+export type ConflictMode = "safe" | "carve" | "refuse" | "replace";
+
+/** the policy every op uses when the caller doesn't choose one: never overlap, never demolish */
+export const DEFAULT_CONFLICT: ConflictMode = "safe";
 
 export interface PlaceSpec {
   /** definition id or the definition itself */
@@ -45,7 +52,7 @@ export interface PlaceSpec {
   rotation?: number;
   site?: Polygon;
   path?: Vec2[];
-  /** what to do about existing buildings in the way (default carve) */
+  /** what to do about existing buildings / solid props in the way (default safe: refuse the overlap) */
   onConflict?: ConflictMode;
   /** name for the instance's main entity */
   name?: string;
@@ -195,6 +202,35 @@ function inCarriagewayV(v: View, p: Vec2): boolean {
 
 const isWater = (a: Area) => a.type === "water" || a.type === "retention";
 const biggest = (ps: Polygon[]) => ps.filter((q) => isValidPoly(q)).sort((a, c) => polyArea(c) - polyArea(a))[0];
+
+// ------------------------------------------------------------------ collisions
+
+const propFp = (q: Prop): Polygon => q.footprint ?? propFootprint(q.p, q.rot, q.solids);
+
+/** a prop that takes up room (not a ground marking or something designed to overlap) */
+export function isSolidProp(q: Prop): boolean {
+  if (resolveDef(q.type)?.siting?.overlapProps) return false;
+  return (q.height || solidsHeight(q.solids ?? [])) >= 0.4;
+}
+
+const nameOf = (b: Building) => b.name ?? (libOf(b) ? `${resolveDef(libOf(b)!.def)?.name ?? libOf(b)!.def} ${b.id}` : `building ${b.id}`);
+
+/** " Nearest free spot: 4.2 m east, at [x, y]." for a refusal (empty when there is none close by) */
+function freeHint(v: View, pieces: Polygon[], foreign: (e: Entity) => boolean, propsOnly = false): string {
+  const bb = grow(pieces.map((p) => polyBBox(p)).reduce((a, c) => [Math.min(a[0], c[0]), Math.min(a[1], c[1]), Math.max(a[2], c[2]), Math.max(a[3], c[3])]), 40);
+  const obs = obstacles(
+    v
+      .near(bb, ["building", "prop"])
+      .filter((e) => foreign(e) && (e.kind === "building" || isSolidProp(e as Prop)))
+      .map((e) => (e.kind === "building" ? (e as Building).footprint : propFp(e as Prop))),
+  );
+  if (!propsOnly) for (const e of v.near(bb, ["street"])) if (!(e as Street).tunnel) obs.push({ poly: streetBand(e as Street) });
+  if (!blockedAt(pieces, obs)) return "";
+  const d = nearestFreeOffset(pieces, obs, { maxR: 40, step: 1 });
+  if (!d || (!d[0] && !d[1])) return "";
+  const c = polyCentroid(pieces[0]);
+  return ` Nearest free spot: ${describeOffset(d)}, at [${Math.round(c[0] + d[0])}, ${Math.round(c[1] + d[1])}].`;
+}
 
 // ------------------------------------------------------------------ generation
 
@@ -368,6 +404,7 @@ function generateInto(v: View, def: PrimitiveDef, params: ParamValues, place: Pl
       bld = { ...bld, masses: bld.masses.map((m) => ({ ...m, poly: biggest(difference(m.poly, hole)) ?? [[]] })).filter((m) => isValidPoly(m.poly)) };
       bld.footprint = biggest(difference(bld.footprint, hole)) ?? [[]];
     };
+    const rawFp = bld.footprint;
     // street right-of-way (existing and planned) and open water
     for (const e of v.near(bb, ["street"])) {
       const s = e as Street;
@@ -383,15 +420,26 @@ function generateInto(v: View, def: PrimitiveDef, params: ParamValues, place: Pl
       const a = e as Area;
       if (isValidPoly(bld.footprint) && isWater(a) && overlapArea(a.poly, bld.footprint) > 1) cut(bufferPoly(a.poly, 2));
     }
-    // other buildings
+    // other buildings and solid props: strict modes refuse any real overlap (touching walls are fine)
+    const strict = o.onConflict === "safe" || o.onConflict === "refuse";
+    if (strict && isValidPoly(bld.footprint)) {
+      const hit = v.near(bb, ["building", "prop"]).find((e) => foreign(e) && e.id !== bld.id && (e.kind === "building" ? clashes(bld.footprint, (e as Building).footprint) : isSolidProp(e as Prop) && clashes(bld.footprint, propFp(e as Prop))));
+      if (hit) {
+        const nm = hit.kind === "building" ? nameOf(hit as Building) : `${resolveDef((hit as Prop).type)?.name ?? "an object"} ${hit.id}`;
+        if (!isPrimary && o.onConflict === "safe") {
+          skip("would overlap a building or object");
+          continue;
+        }
+        return { error: `${def.name} would overlap ${nm}.${freeHint(v, [rawFp], foreign)} Move it, or use on_conflict "carve" (cut around it) or "replace" (demolish it).`, created: [], counts: {} };
+      }
+    }
     for (const e of v.near(bb, ["building"])) {
-      if (!isValidPoly(bld.footprint)) break;
+      if (strict || !isValidPoly(bld.footprint)) break;
       const other = e as Building;
       if (!foreign(other) || other.id === bld.id) continue;
       const ov = overlapArea(bld.footprint, other.footprint);
       if (ov <= 1) continue;
-      const nm = other.name ?? (libOf(other) ? `${libOf(other)!.def} ${other.id}` : `building ${other.id}`);
-      if (o.onConflict === "refuse") return { error: `${def.name} would overlap ${nm} by ${Math.round(ov)} m². Move it, or use on_conflict "carve" (cut around it) or "replace" (demolish it).`, created: [], counts: {} };
+      const nm = nameOf(other);
       if (o.onConflict === "replace" && !other.historic) {
         v.del(other.id);
         conflicts.push({ id: other.id, kind: "overlap", message: `Demolished ${nm} (${Math.round(ov)} m² overlap)`, resolved: true });
@@ -553,20 +601,21 @@ function generateInto(v: View, def: PrimitiveDef, params: ParamValues, place: Pl
     let why: string | null = null;
     if (!inStudyArea(world, pr.p)) why = "outside the study area";
     else if (!siting.carriageway && inCarriagewayV(v, pr.p)) why = "in the roadway";
-    else if (!siting.onBuildings && v.near(grow(bb, 1), ["building"]).some((e) => pointInPoly(pr.p, (e as Building).footprint) || overlapArea((e as Building).footprint, fp) > 0.25 * Math.max(0.25, polyArea(fp)))) why = "inside a building";
+    else if (!siting.onBuildings && v.near(grow(bb, 1), ["building"]).some((e) => pointInPoly(pr.p, (e as Building).footprint) || clashes((e as Building).footprint, fp))) why = "inside a building";
     else if (!siting.water && v.near(bb, ["area"]).some((e) => isWater(e as Area) && pointInPoly(pr.p, (e as Area).poly))) why = "on water";
     else if (!siting.overlapProps)
       for (const e of v.near(bb, ["prop"])) {
         const q = e as Prop;
         if (q.id === pr.id || resolveDef(q.type)?.siting?.overlapProps) continue;
         const qf = q.footprint ?? propFootprint(q.p, q.rot, q.solids);
-        if (overlapArea(qf, fp) > 0.3 * Math.max(0.05, Math.min(polyArea(qf), polyArea(fp)))) {
+        if (clashes(qf, fp)) {
           why = "on top of another object";
           break;
         }
       }
+    if (!why && !siting.overlapProps && isSolidProp(pr) && v.near(bb, ["tree"]).some((e) => foreign(e) && pointInPoly((e as Tree).p, fp))) why = "on a tree";
     if (why) {
-      if (isPrimary && (gen.props?.length ?? 0) === 1 && !(gen.buildings?.length || gen.areas?.length)) return { error: `${def.name} can't stand at [${Math.round(pr.p[0])}, ${Math.round(pr.p[1])}]: ${why}`, created: [], counts: {} };
+      if (isPrimary && (gen.props?.length ?? 0) === 1 && !(gen.buildings?.length || gen.areas?.length)) return { error: `${def.name} can't stand at [${Math.round(pr.p[0])}, ${Math.round(pr.p[1])}]: ${why}.${why === "inside a building" || why === "on top of another object" ? freeHint(v, [fp], foreign, true) : ""}`, created: [], counts: {} };
       skip(why);
       continue;
     }
@@ -596,6 +645,7 @@ function generateInto(v: View, def: PrimitiveDef, params: ParamValues, place: Pl
     else if (inCarriagewayV(v, p)) why = "in the roadway";
     else if (blds.some((x) => x.footprint.some((ring) => closestOnPath(p, [...ring, ring[0]]).d < r * GIVE))) why = "crown would hit a building";
     else if (around.some((e) => e.kind === "tree" && e.id !== raw.id && dist((e as Tree).p, p) < ((e as Tree).r + r) * GIVE)) why = "crown would overlap another tree";
+    else if (v.near([p[0] - 1, p[1] - 1, p[0] + 1, p[1] + 1], ["prop"]).some((e) => foreign(e) && isSolidProp(e as Prop) && pointInPoly(p, propFp(e as Prop)))) why = "on top of an object";
     if (why) {
       if (isPrimary && (gen.trees?.length ?? 0) === 1 && !(gen.buildings?.length || gen.areas?.length || gen.props?.length)) return { error: `No room for ${def.name} at [${Math.round(p[0])}, ${Math.round(p[1])}]: ${why}`, created: [], counts: {} };
       skip(why);
@@ -709,7 +759,7 @@ export function placePrimitive(world: World, spec: PlaceSpec, actor: Actor, ob?:
   const instance = newId("lib");
   const v = new View(b);
   const reportStart = { s: b.report.summary.length };
-  const r = generateInto(v, def, params, place, actor, { instance, onConflict: spec.onConflict ?? "carve", name: spec.name });
+  const r = generateInto(v, def, params, place, actor, { instance, onConflict: spec.onConflict ?? DEFAULT_CONFLICT, name: spec.name });
   if (r.error) return { ...b.fail(r.error), issues };
   for (const i of issues) if (i.kind === "clamped" || i.kind === "filtered" || spec.lenient) b.warn(i.message);
   b.report.summary.splice(reportStart.s, 0, `Placed ${def.name}${spec.name ? ` “${spec.name}”` : ""}: ${describeCounts(r.counts)}`);
@@ -769,7 +819,7 @@ export function reconfigureInstance(world: World, instanceOrEntityId: string, pa
     v.del(m.id);
   }
   const reportStart = b.report.summary.length;
-  const r = generateInto(v, def, params, placement, actor, { instance: inst, onConflict: opts.onConflict ?? "carve", reuse, reusePrimary: members[0].kind !== "street" ? members[0].id : undefined, previous, oldNames, oldStreets, oldStreetKey: streetsKey(old?.streets), patchKeys: Object.keys(patch ?? {}) });
+  const r = generateInto(v, def, params, placement, actor, { instance: inst, onConflict: opts.onConflict ?? DEFAULT_CONFLICT, reuse, reusePrimary: members[0].kind !== "street" ? members[0].id : undefined, previous, oldNames, oldStreets, oldStreetKey: streetsKey(old?.streets), patchKeys: Object.keys(patch ?? {}) });
   if (r.error) return { ...b.fail(r.error), issues };
   for (const i of issues) if (i.kind === "clamped" || i.kind === "filtered" || opts.lenient) b.warn(i.message);
   const changed = Object.keys(patch ?? {}).filter((k) => JSON.stringify(ref.params[k]) !== JSON.stringify(params[k]));
