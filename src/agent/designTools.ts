@@ -87,6 +87,13 @@ export const DESIGN_TOOLS: Record<string, (i: In, ctx: ToolContext) => Promise<T
     if (Array.isArray(c.warnings)) c.warnings = (c.warnings as string[]).slice(0, 5);
     if (Array.isArray(c.created)) delete c.created;
     if (out.display.lines) out.display.lines = out.display.lines.slice(0, 4);
+    // shortfalls the generator found (school seats vs demand, school walk coverage): put them first
+    const adv = (c.data as { advisories?: string[] } | undefined)?.advisories;
+    if (adv?.length) {
+      c.advisories = adv;
+      out.display.lines = [...adv.map((a) => `⚠ ${a}`), ...(out.display.lines ?? [])].slice(0, 6);
+      if (out.display.status === "ok") out.display.status = "warn";
+    }
     const homes = (c.data as { homes?: number } | undefined)?.homes;
     const acres = polyArea(poly) / 4046.86;
     if (homes && homes / acres < 12) c.note = `${Math.round(homes / acres)} homes per gross acre — a suburban result. For a walkable neighborhood (25–40 per acre) give the same programme a smaller site (about ${Math.round(homes / 30)} acres), or raise homes / density.`;
