@@ -4,6 +4,7 @@
 // same live world, so every edit appears on the map as it happens.
 
 import type { Polygon } from "@/world/types";
+import type { SketchAttachment } from "@/sketch/store";
 
 /** plan: investigate and propose, never commit an edit (dry runs allowed). edit: may change the world. */
 export type AgentMode = "plan" | "edit";
@@ -38,10 +39,20 @@ export interface ToolCallView {
   ms?: number;
 }
 
+/** an attached sketch / photo as the transcript keeps it: a small thumbnail, never the image itself */
+export interface SketchRef {
+  id: string;
+  name: string;
+  /** small JPEG data URL */
+  thumb: string;
+  width: number;
+  height: number;
+}
+
 export type Segment = { type: "thinking"; text: string } | { type: "text"; text: string } | { type: "tool"; call: ToolCallView };
 
 export type ChatItem =
-  | { kind: "user"; id: string; text: string; refs: string[]; mode: AgentMode; zone: Zone | null; at: number }
+  | { kind: "user"; id: string; text: string; refs: string[]; mode: AgentMode; zone: Zone | null; at: number; sketch?: SketchRef }
   | { kind: "assistant"; id: string; segments: Segment[]; done: boolean; startedAt: number; ms?: number }
   | { kind: "approval"; id: string; title: string; lines: string[]; state: "pending" | "approved" | "declined" }
   | { kind: "notice"; id: string; tone: "error" | "info"; text: string };
@@ -100,7 +111,7 @@ export interface AgentsApi {
   setMode(id: string, mode: AgentMode): void;
   setZone(id: string, zone: Zone | null): void;
   /** start a run in the session with this message (mode / zone default to the session's) */
-  send(id: string, text: string, opts?: { mode?: AgentMode; zone?: Zone | null }): Promise<void>;
+  send(id: string, text: string, opts?: { mode?: AgentMode; zone?: Zone | null; sketch?: SketchAttachment }): Promise<void>;
   stop(id: string): void;
   resolveApproval(sessionId: string, approvalId: string, ok: boolean): void;
 }

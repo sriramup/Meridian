@@ -35,6 +35,7 @@ import type { Area, AreaType, Building, Entity, Parcel, Polygon, Street, StreetN
 import type { Changeset } from "@/world/world";
 import { NAV_TOOLS } from "./navTools";
 import { DESIGN_TOOLS } from "./designTools";
+import { SKETCH_TOOLS } from "./sketchTools";
 import { LIBRARY_TOOLS, libraryBrief, libraryDetail, libraryMatch } from "./libraryTools";
 import { SERP_TOOLS } from "./serpTools";
 import type { SerpCard } from "@/serp/types";
@@ -2221,6 +2222,7 @@ export const TOOLS: Record<string, (i: In, ctx: ToolContext) => Promise<ToolOutp
   },
   ...NAV_TOOLS,
   ...DESIGN_TOOLS,
+  ...SKETCH_TOOLS,
   ...LIBRARY_TOOLS,
   ...SERP_TOOLS,
 };

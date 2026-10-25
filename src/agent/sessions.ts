@@ -35,6 +35,8 @@ import { effectOf } from "./toolDefs";
 import { executeTool, simSummary, type ToolContext, type ToolOutput } from "./tools";
 import type { AgentMode, AgentSession, AgentsApi, ChatItem, Segment, ToolCallView, Zone } from "./types";
 import { zoneFromPolygon, zoneFromSelection, zoneFromText, zoneSummary, acres } from "./zones";
+import { DEFAULT_SKETCH_REQUEST, readingLines, sketchBlocks, stripImages } from "@/sketch/attach";
+import { readSketch, type SketchAttachment, type VisionReply } from "@/sketch/store";
 
 type MsgParam = Anthropic.Beta.BetaMessageParam;
 type ContentBlock = Anthropic.Beta.BetaContentBlock;
@@ -459,16 +461,35 @@ function transcriptOf(items: ChatItem[]): string {
   return out.join("\n");
 }
 
-export async function send(id: string, text: string, opts: { mode?: AgentMode; zone?: Zone | null } = {}): Promise<void> {
+/** an attached sketch is read (one vision call, shown as a step) before the first model turn sees it */
+async function readSketchStep(id: string, att: SketchAttachment, text: string, signal: AbortSignal): Promise<{ blocks: Anthropic.Beta.BetaContentBlockParam[]; usd: number }> {
+  const itemId = nid("a"),
+    callId = nid("rs"),
+    ts = Date.now();
+  pushItem(id, { kind: "assistant", id: itemId, segments: [{ type: "tool", call: { id: callId, name: "read_sketch", status: "running", startedAt: ts, input: { image: att.name } } }], done: false, startedAt: ts });
+  let read: VisionReply;
+  try {
+    read = await readSketch(att, text === DEFAULT_SKETCH_REQUEST ? "" : text, signal);
+  } catch (e) {
+    read = { ok: false, error: signal.aborted ? "Stopped" : (e as Error).message };
+  }
+  setCall(id, itemId, callId, { status: "error" in read ? "error" : "done", display: readingLines(read), ms: Date.now() - ts });
+  patchItem(id, itemId, (it) => (it.kind === "assistant" ? { ...it, done: true, ms: Date.now() - ts } : it));
+  return { blocks: sketchBlocks(att, read), usd: read.cost?.usd ?? 0 };
+}
+
+export async function send(id: string, text: string, opts: { mode?: AgentMode; zone?: Zone | null; sketch?: SketchAttachment } = {}): Promise<void> {
   ensureCity();
   const s = getS(id);
+  const sketch = opts.sketch;
+  if (sketch && !text.trim()) text = DEFAULT_SKETCH_REQUEST;
   if (!s || !text.trim() || s.status === "running" || s.status === "needs_input") return;
   const mode = opts.mode ?? s.mode;
   const zone = opts.zone !== undefined ? opts.zone : s.zone;
   const r = rtOf(id);
   const R = rtMaybe();
   const refs = useApp.getState().selection.slice(0, 6);
-  const route = routeRequest(text, { mode, hasSelection: refs.length > 0, search: isSearchOn(id) });
+  const route = routeRequest(text, { mode, hasSelection: refs.length > 0, search: isSearchOn(id), hasImage: !!sketch });
   const t0 = Date.now();
   patch(id, (x) => ({
     mode,
@@ -476,27 +497,32 @@ export async function send(id: string, text: string, opts: { mode?: AgentMode; z
     status: "running",
     error: undefined,
     title: x.items.some((it) => it.kind === "user") || x.title !== "New agent" ? x.title : text.trim().replace(/\s+/g, " ").slice(0, 60),
-    items: [...x.items, { kind: "user", id: nid("u"), text, refs, mode, zone, at: t0 }],
+    items: [...x.items, { kind: "user", id: nid("u"), text, refs, mode, zone, at: t0, ...(sketch ? { sketch: { id: sketch.id, name: sketch.name, thumb: sketch.thumb, width: sketch.width, height: sketch.height } } : {}) }],
     lastRun: { tier: route.tier, reason: route.reason, startedAt: t0, tools: 0 },
   }));
   touch(id);
   r.run = { scenario: R?.scenarios.activeId ?? "baseline", startedAt: t0, zone, mode, request: text };
   r.seen = new Set(R?.scenarios.appliedChangesets().map((c) => c.id) ?? []);
-  const blocks: Anthropic.Beta.BetaTextBlockParam[] = [{ type: "text", text: contextBlock(id, mode, zone) }];
+  const blocks: Anthropic.Beta.BetaContentBlockParam[] = [{ type: "text", text: contextBlock(id, mode, zone) }];
   if (r.restored) {
     blocks.push({ type: "text", text: `[runtime] Earlier conversation in this session (history not restored after a reload):\n${r.restored}` });
     r.restored = undefined;
   }
   const sn = searchNote(id);
   if (sn) blocks.push({ type: "text", text: sn });
-  blocks.push({ type: "text", text });
-  r.messages.push({ role: "user", content: blocks });
   r.abort = new AbortController();
   const signal = r.abort.signal;
+  let cost = 0;
+  if (sketch) {
+    const read = await readSketchStep(id, sketch, text, signal);
+    blocks.push(...read.blocks);
+    cost += read.usd;
+  }
+  blocks.push({ type: "text", text });
+  r.messages.push({ role: "user", content: blocks });
   let tools = 0;
   let firstMs: number | undefined;
   let model: string | undefined;
-  let cost = 0;
   try {
     const maxSteps = MAX_STEPS[route.tier];
     for (let step = 0; step < maxSteps; step++) {
@@ -582,7 +608,7 @@ function save() {
   const order = st.order.slice(0, MAX_SESSIONS);
   const sessions = order.map((id) => st.sessions[id]).filter(Boolean).map((s) => ({ ...s, items: s.items.slice(-MAX_ITEMS) }));
   const messages: Record<string, MsgParam[]> = {};
-  for (const id of order) messages[id] = runtimes.get(id)?.messages ?? [];
+  for (const id of order) messages[id] = stripImages(runtimes.get(id)?.messages ?? []);
   try {
     let json = JSON.stringify({ v: 1, sessions, order, viewing: st.viewing, messages });
     if (json.length > MAX_BYTES) json = JSON.stringify({ v: 1, sessions, order, viewing: st.viewing });

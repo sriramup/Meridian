@@ -5,6 +5,7 @@
 import { LIBRARY_TOOL_DEFS } from "./libraryToolDefs";
 import { NAV_TOOL_DEFS } from "./navToolDefs";
 import { DESIGN_TOOL_DEFS } from "./designToolDefs";
+import { SKETCH_TOOL_DEFS } from "./sketchToolDefs";
 import { SERP_TOOL_DEFS } from "./serpToolDefs";
 
 type Schema = Record<string, unknown>;
@@ -354,6 +355,7 @@ export const TOOL_DEFS: ToolDef[] = [
   },
   ...NAV_TOOL_DEFS,
   ...DESIGN_TOOL_DEFS,
+  ...SKETCH_TOOL_DEFS,
   ...LIBRARY_TOOL_DEFS,
   ...SERP_TOOL_DEFS,
 ];
