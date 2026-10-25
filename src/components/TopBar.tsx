@@ -1,7 +1,7 @@
 "use client";
 
 import * as DM from "@radix-ui/react-dropdown-menu";
-import { Check, ChevronDown, CircleHelp, Download, FileJson, FileSpreadsheet, GitCompare, LoaderCircle, Footprints, GitBranch, Layers, PanelLeftClose, PanelLeftOpen, Pencil, Plus, Redo2, Sparkles, Undo2, Upload, Trash2 } from "lucide-react";
+import { Check, ChevronDown, CircleHelp, Download, FileJson, FileSpreadsheet, GitCompare, LoaderCircle, Footprints, GitBranch, Layers, MessageSquareText, PanelLeftClose, PanelLeftOpen, Pencil, Plus, Redo2, Undo2, Upload, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { rt, rtMaybe } from "@/state/runtime";
 import { useApp } from "@/state/store";
@@ -310,7 +310,7 @@ export function ViewControls({ agentOpen }: { agentOpen: boolean }) {
           <span className="mx-0.5 h-4 w-px bg-line-2" />
           <Tip label="Ask the planning agent" kbd="⌘J">
             <button onClick={() => useApp.getState().askAgent()} className="flex h-7 items-center gap-1.5 rounded-full bg-accent px-2.5 text-[12px] font-medium text-on-accent hover:brightness-105">
-              <Sparkles size={13} strokeWidth={1.8} /> Agent
+              <MessageSquareText size={14} strokeWidth={1.8} /> Agent
             </button>
           </Tip>
         </>
