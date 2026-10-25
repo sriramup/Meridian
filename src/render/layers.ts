@@ -142,11 +142,11 @@ function treeData(rt: Runtime, loader: ChunkLoader): TreeSets {
   return sets;
 }
 
-let labelCache: { version: number; data: { text: string; position: Position; angle: number; size: number }[] } = { version: -1, data: [] };
+let labelCache: { world?: unknown; version: number; data: { text: string; position: Position; angle: number; size: number }[] } = { version: -1, data: [] };
 
 function streetLabels(rt: Runtime) {
   const v = rt.world.version;
-  if (labelCache.version === v) return labelCache.data;
+  if (labelCache.version === v && labelCache.world === rt.world) return labelCache.data;
   const byName = new Map<string, Street[]>();
   for (const s of rt.world.all("street")) {
     if (!s.name || s.cls === "service" || s.cls === "motorway_link") continue;
@@ -170,7 +170,7 @@ function streetLabels(rt: Runtime) {
       data.push({ text: name.toUpperCase(), position: [p[0], p[1], 0.5], angle: ang, size: s.cls === "primary" || s.cls === "secondary" || s.cls === "motorway" ? 13 : 11 });
     }
   }
-  labelCache = { version: v, data };
+  labelCache = { world: rt.world, version: v, data };
   return data;
 }
 

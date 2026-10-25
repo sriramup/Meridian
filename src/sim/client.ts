@@ -397,3 +397,27 @@ export function contextModel(model: ContextResult["model"], params: Record<strin
   }
   return null;
 }
+
+/**
+ * Stop the simulation worker and forget every run (switching project or city without a page load;
+ * the next initSimWorker starts a fresh worker on the new runtime). Pending runs are rejected.
+ */
+export function disposeSimWorker() {
+  worker?.terminate?.();
+  worker = null;
+  readyPromise = null;
+  const gone = new Error("simulation stopped: the project was closed");
+  for (const p of pending.values()) p.reject(gone);
+  for (const p of ctxPending.values()) p.reject(gone);
+  pending.clear();
+  ctxPending.clear();
+  ctxRunning.clear();
+  ctxDone.clear();
+  inFlight.clear();
+  bgQueue = [];
+  if (bgTimer) clearTimeout(bgTimer);
+  bgTimer = null;
+  // typical weather belongs to the climate city, which the next project may not share
+  normals = null;
+  useSims.setState({ ready: false, records: [], shown: {}, compare: {} });
+}
