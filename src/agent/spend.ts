@@ -55,7 +55,8 @@ export class SpendLedger {
   private seq = 0;
 
   constructor(opts: { path?: string; cap?: number | null } = {}) {
-    this.path = resolve(opts.path ?? process.env.MERIDIAN_SPEND_LEDGER ?? ".telemetry/spend.json");
+    // a runtime path, not a module: tell the bundler not to trace it
+    this.path = resolve(/* turbopackIgnore: true */ opts.path ?? process.env.MERIDIAN_SPEND_LEDGER ?? ".telemetry/spend.json");
     this.cap = opts.cap !== undefined ? opts.cap : capFromEnv();
     this.data = this.read();
   }
