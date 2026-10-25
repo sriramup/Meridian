@@ -466,7 +466,7 @@ async function readSketchStep(id: string, att: SketchAttachment, text: string, s
   const itemId = nid("a"),
     callId = nid("rs"),
     ts = Date.now();
-  pushItem(id, { kind: "assistant", id: itemId, segments: [{ type: "tool", call: { id: callId, name: "read_sketch", status: "running", startedAt: ts, input: { image: att.name } } }], done: false, startedAt: ts });
+  pushItem(id, { kind: "assistant", id: itemId, segments: [{ type: "tool", call: { id: callId, name: "read_sketch", status: "running", startedAt: ts, input: { image: att.name, sketch_id: att.id } } }], done: false, startedAt: ts });
   let read: VisionReply;
   try {
     read = await readSketch(att, text === DEFAULT_SKETCH_REQUEST ? "" : text, signal);

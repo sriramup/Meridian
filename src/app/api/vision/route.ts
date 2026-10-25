@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { ledger, SpendLedger } from "@/agent/spend";
-import { buildVisionRequest, MAX_IMAGE_B64, parseVisionResponse, VISION_MAX_TOKENS, type VisionBody } from "@/sketch/vision";
+import { buildVisionRequest, FRAME_MAX_TOKENS, MAX_IMAGE_B64, parseFrameResponse, parseVisionResponse, VISION_MAX_TOKENS, type VisionBody } from "@/sketch/vision";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,8 +10,10 @@ export const dynamic = "force-dynamic";
  * plan.ts). Same client, base URL, spend ledger and cap as the agent route: the request's worst case
  * is reserved before it is sent and the real cost (from usage) is recorded after.
  *
- * POST { image: base64, media_type?, hint?, width?, height? }
+ * POST { image: base64, media_type?, hint?, width?, height?, rectified? }
  *   → 200 { ok: true, plan, cost } | 200 { ok: false, not_plan: true, reason, plan } | 4xx/5xx { error }
+ * POST { image, …, stage: "frame" }: the drawn map's corners, so the browser can straighten the photo
+ *   → 200 { ok: true, frame: { tl, tr, br, bl } | null, cost } | 200 { ok: false, not_plan: true, reason }
  */
 
 function client() {
@@ -43,14 +45,15 @@ export async function POST(req: Request) {
   const L = ledger();
   // worst case: the prompt (system + tool schema as characters, the image as tokens ≈ 3 chars each) plus the full output ceiling
   const promptChars = JSON.stringify(params.system).length + JSON.stringify(params.tools).length + 400 + imageTokens(body.width, body.height) * 3;
-  const r = L.reserve(SpendLedger.estimate(model, promptChars, VISION_MAX_TOKENS));
+  const frame = body.stage === "frame";
+  const r = L.reserve(SpendLedger.estimate(model, promptChars, frame ? FRAME_MAX_TOKENS : VISION_MAX_TOKENS));
   if (!r.ok) return Response.json({ error: r.message, spend: L.snapshot() }, { status: 402 });
   let committed = false;
   try {
     const msg = await c.messages.create(params as unknown as Anthropic.MessageCreateParamsNonStreaming, { signal: req.signal });
     const usd = L.commit(r.ticket, msg.model || model, msg.usage as never, "vision");
     committed = true;
-    const out = parseVisionResponse(msg as never);
+    const out = frame ? parseFrameResponse(msg as never) : parseVisionResponse(msg as never);
     const cost = { usd, total_usd: L.total, cap_usd: L.cap };
     if ("error" in out) return Response.json({ ...out, cost }, { status: 502 });
     return Response.json({ ...out, model: msg.model || model, cost });

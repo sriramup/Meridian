@@ -24,6 +24,7 @@ export type FacilityKind =
   | "museum"
   | "market"
   | "supermarket"
+  | "mall"
   | "stadium"
   | "hotel"
   | "city_hall"
@@ -163,7 +164,7 @@ export const SKETCH_TOOL = {
         items: {
           type: "object",
           properties: {
-            kind: { type: "string", enum: ["school", "university", "hospital", "clinic", "station", "fire", "police", "library", "community", "worship", "museum", "market", "supermarket", "stadium", "hotel", "city_hall", "other"] },
+            kind: { type: "string", enum: ["school", "university", "hospital", "clinic", "station", "fire", "police", "library", "community", "worship", "museum", "market", "supermarket", "mall", "stadium", "hotel", "city_hall", "other"] },
             at: pt,
             poly: ring,
             label: { type: "string" },
@@ -210,7 +211,7 @@ function points(x: unknown, min: number): Pt[] | null {
 const USE_LIST = USES as BlockUse[];
 const DENSITY_LIST = DENSITY as Density[];
 const AREA_LIST: AreaKind[] = ["park", "plaza", "water", "green", "parking", "forest"];
-const FAC_LIST: FacilityKind[] = ["school", "university", "hospital", "clinic", "station", "fire", "police", "library", "community", "worship", "museum", "market", "supermarket", "stadium", "hotel", "city_hall", "other"];
+const FAC_LIST: FacilityKind[] = ["school", "university", "hospital", "clinic", "station", "fire", "police", "library", "community", "worship", "museum", "market", "supermarket", "mall", "stadium", "hotel", "city_hall", "other"];
 const TRANSIT_LIST: TransitKind[] = ["rail", "metro", "tram", "brt", "bus"];
 
 /** a facility kind from a free label ("SCHOOL", "Elem. sch", "Hosp.") */
@@ -228,6 +229,7 @@ export function facilityFromLabel(label: string | undefined): FacilityKind | nul
   if (/community|rec(reation)? cent|civic cent/.test(t)) return "community";
   if (/church|mosque|temple|synagogue|chapel/.test(t)) return "worship";
   if (/museum|gallery/.test(t)) return "museum";
+  if (/\bmall\b|shopping cent/.test(t)) return "mall";
   if (/market|bazaar/.test(t)) return "market";
   if (/grocery|supermarket/.test(t)) return "supermarket";
   if (/stadium|arena/.test(t)) return "stadium";

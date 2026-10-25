@@ -198,6 +198,7 @@ const FACILITY: Record<FacilityKind, { def: string; w: number; d: number; site?:
   museum: { def: "civic.museum", w: 60, d: 45, label: "Museum" },
   market: { def: "commercial.market_stalls", w: 40, d: 30, label: "Market" },
   supermarket: { def: "commercial.supermarket", w: 70, d: 55, label: "Grocery", params: { parking: false } },
+  mall: { def: "commercial.shopping_mall", w: 160, d: 90, label: "Mall", params: { parking: false } },
   stadium: { def: "parks.park", w: 180, d: 130, site: true, label: "Sports Park", params: { paths: "perimeter", playground: false } },
   hotel: { def: "commercial.hotel", w: 58, d: 38, label: "Hotel", params: { floors: 12 } },
   city_hall: { def: "civic.city_hall", w: 60, d: 45, label: "City Hall" },

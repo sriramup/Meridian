@@ -13,13 +13,15 @@ type Msg = Anthropic.Beta.BetaMessageParam;
 export const DEFAULT_SKETCH_REQUEST = "Build this sketch.";
 
 export function sketchBlocks(att: SketchAttachment, read: VisionReply): Block[] {
-  const image: Block = { type: "image", source: { type: "base64", media_type: att.media_type, data: att.data } };
+  const shown = read.image ?? att;
+  const image: Block = { type: "image", source: { type: "base64", media_type: shown.media_type, data: shown.data } };
   if (read.ok) {
+    const straight = read.straightened ? " The image above is the user's photo straightened to the drawn map (perspective-corrected and upright); the plan's coordinates refer to it." : "";
     return [
       image,
       {
         type: "text",
-        text: `[runtime] The user attached a sketch (“${att.name}”, sketch_id ${att.id}). The vision reader extracted this plan (normalised image coordinates: x 0 left … 1 right, y 0 top … 1 bottom; extent in metres): ${planForModel(read.plan, att.id)}\nBuild it as you would a preset: one build_sketch call with sketch_id "${att.id}" (it places the sketch in free space or at the session's zone / the user's named place, frames the camera, and returns what it built). Pass center / size_m / rotation_deg only when the user asked for a place, size or orientation. Then summarise what you built, naming its streets, parks, water and facilities.`,
+        text: `[runtime] The user attached a sketch (“${att.name}”, sketch_id ${att.id}).${straight} The vision reader extracted this plan (normalised image coordinates: x 0 left … 1 right, y 0 top … 1 bottom; extent in metres): ${planForModel(read.plan, att.id)}\nBuild it as you would a preset: one build_sketch call with sketch_id "${att.id}" (it places the sketch in free space or at the session's zone / the user's named place, frames the camera, and returns what it built). Pass center / size_m / rotation_deg only when the user asked for a place, size or orientation. Then summarise what you built, naming its streets, parks, water and facilities.`,
       },
     ];
   }

@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: false,
+  // a second dev server alongside the first (e.g. one on the mock API, one on the real one) needs its own build dir
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   // the dev badge sits over the projects sidebar's footer; build and runtime errors still show
   devIndicators: false,
   async headers() {

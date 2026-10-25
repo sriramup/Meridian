@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { buildVisionRequest, parseVisionResponse, rejectsForcedTools, visionModel } from "@/sketch/vision";
+import { buildVisionRequest, FRAME_TOOL_NAME, parseFrameResponse, parseVisionResponse, rejectsForcedTools, visionModel } from "@/sketch/vision";
 import { SKETCH_TOOL_NAME } from "@/sketch/plan";
 
 const PLAN = JSON.parse(readFileSync(new URL("./fixtures/sketch-plan.json", import.meta.url), "utf8"));
@@ -11,7 +11,7 @@ const IMG = "A".repeat(4000);
 
 describe("vision request", () => {
   it("sends the image as a base64 block and forces the plan tool", () => {
-    const { model, forced, params } = buildVisionRequest({ image: IMG, media_type: "image/jpeg", width: 1200, height: 900, hint: "a riverside neighbourhood" }, {});
+    const { model, forced, params } = buildVisionRequest({ image: IMG, media_type: "image/jpeg", width: 1200, height: 900, hint: "a riverside neighbourhood" }, { MERIDIAN_MODEL_VISION: "claude-haiku-5-5" });
     expect(model).toBe("claude-haiku-5-5");
     expect(forced).toBe(true);
     const msg = (params.messages as any[])[0];
@@ -28,10 +28,18 @@ describe("vision request", () => {
     expect(JSON.stringify(params.system)).not.toMatch(/1200|riverside/);
   });
 
-  it("uses MERIDIAN_MODEL_VISION, else the standard tier's model", () => {
+  it("uses MERIDIAN_MODEL_VISION / _FRAME, else the standard tier's model", () => {
     expect(visionModel({ MERIDIAN_MODEL_VISION: "claude-sonnet-5" })).toBe("claude-sonnet-5");
-    expect(visionModel({ MERIDIAN_MODEL_STANDARD: "claude-opus-5" })).toBe("claude-opus-5");
     expect(visionModel({})).toBe("claude-haiku-5-5");
+    expect(visionModel({ MERIDIAN_MODEL_STANDARD: "claude-opus-5" }, "frame")).toBe("claude-opus-5");
+    expect(visionModel({}, "frame")).toBe("claude-haiku-5-5");
+  });
+
+  it("asks for the map's corners in the frame stage and reads them", () => {
+    const { params } = buildVisionRequest({ image: IMG, stage: "frame" }, {});
+    expect((params.tools as any[]).map((t) => t.name)).toEqual([FRAME_TOOL_NAME]);
+    const r = parseFrameResponse({ stop_reason: "tool_use", content: [{ type: "tool_use", name: FRAME_TOOL_NAME, input: { is_plan: true, has_border: true, top_left: [0.07, 0.42], top_right: [0.8, 0.1], bottom_right: [0.96, 0.62], bottom_left: [0.23, 0.92] } }] });
+    expect(r).toEqual({ ok: true, frame: { tl: [0.07, 0.42], tr: [0.8, 0.1], br: [0.96, 0.62], bl: [0.23, 0.92] } });
   });
 
   it("falls back to an unforced call on models that reject forced tool use", () => {
@@ -72,7 +80,7 @@ describe("POST /api/vision", () => {
     await new Promise<void>((r) => server.listen(0, r));
     const port = (server.address() as { port: number }).port;
     ledgerPath = join(mkdtempSync(join(tmpdir(), "vision-")), "spend.json");
-    Object.assign(process.env, { ANTHROPIC_API_KEY: "test", MERIDIAN_ANTHROPIC_BASE_URL: `http://127.0.0.1:${port}`, MERIDIAN_SPEND_LEDGER: ledgerPath, MERIDIAN_SPEND_CAP_USD: "1" });
+    Object.assign(process.env, { MERIDIAN_MODEL_VISION: "claude-haiku-5-5", ANTHROPIC_API_KEY: "test", MERIDIAN_ANTHROPIC_BASE_URL: `http://127.0.0.1:${port}`, MERIDIAN_SPEND_LEDGER: ledgerPath, MERIDIAN_SPEND_CAP_USD: "1" });
   });
   afterAll(() => {
     server.close();

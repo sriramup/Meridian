@@ -4,6 +4,7 @@
 // thumbnail for the composer chip, the message bubble and the saved history. Unreadable, unsupported
 // or huge files are refused with a plain message.
 
+import { growFrame, rectifiedSize, warpFrame, type FrameCorners } from "./rectify";
 import { newSketchId, type SketchAttachment } from "./store";
 
 export const MAX_EDGE = 1568;
@@ -126,6 +127,82 @@ export async function preprocessImage(blob: Blob, name: string): Promise<SketchA
   const thumb = `data:image/jpeg;base64,${await blobToBase64(await toBlob(draw(img, t.w, t.h), 0.72))}`;
   if ("close" in img) img.close();
   return { id: newSketchId(), name, media_type: "image/jpeg", data: await blobToBase64(jpeg), width: fit.w, height: fit.h, thumb, bytes: jpeg.size };
+}
+
+/** a faint labelled reference grid at every 0.1 (helps the vision model read positions; not part of the plan) */
+export function drawGrid(g: CanvasRenderingContext2D, w: number, h: number) {
+  g.save();
+  g.strokeStyle = "rgba(0,170,220,0.45)";
+  g.lineWidth = Math.max(1, w / 900);
+  g.fillStyle = "rgba(0,140,190,0.9)";
+  g.font = `bold ${Math.round(Math.max(w, h) / 75)}px sans-serif`;
+  for (let i = 1; i < 10; i++) {
+    const x = (w * i) / 10,
+      y = (h * i) / 10;
+    g.beginPath();
+    g.moveTo(x, 0);
+    g.lineTo(x, h);
+    g.moveTo(0, y);
+    g.lineTo(w, y);
+    g.stroke();
+    const t = `0.${i}`;
+    g.textAlign = "center";
+    g.textBaseline = "top";
+    g.fillText(t, x, 3);
+    g.textBaseline = "bottom";
+    g.fillText(t, x, h - 3);
+    g.textAlign = "left";
+    g.textBaseline = "middle";
+    g.fillText(t, 4, y);
+    g.textAlign = "right";
+    g.fillText(t, w - 4, y);
+  }
+  g.restore();
+}
+
+async function canvasOf(att: { data: string; media_type: string }): Promise<HTMLCanvasElement> {
+  const img = await decode(await (await fetch(`data:${att.media_type};base64,${att.data}`)).blob());
+  const w = "naturalWidth" in img ? img.naturalWidth : img.width,
+    h = "naturalHeight" in img ? img.naturalHeight : img.height;
+  const c = draw(img, w, h);
+  if ("close" in img) img.close();
+  return c;
+}
+
+/** the image with the reference grid drawn over it (for the frame pass) */
+export async function withGrid(att: SketchAttachment): Promise<SketchAttachment> {
+  const c = await canvasOf(att);
+  drawGrid(c.getContext("2d")!, c.width, c.height);
+  return { ...att, data: await blobToBase64(await toBlob(c, 0.88)) };
+}
+
+export interface Straightened {
+  /** upright drawing for the model to read: the reference grid drawn over it */
+  gridded: SketchAttachment;
+  /** the same without the grid (what the agent sees, and what the reading card shows) */
+  plain: SketchAttachment;
+  /** a display copy (≤ 720 px) as a data URL */
+  view: string;
+}
+
+/** map the drawn frame onto an upright rectangle (perspective transform) */
+export async function straighten(att: SketchAttachment, frame: FrameCorners): Promise<Straightened> {
+  const src = await canvasOf(att);
+  const f = growFrame(frame);
+  const { w, h } = rectifiedSize(f, src.width, src.height, 1400);
+  const out = warpFrame(src.getContext("2d")!.getImageData(0, 0, src.width, src.height), f, w, h);
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const g = c.getContext("2d")!;
+  g.putImageData(new ImageData(new Uint8ClampedArray(out.data), w, h), 0, 0);
+  const plainBlob = await toBlob(c, 0.88);
+  const v = fitWithin(w, h, 720);
+  const view = `data:image/jpeg;base64,${await blobToBase64(await toBlob(draw(c, v.w, v.h), 0.8))}`;
+  drawGrid(g, w, h);
+  const gridBlob = await toBlob(c, 0.88);
+  const base = { ...att, width: w, height: h };
+  return { gridded: { ...base, data: await blobToBase64(gridBlob), bytes: gridBlob.size }, plain: { ...base, data: await blobToBase64(plainBlob), bytes: plainBlob.size }, view };
 }
 
 /** the first image in a clipboard / drag payload */
