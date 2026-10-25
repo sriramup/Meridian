@@ -463,6 +463,32 @@ export interface CreateStreetParams {
   serviceAccess?: boolean;
 }
 
+/** entities of `kinds` in a bbox as the builder sees them: committed ones plus those pending in the same builder */
+function pendingQuery(b: OpBuilder, bb: [number, number, number, number], kinds: ("node" | "street")[]) {
+  const out = new Map<string, StreetNode | Street>();
+  for (const e of b.world.query(bb, kinds)) {
+    const cur = b.get<StreetNode | Street>(e.id);
+    if (cur) out.set(e.id, cur);
+  }
+  for (const e of b.touched()) {
+    if (out.has(e.id) || !kinds.includes(e.kind as "node" | "street")) continue;
+    const q = e.kind === "node" ? [e.p[0], e.p[1], e.p[0], e.p[1]] : e.kind === "street" ? pathBBox(e.path) : null;
+    if (q && q[0] <= bb[2] && q[2] >= bb[0] && q[1] <= bb[3] && q[3] >= bb[1]) out.set(e.id, e as StreetNode | Street);
+  }
+  return [...out.values()];
+}
+
+/** streets meeting at a node, including streets pending in the builder */
+function pendingIncident(b: OpBuilder, nodeId: string): Street[] {
+  const out = new Map<string, Street>();
+  for (const s of b.world.incident(nodeId)) {
+    const cur = b.get<Street>(s.id);
+    if (cur) out.set(s.id, cur);
+  }
+  for (const e of b.touched()) if (e.kind === "street" && (e.from === nodeId || e.to === nodeId)) out.set(e.id, e);
+  return [...out.values()];
+}
+
 /** create a new street, splicing it into the existing network at its ends and at every crossing */
 export function createStreet(world: World, p: CreateStreetParams, actor: Actor, ob?: OpBuilder): OpResult {
   const b = ob ?? new OpBuilder(world, actor.author);
@@ -475,14 +501,14 @@ export function createStreet(world: World, p: CreateStreetParams, actor: Actor, 
   const hits: Hit[] = [];
   const findEnd = (pt: Vec2, at: number) => {
     let best: Hit | null = null;
-    for (const e of world.query([pt[0] - snap, pt[1] - snap, pt[0] + snap, pt[1] + snap], ["node"])) {
+    for (const e of pendingQuery(b, [pt[0] - snap, pt[1] - snap, pt[0] + snap, pt[1] + snap], ["node"])) {
       const n = e as StreetNode;
-      if (!world.incident(n.id).some((s) => s.cls !== "motorway" && !s.bridge)) continue;
+      if (!pendingIncident(b, n.id).some((s) => s.cls !== "motorway" && !s.bridge)) continue;
       const d = dist(n.p, pt);
       if (d < snap && (!best || d < dist(best.p, pt))) best = { along: at, p: n.p, node: n.id };
     }
     if (best) return best;
-    for (const e of world.query([pt[0] - snap, pt[1] - snap, pt[0] + snap, pt[1] + snap], ["street"])) {
+    for (const e of pendingQuery(b, [pt[0] - snap, pt[1] - snap, pt[0] + snap, pt[1] + snap], ["street"])) {
       const s = b.get<Street>(e.id);
       if (!s || s.cls === "motorway" || s.bridge || s.tunnel) continue;
       const c = closestOnPath(pt, s.path);
@@ -496,7 +522,7 @@ export function createStreet(world: World, p: CreateStreetParams, actor: Actor, 
   if (startHit) hits.push(startHit);
   // interior crossings
   const bb = pathBBox(path);
-  for (const e of world.query([bb[0] - 5, bb[1] - 5, bb[2] + 5, bb[3] + 5], ["street"])) {
+  for (const e of pendingQuery(b, [bb[0] - 5, bb[1] - 5, bb[2] + 5, bb[3] + 5], ["street"])) {
     const s = b.get<Street>(e.id);
     if (!s || s.cls === "motorway" || s.bridge || s.tunnel) continue;
     if (startHit?.street?.id === s.id || endHit?.street?.id === s.id) continue;
@@ -509,7 +535,7 @@ export function createStreet(world: World, p: CreateStreetParams, actor: Actor, 
         if (along < 8 || along > L - 8) continue;
         const sc = closestOnPath(x, s.path);
         // snap to an existing node when the crossing is close to one
-        const near = [s.from, s.to].map((nid) => world.get<StreetNode>(nid)!).find((n) => n && dist(n.p, x) < 10);
+        const near = [s.from, s.to].map((nid) => b.get<StreetNode>(nid)!).find((n) => n && dist(n.p, x) < 10);
         hits.push(near ? { along, p: near.p, node: near.id } : { along, p: x, street: s, d: sc.along });
       }
       acc += dist(path[i - 1], path[i]);
