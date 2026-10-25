@@ -5,7 +5,7 @@
 //   → intensity solved so the fabric meets the homes target → lots and buildings from the library →
 //   courtyards, gardens, parking structures → civic site plans → parks → street trees.
 
-import { distToPoly, insetPoly, isValidPoly, normalizePoly, pointInPoly, polyArea, polyBBox, polyCentroid } from "@/geometry/polygon";
+import { difference, distToPoly, insetPoly, isValidPoly, normalizePoly, pointInPoly, polyArea, polyBBox, polyCentroid } from "@/geometry/polygon";
 import { dist } from "@/geometry/vec";
 import { ensureLibrary } from "@/library";
 import { fmtAcres, fmtNum, toAcres } from "@/lib/units";
@@ -18,8 +18,8 @@ import { placePrimitive } from "@/world/ops/library";
 import { streetBand } from "@/world/ops/validate";
 import { LOT_FACILITIES, cellsBounds, facilityPlacement, planCivicCells, reserveFacility, reserveOpenSpace, type CivicSite } from "./civic";
 import { INTENSITY_RANGE, analyseBlock, lotPlacement, planFabric, roleOfClass, streetRefs, type Block, type FabricOptions, type FabricPlan, type Reservation } from "./fabric";
-import { resolveProgramme, type DensityClass, type NeighborhoodSpec, type PaletteName } from "./programme";
-import { type GridPlan, type StreetRole, buildStreetGrid, cellRect, planStreetGrid } from "./streets";
+import { SCHOOL_NORMS, resolveProgramme, type DensityClass, type NeighborhoodSpec, type PaletteName } from "./programme";
+import { type GridPlan, type StreetRole, buildStreetGrid, cellRect, planStreetGrid, toWorldG } from "./streets";
 import { clip, efPt, makeRng, minWidth, minus, type Rng } from "./util";
 
 const SOURCE = "Meridian design";
@@ -134,8 +134,8 @@ export function designNeighborhood(world: World, spec: NeighborhoodSpec, actor: 
   const groundFloor: { kind: "restaurant" | "cafe"; name: string }[] = [];
   for (let k = 0; k < nRest; k++) {
     const name = req.filter((x) => x.kind === "restaurant")[k]?.name ?? restNames[k % restNames.length];
-    if (k < Math.ceil(nRest / 2) || prog.density === "low") reserve("restaurant", hub, lotFacilities.filter((l) => l.kind === "restaurant").map((l) => polyCentroid(l.r.poly)), name);
-    else groundFloor.push({ kind: "restaurant", name });
+    // each restaurant is its own small building with a patio (exact counts); at grade in a mixed-use building only if no frontage is left
+    if (!reserve("restaurant", hub, lotFacilities.filter((l) => l.kind === "restaurant").map((l) => polyCentroid(l.r.poly)), name)) groundFloor.push({ kind: "restaurant", name });
   }
   for (const f of req.filter((x) => x.kind === "cafe")) {
     if (prog.density === "low") reserve("cafe", hub, [], f.name ?? CAFE_NAMES[0]);
@@ -170,7 +170,7 @@ export function designNeighborhood(world: World, spec: NeighborhoodSpec, actor: 
     hi = hi0;
   let plan: FabricPlan = planFabric(fabric, { ...base, intensity: hi });
   if (plan.homes >= prog.homes) {
-    for (let it = 0; it < 9; it++) {
+    for (let it = 0; it < 7; it++) {
       const mid = (lo + hi) / 2;
       const p = planFabric(fabric, { ...base, intensity: mid });
       if (p.homes >= prog.homes) {
@@ -178,9 +178,35 @@ export function designNeighborhood(world: World, spec: NeighborhoodSpec, actor: 
         plan = p;
       } else lo = mid;
     }
-    plan = planFabric(fabric, { ...base, intensity: hi });
   } else b.warn(`The fabric reaches about ${fmtNum(plan.homes)} homes of the ${fmtNum(prog.homes)} asked for under the ${prog.maxFloors}-floor cap`);
   const intensity = hi;
+
+  // school seats sized to the homes the fabric holds (pupil yields per home, urban mixed housing:
+  // ≈ 0.16 K–5, 0.08 grades 6–8, 0.10 grades 9–12); shortfalls and catchment gaps are reported
+  const advisories: string[] = [];
+  const schools: { name: string; kind: string; enrolment: number; demand: number }[] = [];
+  for (const [kind, rate, label] of [["primary_school", 0.16, "Primary"], ["middle_school", 0.08, "Middle"], ["high_school", 0.1, "High"]] as const) {
+    const sites = civic.filter((c) => c.kind === kind);
+    if (!sites.length) continue;
+    const demand = plan.homes * rate;
+    const norm = SCHOOL_NORMS[kind].enrolment;
+    for (const st of sites) if (!st.enrolment) st.enrolment = Math.round(Math.max(norm * 0.6, Math.min(norm * 1.5, demand / sites.length)) / 10) * 10;
+    const seats = sites.reduce((t, st) => t + (st.enrolment ?? norm), 0);
+    for (const st of sites) schools.push({ name: st.name, kind, enrolment: st.enrolment ?? norm, demand: Math.round(demand / sites.length) });
+    if (demand > seats * 1.1) advisories.push(`${label} school demand ≈ ${fmtNum(demand)} pupils for ${fmtNum(seats)} seats: add ${Math.ceil((demand - seats) / norm)} more ${label.toLowerCase()} school${Math.ceil((demand - seats) / norm) > 1 ? "s" : ""}`);
+    if (kind === "primary_school") {
+      const at = sites.map((st) => cellCentre(grid, st.cells));
+      let near = 0,
+        all = 0;
+      for (const l of plan.lots) {
+        const c = polyCentroid(l.poly);
+        all += l.homes;
+        if (at.some((p) => dist(p, c) * 1.2 <= 805)) near += l.homes;
+      }
+      const share = all ? near / all : 1;
+      if (share < 0.85) advisories.push(`Primary school${sites.length > 1 ? "s" : ""} within ½ mi of ${Math.round(share * 100)}% of homes: one more primary school would close the gap`);
+    }
+  }
 
   // ground-floor restaurants and cafés: retail corners nearest the hub
   const retailLots = plan.lots.filter((l) => l.retail && l.site).sort((p, q) => Number(q.corner) - Number(p.corner) || dist(polyCentroid(p.site!), hub) - dist(polyCentroid(q.site!), hub));
@@ -192,55 +218,74 @@ export function designNeighborhood(world: World, spec: NeighborhoodSpec, actor: 
     dining.push({ lot, name: g.name, kind: g.kind });
   }
 
-  // ---- 7. build the fabric
+  // ---- 7. build the fabric, block by block. Each block is placed in its own builder (blocks are
+  // disjoint and outside every right-of-way, so they cannot conflict with each other) and merged:
+  // collision checks then scan one block's entities, not the whole neighbourhood's.
   const brng = rng.fork(99);
-  const placed: { id: string; lot?: (typeof plan.lots)[number] }[] = [];
   const typCount = new Map<string, number>();
-  for (const lot of plan.lots) {
-    const pl = lotPlacement(lot, brng, palette);
-    if (!pl) continue;
-    const r = placePrimitive(world, { def: pl.def, params: pl.params, site: pl.site, at: pl.at, rotation: pl.rotation, onConflict: "carve", lenient: true }, actor, b);
-    if (r.ok) {
-      typCount.set(lot.t.label, (typCount.get(lot.t.label) ?? 0) + 1);
-      placed.push({ id: String(r.data?.primary ?? ""), lot });
-      for (const y of lot.yard) addArea(b, "grass", y);
-      for (const y of lot.yard) yardTree(b, y, brng);
-    } else addArea(b, "grass", lot.poly);
-  }
-  for (const d of dining) {
-    const e = d.lot.edge;
-    const at = efPt(e.f, (d.lot.s0 + d.lot.s1) / 2, -2.2);
-    placePrimitive(world, { def: "streetscape.outdoor_dining", params: { tables: Math.max(3, Math.min(8, Math.floor((d.lot.s1 - d.lot.s0) / 3))), umbrellas: true, umbrellaColor: brng.pick(["#2a5a3c", "#b65a3c", "#f0f0ec"]) }, at, rotation: (Math.atan2(e.f.u[1], e.f.u[0]) * 180) / Math.PI, lenient: true }, actor, b);
-  }
-  for (const g of plan.greens) addArea(b, "grass", g);
+  const sub = (fn: (sb: OpBuilder) => void) => {
+    const sb = new OpBuilder(world, b.author, b.tag);
+    fn(sb);
+    for (const op of sb.ops()) {
+      if (op.type === "add") b.add(op.entity);
+      else if (op.type === "remove") b.remove(op.entity.id);
+      else b.update(op.after);
+    }
+  };
+  const lotsBy = groupBy(plan.lots, (l) => l.block);
+  const coresBy = groupBy(plan.cores, (c) => c.block);
   let garages = 0,
     garageSpaces = 0;
-  for (const c of plan.cores) {
-    if (c.garage) {
-      const site = insetPoly(c.poly, 1.2);
-      if (site && isValidPoly(site)) {
-        const fl = brng.int(4, 6);
-        const r = placePrimitive(world, { def: "transport.parking_garage", params: { shape: "site", floors: fl, facade: brng.pick(["concrete", "precast_white", "brick_buff"]), greenRoof: brng.chance(0.3) }, site, rotation: 0, lenient: true }, actor, b);
-        if (r.ok) {
-          garages++;
-          garageSpaces += Math.round((polyArea(site) * fl) / 30);
-          for (const y of minus(c.poly, [site], 6)) addArea(b, "grass", y);
-          continue;
+  for (const blk of fabric) {
+    sub((sb) => {
+      for (const lot of lotsBy.get(blk.key) ?? []) {
+        const pl = lotPlacement(lot, brng, palette);
+        if (!pl) continue;
+        const r = placePrimitive(world, { def: pl.def, params: pl.params, site: pl.site, at: pl.at, rotation: pl.rotation, onConflict: "carve", lenient: true }, actor, sb);
+        if (!r.ok) continue;
+        typCount.set(lot.t.label, (typCount.get(lot.t.label) ?? 0) + 1);
+        for (const y of lot.yard) yardTree(sb, y, brng);
+        const d = dining.find((x) => x.lot === lot);
+        if (d) {
+          const e = lot.edge;
+          placePrimitive(world, { def: "streetscape.outdoor_dining", params: { tables: Math.max(3, Math.min(8, Math.floor((lot.s1 - lot.s0) / 3))), umbrellas: true, umbrellaColor: brng.pick(["#2a5a3c", "#b65a3c", "#f0f0ec"]) }, at: efPt(e.f, (lot.s0 + lot.s1) / 2, -2.2), rotation: (Math.atan2(e.f.u[1], e.f.u[0]) * 180) / Math.PI, onConflict: "carve", lenient: true }, actor, sb);
         }
       }
-    }
-    courtyard(b, c.poly, c.family, brng);
+      for (const c of coresBy.get(blk.key) ?? []) {
+        if (c.garage) {
+          const site = insetPoly(c.poly, 1.2);
+          if (site && isValidPoly(site)) {
+            const fl = brng.int(4, 6);
+            const r = placePrimitive(world, { def: "transport.parking_garage", params: { shape: "site", floors: fl, facade: brng.pick(["concrete", "precast_white", "brick_buff"]), greenRoof: brng.chance(0.3) }, site, rotation: 0, onConflict: "carve", lenient: true }, actor, sb);
+            if (r.ok) {
+              garages++;
+              garageSpaces += Math.round((polyArea(site) * fl) / 30);
+              continue;
+            }
+          }
+        }
+        courtyardTrees(sb, c.poly, c.family, brng);
+      }
+      // one landscaped ground area per block: everything not under a building, a patio, a yard of a
+      // house or a reserved site is garden, courtyard or forecourt
+      const cut: Polygon[] = res.filter((r) => r.block === blk.key).map((r) => r.poly);
+      for (const e of sb.touched()) {
+        if (e.kind === "building") cut.push((e as Building).footprint);
+        else if (e.kind === "area") cut.push((e as Area).poly);
+      }
+      for (const g of minusAll(blk.poly, cut)) addArea(sb, "grass", g, polyArea(g) > 1500 ? "Courtyard garden" : undefined);
+    });
   }
 
   // ---- 8. civic sites
   for (const site of civic) {
     const polys = civicPolys.get(site) ?? [];
     if (site.kind === "park") {
-      for (const q of polys) placePrimitive(world, { def: "parks.park", params: { paths: "both", playground: true, benches: 10, pavilion: brng.chance(0.5), flowerBeds: 3, treeSpacing: 14, treeCover: 60, seed: brng.int(1, 9999) }, site: q, name: site.name, lenient: true }, actor, b);
+      for (const q of polys) sub((sb) => placePrimitive(world, { def: "parks.park", params: { paths: "both", playground: true, benches: 10, pavilion: brng.chance(0.5), flowerBeds: 3, treeSpacing: 14, treeCover: 60, seed: brng.int(1, 9999) }, site: q, name: site.name, onConflict: "carve", lenient: true }, actor, sb));
       continue;
     }
     if (site.kind === "university") {
-      campusDistrict(world, b, actor, grid, site, polys, refs, brng);
+      sub((sb) => campusDistrict(world, sb, actor, grid, site, polys, refs, brng));
       continue;
     }
     const q = polys[0];
@@ -250,29 +295,31 @@ export function designNeighborhood(world: World, spec: NeighborhoodSpec, actor: 
     const front = blk.edges.slice().sort((p, q2) => rank(pref, p.role) - rank(pref, q2.role) || q2.f.len - p.f.len)[0];
     const heading = front ? ((Math.atan2(-front.f.n[1], -front.f.n[0]) * 180) / Math.PI - 90 + 360) % 360 : 0;
     const level = site.kind === "primary_school" ? "primary" : site.kind === "middle_school" ? "middle" : "high";
-    placePrimitive(world, { def: "composites.urban_school", params: { level, enrolment: site.enrolment ?? 0, seed: brng.int(1, 9999) }, site: q, rotation: heading, name: site.name, lenient: true }, actor, b);
+    sub((sb) => placePrimitive(world, { def: "composites.urban_school", params: { level, enrolment: Math.round(site.enrolment ?? 0), seed: brng.int(1, 9999) }, site: q, rotation: heading, name: site.name, onConflict: "carve", lenient: true }, actor, sb));
   }
 
   // ---- 9. reserved lots: facilities, plaza, pocket parks
   for (const r of res) {
     const blk = fabric.find((x) => x.key === r.block)!;
-    if (r.kind === "plaza") {
-      placePrimitive(world, { def: "parks.plaza", params: { centre: "fountain", treeSpacing: 9, seed: brng.int(1, 9999) }, site: r.poly, name: "Market Square", lenient: true }, actor, b);
-      continue;
-    }
-    if (r.kind === "pocket_park") {
-      placePrimitive(world, { def: "parks.pocket_park", params: { playground: brng.chance(0.5), seed: brng.int(1, 9999) }, site: r.poly, lenient: true }, actor, b);
-      continue;
-    }
-    const lf = LOT_FACILITIES[r.kind as keyof typeof LOT_FACILITIES];
-    if (!lf) continue;
-    const name = lotFacilities.find((x) => x.r === r)?.name;
-    const { at, rotation } = facilityPlacement(blk, r, lf);
-    const pr = placePrimitive(world, { def: lf.def, params: { ...lf.params, ...(name ? { name } : {}) }, at, rotation, name, lenient: true }, actor, b);
-    const fp = pr.ok ? b.get<Building>(String(pr.data?.primary ?? ""))?.footprint : undefined;
-    const taken: Polygon[] = fp ? [fp] : [];
-    for (const e of b.touched()) if (e.kind === "area" && (e as Area).lib?.instance === pr.instance) taken.push((e as Area).poly);
-    for (const g of minus(r.poly, taken, 10)) addArea(b, "grass", g);
+    sub((sb) => {
+      if (r.kind === "plaza") {
+        placePrimitive(world, { def: "parks.plaza", params: { centre: "fountain", treeSpacing: 9 }, site: r.poly, name: "Market Square", onConflict: "carve", lenient: true }, actor, sb);
+        return;
+      }
+      if (r.kind === "pocket_park") {
+        placePrimitive(world, { def: "parks.pocket_park", params: { playground: brng.chance(0.5), seed: brng.int(1, 9999) }, site: r.poly, onConflict: "carve", lenient: true }, actor, sb);
+        return;
+      }
+      const lf = LOT_FACILITIES[r.kind as keyof typeof LOT_FACILITIES];
+      if (!lf) return;
+      const name = lotFacilities.find((x) => x.r === r)?.name;
+      const { at, rotation } = facilityPlacement(blk, r, lf);
+      placePrimitive(world, { def: lf.def, params: { ...lf.params, ...(name ? { name } : {}) }, at, rotation, name, onConflict: "carve", lenient: true }, actor, sb);
+      const taken: Polygon[] = [];
+      for (const e of sb.touched()) if (e.kind === "building") taken.push((e as Building).footprint);
+      else if (e.kind === "area") taken.push((e as Area).poly);
+      for (const g of minusAll(r.poly, taken)) addArea(sb, "grass", g);
+    });
   }
 
   // ---- 10. street trees
@@ -312,6 +359,7 @@ export function designNeighborhood(world: World, spec: NeighborhoodSpec, actor: 
     `Streets: ${countRoles(built.ids)}; ${civic.filter((c) => c.kind !== "park").map((c) => c.name).join(", ") || "no civic campuses"}`,
     `Open space: ${civic.filter((c) => c.kind === "park").length} neighborhood park${civic.filter((c) => c.kind === "park").length === 1 ? "" : "s"}, ${res.filter((r) => r.kind === "pocket_park").length} pocket parks${plaza ? ", a plaza" : ""}; ${fmtNum(trees)} street trees${garages ? `; ${garages} parking structures (≈${fmtNum(garageSpaces)} spaces)` : ""}`,
   );
+  if (advisories.length) b.report.summary.splice(3, 0, ...advisories);
   if (demolished) b.summary(`Replaced ${demolished} existing buildings`);
   b.data = {
     homes: Math.round(homes),
@@ -325,6 +373,8 @@ export function designNeighborhood(world: World, spec: NeighborhoodSpec, actor: 
     typologies: Object.fromEntries(typCount),
     civic: civic.map((c) => ({ kind: c.kind, name: c.name })),
     facilities: lotFacilities.map((l) => ({ kind: l.kind, name: l.name })).concat(dining.map((d) => ({ kind: d.kind, name: d.name }))),
+    schools,
+    advisories,
     street_trees: trees,
     parking_structures: garages,
     palette,
@@ -371,6 +421,28 @@ function streetsNear(world: World, b: OpBuilder, bb: [number, number, number, nu
   return [...out.values()].filter((s) => s.cls !== "motorway" && s.cls !== "motorway_link" && !s.tunnel);
 }
 
+function cellCentre(g: GridPlan, cs: GridPlan["cells"][number]) {
+  const x = cs.reduce((t, c) => t + (c.x0 + c.x1) / 2, 0) / cs.length,
+    y = cs.reduce((t, c) => t + (c.y0 + c.y1) / 2, 0) / cs.length;
+  return toWorldG(g.frame, x, y);
+}
+
+function groupBy<T>(xs: T[], k: (x: T) => string): Map<string, T[]> {
+  const m = new Map<string, T[]>();
+  for (const x of xs) m.set(k(x), [...(m.get(k(x)) ?? []), x]);
+  return m;
+}
+
+/** a polygon minus many others in one clipping pass (falls back to one at a time) */
+function minusAll(a: Polygon, cut: Polygon[]): Polygon[] {
+  const valid = cut.filter((q) => isValidPoly(q));
+  try {
+    return difference(a, ...valid).filter((q) => isValidPoly(q) && polyArea(q) >= 6);
+  } catch {
+    return minus(a, valid, 6);
+  }
+}
+
 function addArea(b: OpBuilder, type: Area["type"], poly: Polygon, name?: string) {
   if (!isValidPoly(poly) || polyArea(poly) < 4) return;
   b.add<Area>({ id: newId("a"), kind: "area", type, poly, source: SOURCE, provenance: "proposed", createdBy: b.tag, ...(name ? { name } : {}) });
@@ -390,8 +462,7 @@ function yardTree(b: OpBuilder, y: Polygon, rng: Rng) {
 }
 
 /** a block interior: shared courtyard garden (perimeter blocks) or rear gardens (yard blocks), with trees */
-function courtyard(b: OpBuilder, poly: Polygon, family: "yard" | "perimeter", rng: Rng) {
-  addArea(b, "grass", poly, family === "perimeter" && polyArea(poly) > 300 ? "Courtyard garden" : undefined);
+function courtyardTrees(b: OpBuilder, poly: Polygon, family: "yard" | "perimeter", rng: Rng) {
   const inner = insetPoly(poly, 5.5);
   if (!inner || !isValidPoly(inner)) return;
   const [x0, y0, x1, y1] = polyBBox(inner);
