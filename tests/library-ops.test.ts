@@ -113,7 +113,7 @@ describe("library ops", () => {
     const refused = placePrimitive(R.world, { def: "test.block", at: [20, 0], onConflict: "refuse" }, user);
     expect(refused.ok).toBe(false);
     expect(refused.error).toMatch(/overlap/);
-    const carved = commit(placePrimitive(R.world, { def: "test.block", at: [20, 0] }, user));
+    const carved = commit(placePrimitive(R.world, { def: "test.block", at: [20, 0], onConflict: "carve" }, user));
     const cb = R.world.get<Building>(carved.created[0])!;
     expect(cb.footprint[0].every(([x]) => x >= 16.4)).toBe(true);
     expect(R.world.get(a.created[0])).toBeTruthy();
