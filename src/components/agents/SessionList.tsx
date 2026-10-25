@@ -4,13 +4,15 @@ import { Bot, Ellipsis, Pencil, Search, Square, SquarePen, Trash2, X } from "luc
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import type { AgentSession } from "@/agent/types";
 import { create } from "zustand";
-import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, EmptyState, Input, Kbd, Tooltip } from "@/components/ui/kit";
+import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, EmptyState, Input, Kbd } from "@/components/ui/kit";
 import { cx } from "../ui";
 import { editCount, GROUP_LABEL, groupSessions, matchExcerpt, relTime, rgb, sessionColor, statusText } from "./model";
-import { CloseButton, StatusIcon } from "./parts";
+import { CloseButton, NewAgentButton, StatusIcon } from "./parts";
 import { agents } from "./store";
 
 let lastQuery = "";
+/** the search field appears once there are enough agents to need it */
+const SEARCH_FROM = 6;
 
 /** re-render on a slow clock so relative times stay true */
 export function useNow(ms = 30_000) {
@@ -53,16 +55,12 @@ export function SessionList({ sessions, onNew, onClose }: { sessions: AgentSessi
         <h2 className="font-display text-[19px] leading-none text-ink">Agents</h2>
         {running > 0 && <span className="text-[11.5px] text-ink-3">{running} running</span>}
         <div className="ml-auto flex items-center gap-0.5">
-          <Tooltip content="New agent">
-            <Button variant="ghost" size="sm" onClick={onNew} className="gap-1.5 text-ink-2">
-              <SquarePen strokeWidth={1.7} /> New
-            </Button>
-          </Tooltip>
+          <NewAgentButton onNew={onNew} />
           <CloseButton onClose={onClose} />
         </div>
       </header>
 
-      {sessions.length > 0 && (
+      {(sessions.length >= SEARCH_FROM || query) && (
         <div className="shrink-0 px-3 pt-3 pb-1">
           <Input
             ref={search}
@@ -95,7 +93,6 @@ export function SessionList({ sessions, onNew, onClose }: { sessions: AgentSessi
             className="pt-16"
             icon={<Bot strokeWidth={1.5} />}
             title="No agents yet"
-            hint="Each agent works on one task in its own conversation, plans or edits the map, and can be limited to a zone. Several can run at once."
             action={
               <Button size="sm" variant="primary" onClick={onNew}>
                 <SquarePen strokeWidth={1.8} /> New agent
@@ -130,7 +127,7 @@ function Row({ session: s, now, query, renaming, setRenaming }: { session: Agent
   const edits = editCount(s);
   const excerpt = query ? matchExcerpt(s, query) : null;
   const [menu, setMenu] = useState(false);
-  const meta = [statusText(s), s.zone ? null : "Anywhere", edits ? `${edits} edit${edits > 1 ? "s" : ""}` : null].filter(Boolean) as string[];
+  const meta = [statusText(s), edits ? `${edits} edit${edits > 1 ? "s" : ""}` : null].filter(Boolean) as string[];
   if (renaming) return <RenameRow session={s} done={() => setRenaming(false)} />;
   return (
     <div className="group relative">

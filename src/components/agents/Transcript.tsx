@@ -2,135 +2,149 @@
 
 import { Activity, Check, ChevronRight, CircleAlert, MapPin, TriangleAlert } from "lucide-react";
 import { memo, useMemo, useState } from "react";
-import type { ChatItem, Segment, ToolCallView } from "@/agent/types";
+import type { ChatItem, ToolCallView } from "@/agent/types";
 import { entityName } from "@/agent/resolve";
 import { rtMaybe } from "@/state/runtime";
-import { Button, Spinner } from "@/components/ui/kit";
+import { Button, Collapsible, CollapsibleContent, CollapsibleTrigger, Spinner } from "@/components/ui/kit";
 import { cx } from "../ui";
 import { Markdown } from "../Markdown";
-import { TOOL_ICON, TOOL_VERB } from "./toolMeta";
+import { buildTranscript, formatDuration, liveLabel, runSummary, type Run, type Step } from "./model";
+import { useNow } from "./SessionList";
 import { agents } from "./store";
+import { TOOL_ICON, TOOL_VERB } from "./toolMeta";
 
-/** one session's conversation: user turns, the agent's reasoning, tool timeline and text, approvals */
+/**
+ * One session's conversation. Each reply of the agent reads as its answer under a single quiet
+ * line: while it works, what it is doing and for how long; once done, "Worked for 18s · 7 steps",
+ * which opens onto the steps. Approvals always stay in view.
+ */
 export function Transcript({ sessionId, items, running }: { sessionId: string; items: ChatItem[]; running: boolean }) {
+  const entries = useMemo(() => buildTranscript(items, running), [items, running]);
+  let prevUser: Extract<ChatItem, { kind: "user" }> | null = null;
   return (
-    <div className="px-4 py-4">
-      {items.map((it, i) => (
-        // one run's consecutive turns read as one continuous reply
-        <div key={it.id} className={cx(i > 0 && (it.kind === "assistant" && items[i - 1].kind === "assistant" ? "mt-1" : "mt-4"))}>
-          <Item sessionId={sessionId} item={it} prev={items[i - 1]} />
-        </div>
-      ))}
-      {running && !items.some((it) => it.kind === "approval" && it.state === "pending") && (
-        <div className="mt-3 flex items-center gap-2 text-[12px] text-ink-3">
-          <Spinner size={13} label="Working" />
-          Working
-        </div>
-      )}
+    <div className="flex flex-col gap-5 px-4 pt-4 pb-6">
+      {entries.map((e) => {
+        if (e.kind === "user") {
+          const p = prevUser;
+          prevUser = e.item;
+          return <UserMsg key={e.item.id} item={e.item} prev={p} />;
+        }
+        return <RunView key={e.run.id} sessionId={sessionId} run={e.run} />;
+      })}
     </div>
   );
 }
 
-const Item = memo(function Item({ sessionId, item, prev }: { sessionId: string; item: ChatItem; prev?: ChatItem }) {
-  if (item.kind === "user") {
-    // show the run's mode / zone when it differs from the previous run's
-    const prevUser = prev?.kind === "user" ? prev : null;
-    return <UserMsg item={item} showMeta={!prevUser || prevUser.mode !== item.mode || prevUser.zone?.id !== item.zone?.id} />;
-  }
-  if (item.kind === "notice")
-    return (
-      <div className={cx("flex items-start gap-2 text-[12px] leading-snug", item.tone === "error" ? "text-bad" : "text-ink-3")}>
-        {item.tone === "error" && <CircleAlert size={13} className="mt-px shrink-0" />}
-        <span className="min-w-0">{item.text}</span>
-      </div>
-    );
-  if (item.kind === "approval") return <Approval sessionId={sessionId} item={item} />;
-  return <AssistantMsg segments={item.segments} done={item.done} />;
-});
-
-function UserMsg({ item, showMeta }: { item: Extract<ChatItem, { kind: "user" }>; showMeta: boolean }) {
+const UserMsg = memo(function UserMsg({ item, prev }: { item: Extract<ChatItem, { kind: "user" }>; prev: Extract<ChatItem, { kind: "user" }> | null }) {
   const R = rtMaybe();
+  // the run's mode / zone, only when it is not the default and differs from the previous turn's
+  const changed = !prev || prev.mode !== item.mode || prev.zone?.id !== item.zone?.id;
+  const meta = changed && (item.mode === "plan" || item.zone) ? [item.mode === "plan" ? "Plan" : null, item.zone?.label ?? null].filter(Boolean).join(" · ") : null;
   return (
-    <div className="flex flex-col items-end gap-1">
+    <div className="flex flex-col items-end gap-1 pl-8">
       {item.refs.length > 0 && (
-        <div className="flex max-w-[90%] flex-wrap justify-end gap-1">
+        <div className="flex flex-wrap justify-end gap-1">
           {item.refs.map((id) => {
             const e = R?.world.get(id);
             return (
-              <span key={id} className="inline-flex h-5 items-center rounded-[4px] bg-accent-2 px-1.5 text-[10.5px] font-medium text-rose">
+              <span key={id} className="inline-flex h-5 max-w-[180px] items-center truncate rounded-[4px] bg-accent-2 px-1.5 text-[10.5px] font-medium text-rose">
                 {e ? entityName(e) : id}
               </span>
             );
           })}
         </div>
       )}
-      <div className="max-w-[90%] rounded-[8px] bg-paper-3 px-3 py-2 text-[13px] leading-[1.5] whitespace-pre-wrap text-ink">{item.text}</div>
-      {showMeta && (
-        <div className="flex max-w-[90%] items-center gap-1.5 text-[11px] text-ink-4">
-          <span>{item.mode === "plan" ? "Plan" : "Edit"}</span>
-          <span aria-hidden>·</span>
-          <MapPin size={11} className="shrink-0" />
-          <span className="truncate">{item.zone ? item.zone.label : "Anywhere"}</span>
+      <div className="max-w-full rounded-[10px] bg-paper-3 px-3 py-2 text-[13px] leading-[1.5] break-words whitespace-pre-wrap text-ink">{item.text}</div>
+      {meta && (
+        <div className="flex max-w-full items-center gap-1 text-[11px] text-ink-4">
+          {item.zone && <MapPin size={11} className="shrink-0" />}
+          <span className="truncate">{meta}</span>
         </div>
       )}
     </div>
   );
-}
+});
 
-function AssistantMsg({ segments, done }: { segments: Segment[]; done: boolean }) {
-  // consecutive tool calls read as one activity timeline
-  const groups = useMemo(() => {
-    const out: ({ type: "tools"; calls: ToolCallView[] } | Segment)[] = [];
-    for (const s of segments) {
-      if (s.type === "tool") {
-        const last = out[out.length - 1];
-        if (last && last.type === "tools") last.calls.push(s.call);
-        else out.push({ type: "tools", calls: [s.call] });
-      } else out.push(s);
-    }
-    return out;
-  }, [segments]);
-  if (!segments.length) return null;
+function RunView({ sessionId, run }: { sessionId: string; run: Run }) {
+  const hasWork = run.live || run.steps.length > 0;
   return (
-    <div className="space-y-2.5">
-      {groups.map((g, i) =>
-        g.type === "thinking" ? (
-          <Thinking key={i} text={g.text} live={!done && i === groups.length - 1} />
-        ) : g.type === "text" ? (
-          g.text.trim() ? <Markdown key={i} text={g.text} /> : null
-        ) : g.type === "tools" ? (
-          <ToolTimeline key={i} calls={g.calls} />
-        ) : null,
-      )}
-    </div>
-  );
-}
-
-function Thinking({ text, live }: { text: string; live: boolean }) {
-  const [open, setOpen] = useState(false);
-  const first = text.trim().split("\n").find((l) => l.trim()) ?? "";
-  return (
-    <div className="text-[12px] text-ink-3">
-      <button onClick={() => setOpen(!open)} aria-expanded={open} className="flex w-full items-start gap-1.5 rounded-[4px] text-left outline-none hover:text-ink-2 focus-visible:ring-2 focus-visible:ring-rose/40">
-        <ChevronRight size={13} className={cx("mt-[2px] shrink-0 transition-transform", open && "rotate-90")} />
-        <span className={cx("min-w-0", !open && "truncate")}>
-          <span className="font-medium text-ink-2">{live ? "Reasoning" : "Reasoned"}</span>
-          {!open && first && <span className="text-ink-4"> — {first.replace(/\*\*/g, "")}</span>}
-        </span>
-      </button>
-      {open && <div className="mt-1 ml-[6px] border-l border-line pl-[13px] leading-relaxed whitespace-pre-wrap text-ink-3">{text.trim()}</div>}
-    </div>
-  );
-}
-
-/** the steps as a quiet list hung from a rule, not a box */
-function ToolTimeline({ calls }: { calls: ToolCallView[] }) {
-  return (
-    <div className="relative">
-      <div className="absolute top-3 bottom-3 left-[11px] w-px bg-line" aria-hidden />
-      {calls.map((c) => (
-        <ToolRow key={c.id} call={c} />
+    <div className="flex flex-col gap-2.5">
+      {hasWork && <Work run={run} />}
+      {run.approvals.map((a) => (
+        <Approval key={a.id} sessionId={sessionId} item={a} />
       ))}
+      {run.answer && (
+        <div className="text-[13px]">
+          <Markdown text={run.answer} />
+        </div>
+      )}
+      {run.notices.map((n) => (
+        <div key={n.id} className={cx("flex items-start gap-1.5 text-[12px] leading-snug", n.tone === "error" ? "text-bad" : "text-ink-4")}>
+          {n.tone === "error" && <CircleAlert size={13} className="mt-px shrink-0" />}
+          <span className="min-w-0">{n.text}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** the run's work as one line: live status while it runs, a summary after; opens onto the steps */
+function Work({ run }: { run: Run }) {
+  const [open, setOpen] = useState(false);
+  const canOpen = run.steps.length > 0;
+  return (
+    <Collapsible open={open && canOpen} onOpenChange={setOpen}>
+      <CollapsibleTrigger
+        data-run-work
+        disabled={!canOpen}
+        className="group flex max-w-full items-center gap-1.5 rounded-[5px] py-0.5 pr-1 text-left text-[12.5px] text-ink-3 outline-none hover:text-ink-2 focus-visible:ring-2 focus-visible:ring-rose/40 disabled:cursor-default"
+      >
+        {run.live ? <LiveLine run={run} /> : <span className="truncate">{runSummary(run)}</span>}
+        {!run.live && run.issues > 0 && <TriangleAlert size={12} className="shrink-0 text-warn" aria-label={`${run.issues} step${run.issues > 1 ? "s" : ""} failed`} />}
+        {canOpen && <ChevronRight size={13} className="shrink-0 text-ink-4 transition-transform duration-150 group-data-[state=open]:rotate-90" />}
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <ol className="mt-1.5 ml-[6px] flex flex-col gap-0.5 border-l border-line pl-3">
+          {run.steps.map((s, i) => (
+            <li key={s.kind === "tool" ? s.call.id : `${s.kind}${i}`}>
+              <StepRow step={s} />
+            </li>
+          ))}
+        </ol>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function LiveLine({ run }: { run: Run }) {
+  const now = useNow(1000);
+  const label = liveLabel(run, TOOL_VERB);
+  const waiting = label === "Waiting for approval";
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      {waiting ? <CircleAlert size={13} className="shrink-0 text-warn" /> : <Spinner size={12} label={label} className="text-rose" />}
+      <span className="truncate text-ink-2">{waiting ? label : `${label}…`}</span>
+      <span className="tabular shrink-0 text-ink-4">{formatDuration(Math.max(0, now - run.start))}</span>
+    </span>
+  );
+}
+
+function StepRow({ step }: { step: Step }) {
+  if (step.kind === "tool") return <ToolRow call={step.call} />;
+  return <Thought text={step.text} italic={step.kind === "thinking"} />;
+}
+
+/** reasoning or a remark between steps: a few muted lines, the rest on click */
+function Thought({ text, italic }: { text: string; italic: boolean }) {
+  const [full, setFull] = useState(false);
+  const clean = text.replace(/\*\*/g, "");
+  const long = clean.length > 220 || clean.split("\n").length > 3;
+  return (
+    <div
+      onClick={() => long && setFull(!full)}
+      className={cx("py-1 pl-1 text-[12px] leading-relaxed whitespace-pre-wrap text-ink-3", italic && "italic", long && "cursor-pointer hover:text-ink-2", long && !full && "line-clamp-3")}
+    >
+      {clean}
     </div>
   );
 }
@@ -145,33 +159,28 @@ function ToolRow({ call }: { call: ToolCallView }) {
   const title = busy ? (TOOL_VERB[call.name] ?? call.name) : (d?.title ?? TOOL_VERB[call.name] ?? call.name);
   const failed = call.status === "error" || call.status === "blocked";
   return (
-    <div className="relative">
+    <div>
       <button
         onClick={() => hasDetail && setOpen(!open)}
         aria-expanded={hasDetail ? open : undefined}
-        className={cx("flex w-full items-center gap-2.5 rounded-[5px] py-[5px] pr-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-rose/40", hasDetail && "hover:bg-paper-3/50")}
+        className={cx("flex w-full items-center gap-2 rounded-[5px] py-1 pr-1 pl-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-rose/40", hasDetail ? "hover:bg-paper-3/50" : "cursor-default")}
       >
-        <span
-          className={cx(
-            "relative grid size-[23px] shrink-0 place-items-center rounded-full ring-1",
-            failed ? "bg-bad-2 text-bad ring-bad/30" : isEdit ? "bg-proposed-2 text-proposed ring-proposed/30" : "bg-paper text-ink-3 ring-line",
-          )}
-        >
-          {busy ? <Spinner size={12} label={title} /> : <Icon size={12} strokeWidth={1.9} />}
+        <span className={cx("grid size-4 shrink-0 place-items-center", failed ? "text-bad" : isEdit ? "text-proposed" : "text-ink-4")}>
+          {busy ? <Spinner size={12} label={title} /> : <Icon size={13} strokeWidth={1.8} />}
         </span>
-        <span className="min-w-0 flex-1">
-          <span className={cx("block truncate text-[12.5px]", busy ? "text-ink-3" : "text-ink")}>{title}</span>
-          {d?.detail && !busy && <span className="block truncate text-[11.5px] text-ink-3">{d.detail}</span>}
+        <span className="min-w-0 flex-1 truncate text-[12.5px]">
+          <span className={busy ? "text-ink-3" : "text-ink-2"}>{title}</span>
+          {d?.detail && !busy && <span className="text-ink-4"> · {d.detail}</span>}
         </span>
         {call.status === "blocked" && <span className="shrink-0 text-[11px] text-bad">Outside zone</span>}
         {call.status === "cancelled" && <span className="shrink-0 text-[11px] text-ink-4">Cancelled</span>}
-        {call.status === "error" && <TriangleAlert size={13} className="shrink-0 text-bad" />}
-        {d?.status === "warn" && call.status === "done" && <TriangleAlert size={13} className="shrink-0 text-warn" />}
-        {call.status === "done" && d?.status === "ok" && isEdit && <Check size={13} className="shrink-0 text-good" />}
+        {call.status === "error" && <TriangleAlert size={12} className="shrink-0 text-bad" />}
+        {d?.status === "warn" && call.status === "done" && <TriangleAlert size={12} className="shrink-0 text-warn" />}
+        {call.status === "done" && d?.status === "ok" && isEdit && <Check size={12} className="shrink-0 text-good" />}
         {call.ms !== undefined && call.ms > 400 && <span className="tabular shrink-0 text-[10.5px] text-ink-4">{(call.ms / 1000).toFixed(1)}s</span>}
       </button>
       {open && (
-        <div className="space-y-2 pt-0.5 pb-2 pl-[33px]">
+        <div className="space-y-2 pt-0.5 pb-2 pl-7">
           {d?.metrics && d.metrics.length > 0 && (
             <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
               {d.metrics.map((m) => (
@@ -207,31 +216,32 @@ function ToolRow({ call }: { call: ToolCallView }) {
 }
 
 function Approval({ sessionId, item }: { sessionId: string; item: Extract<ChatItem, { kind: "approval" }> }) {
-  const pending = item.state === "pending";
+  if (item.state !== "pending")
+    return (
+      <div className="flex items-center gap-1.5 text-[12px] text-ink-3">
+        {item.state === "approved" ? <Check size={13} className="shrink-0 text-good" /> : <TriangleAlert size={12} className="shrink-0 text-ink-4" />}
+        <span className="truncate">
+          {item.state === "approved" ? "Approved" : "Declined"} · {item.title.replace(/^Approve\s+/i, "").replace(/^[“"](.*)[”"]\?$/, "$1").replace(/\?$/, "")}
+        </span>
+      </div>
+    );
   return (
-    <div className={cx("rounded-[7px] border px-3 py-2.5", pending ? "border-warn/40 bg-warn-2/50" : "border-line bg-transparent")}>
-      <div className="flex items-start gap-2">
-        <TriangleAlert size={14} className={cx("mt-px shrink-0", pending ? "text-warn" : "text-ink-4")} />
-        <div className="min-w-0 flex-1">
-          <div className="text-[12.5px] font-semibold text-ink">{item.title}</div>
-          <ul className="mt-1 space-y-0.5 text-[12px] leading-snug text-ink-2">
-            {item.lines.map((l, i) => (
-              <li key={i}>{l}</li>
-            ))}
-          </ul>
-          {pending ? (
-            <div className="mt-2.5 flex gap-2">
-              <Button size="sm" variant="primary" onClick={() => agents.resolveApproval(sessionId, item.id, true)}>
-                Apply
-              </Button>
-              <Button size="sm" onClick={() => agents.resolveApproval(sessionId, item.id, false)}>
-                Decline
-              </Button>
-            </div>
-          ) : (
-            <div className={cx("mt-1.5 text-[11.5px] font-medium", item.state === "approved" ? "text-good" : "text-ink-3")}>{item.state === "approved" ? "Applied" : "Declined"}</div>
-          )}
-        </div>
+    <div className="rounded-[8px] border border-warn/40 bg-warn-2/50 px-3 py-2.5">
+      <div className="text-[12.5px] font-semibold text-ink">{item.title}</div>
+      {item.lines.length > 0 && (
+        <ul className="mt-1 space-y-0.5 text-[12px] leading-snug text-ink-2">
+          {item.lines.map((l, i) => (
+            <li key={i}>{l}</li>
+          ))}
+        </ul>
+      )}
+      <div className="mt-2.5 flex gap-2">
+        <Button size="sm" variant="primary" onClick={() => agents.resolveApproval(sessionId, item.id, true)}>
+          Apply
+        </Button>
+        <Button size="sm" onClick={() => agents.resolveApproval(sessionId, item.id, false)}>
+          Decline
+        </Button>
       </div>
     </div>
   );
