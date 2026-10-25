@@ -15,11 +15,27 @@ import { useLibrary } from "./libraryStore";
 import { ParamForm } from "./ParamForm";
 
 const HOW: Record<PrimitiveDef["placement"], string> = {
-  point: "Click to place · drag to aim · R or [ ] turn",
-  rect: "Drag a rectangle · or click for the set size · R turn",
+  point: "Click to place · Shift-click to place more · drag to aim · R or [ ] turn",
+  rect: "Drag a rectangle · or click for the set size · Shift to place more · R turn",
   polygon: "Click the corners · Enter or click the first to finish",
   path: "Click along the line · Enter or double-click to finish",
 };
+
+/** close the library: back to selecting */
+function closeLibrary() {
+  useLibrary.getState().disarm();
+  useApp.getState().setTool("select");
+}
+
+function CloseButton() {
+  return (
+    <Tooltip content="Close library" kbd="Esc">
+      <IconButton size="sm" aria-label="Close library" data-testid="library-close" onClick={closeLibrary}>
+        <X size={14} />
+      </IconButton>
+    </Tooltip>
+  );
+}
 
 export function LibraryPanel() {
   const defId = useLibrary((s) => s.defId);
@@ -116,11 +132,18 @@ function Browse() {
           else useApp.getState().setTool("select");
         }}
         trailing={
-          (query || category) && (
-            <IconButton size="sm" aria-label="Clear search" onClick={() => (setQuery(""), setCategory(null), input.current?.focus())}>
-              <X size={13} />
-            </IconButton>
-          )
+          <span className="flex items-center gap-0.5">
+            {(query || category) && (
+              <button
+                aria-label="Clear search"
+                onClick={() => (setQuery(""), setCategory(null), input.current?.focus())}
+                className="h-6 rounded-[5px] px-1.5 text-[11px] text-ink-4 hover:bg-paper-3 hover:text-ink"
+              >
+                Clear
+              </button>
+            )}
+            <CloseButton />
+          </span>
         }
       />
       {/* categories: one compact row of icons; the active one names itself */}
@@ -183,6 +206,7 @@ function Configure({ def }: { def: PrimitiveDef }) {
           </div>
           <p className="mt-0.5 text-[11px] leading-snug text-ink-3">{def.description}</p>
         </div>
+        <CloseButton />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <ParamForm def={def} values={values} onChange={(v) => setParams(def.id, v)} onReset={() => resetParams(def.id)} />
