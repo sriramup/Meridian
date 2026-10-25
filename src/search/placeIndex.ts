@@ -13,7 +13,7 @@ import type { BBox } from "@/world/spatialIndex";
 import type { Entity, Place, Poi, Street, Vec2 } from "@/world/types";
 import type { Changeset, World } from "@/world/world";
 import { editDistance, tokenSim, typoBudget } from "./fuzzy";
-import { abbreviate, isSoft, looksLikeAddress, normKey, queryForms, splitIntersection, titleCase, tokenize, words, type Token } from "./normalize";
+import { abbreviate, isSoft, isStop, isType, looksLikeAddress, normKey, queryForms, splitIntersection, titleCase, tokenize, words, type Token } from "./normalize";
 
 export type PlaceKind =
   | "street"
@@ -62,6 +62,8 @@ interface Alias {
   addr?: boolean;
   /** shown as the label when this alias is the one that matched */
   label?: string;
+  /** index of the name's head noun (see scoreAlias); set for places, whose type word is their head */
+  head?: number;
 }
 
 interface Entry {
@@ -113,6 +115,17 @@ const KIND_BASE: Record<PlaceKind, number> = {
   stop: -0.1,
   geocoded: 0.04,
 };
+
+/**
+ * How notable a place is beyond its name: size on a log scale (a 300 m² pavilion adds nothing, a
+ * 30 ha campus the most), and a historic or civic building more than an ordinary one. This is the
+ * tie-break between places a query names equally well ("capitol": the State Capitol before
+ * a hotel named after it).
+ */
+function notability(area: number, b?: { historic?: boolean; use?: string }): number {
+  const size = 0.05 * Math.min(1, Math.max(0, (Math.log10(Math.max(area, 1)) - 2.5) / 3));
+  return size + (b?.historic ? 0.02 : 0) + (b?.use === "civic" ? 0.01 : 0);
+}
 
 const POI_WHAT: Record<Poi["category"], [string, string]> = {
   grocery: ["Grocery", "ShoppingBasket"],
@@ -357,6 +370,8 @@ export class PlaceIndex {
     const lk = (e.lk = normKey(e.label));
     this.labelCount.set(lk, (this.labelCount.get(lk) ?? 0) + 1);
     if (e.aliases.some((a) => a.addr)) this.addrCache = null;
+    // a place's type word is its head ("Capitol Square" is a square); a street's is not ("Congress Avenue" is Congress)
+    if (e.kind !== "street" && e.kind !== "trail" && e.kind !== "intersection") for (const a of e.aliases) if (!a.addr) a.head = headOf(a.toks, true);
     for (const a of e.aliases) {
       for (const t of a.toks) {
         let p = this.postings.get(t.t);
@@ -464,7 +479,14 @@ export class PlaceIndex {
       case "place": {
         const [kind, what, icon] = PLACE_KIND[e.type] ?? ["landmark", "Place", "MapPin"];
         const bbox = e.poly ? polyBBox(e.poly) : ptBox(e.p, 60);
-        this.put({ key: e.id, kind, icon, label: e.name, aliases: [{ toks: nameToks(e.name) }], ids: [e.id, ...(e.refs ?? [])], point: e.p, bbox, base: KIND_BASE[kind] + 0.01, what });
+        // a district or neighbourhood is large by nature; anything else is as notable as its outline or building
+        let prom = 0;
+        if (kind !== "district" && kind !== "neighbourhood") {
+          const ref = e.refs?.length ? this.world.get(e.refs[0]) : undefined;
+          if (ref?.kind === "building") prom = notability(Math.abs(polyArea(ref.footprint)), ref);
+          else if (e.poly) prom = notability(Math.abs(polyArea(e.poly)));
+        }
+        this.put({ key: e.id, kind, icon, label: e.name, aliases: [{ toks: nameToks(e.name) }], ids: [e.id, ...(e.refs ?? [])], point: e.p, bbox, base: KIND_BASE[kind] + 0.01 + prom, what });
         return;
       }
       case "poi": {
@@ -480,7 +502,7 @@ export class PlaceIndex {
         const point = polyCentroid(e.footprint);
         const bbox = polyBBox(e.footprint);
         const area = Math.abs(polyArea(e.footprint));
-        const prominence = 0.02 * Math.min(1, Math.max(0, (Math.log10(Math.max(area, 1)) - 2) / 2));
+        const prominence = notability(area, e);
         const aliases: Alias[] = [];
         if (name) aliases.push({ toks: nameToks(name) });
         const addr = e.address ? titleCase(e.address) : undefined;
@@ -507,7 +529,7 @@ export class PlaceIndex {
         if (!name) return;
         const [what, icon] = AREA_WHAT[e.type] ?? ["Area", "Square"];
         const design = !!e.createdBy && !e.name;
-        this.put({ key: e.id, kind: design ? "design" : "area", icon: design ? "PencilRuler" : icon, label: name, aliases: [{ toks: nameToks(name) }], ids: [e.id], point: polyCentroid(e.poly), bbox: polyBBox(e.poly), base: KIND_BASE[design ? "design" : "area"], what: design ? "Placed" : what });
+        this.put({ key: e.id, kind: design ? "design" : "area", icon: design ? "PencilRuler" : icon, label: name, aliases: [{ toks: nameToks(name) }], ids: [e.id], point: polyCentroid(e.poly), bbox: polyBBox(e.poly), base: KIND_BASE[design ? "design" : "area"] + (design ? 0 : notability(Math.abs(polyArea(e.poly)))), what: design ? "Placed" : what });
         return;
       }
       case "prop": {
@@ -914,14 +936,17 @@ export function scoreAlias(q: QTok[], a: Alias): number {
       }
     }
     const weight = t.soft ? 0.3 : 1;
-    wsum += weight;
     if (bj < 0) {
       if (!t.soft) return -1;
+      // a missing direction or type counts against the name; a missing "the" or "building" does not
+      if (!t.forms.every(isStop)) wsum += weight;
       continue;
     }
+    wsum += weight;
     used[bj] = 1;
     sum += best * weight;
-    if (qi === 0) first = bj;
+    // the first word that carries the name ("the capitol": capitol)
+    if (first < 0 && (!t.soft || qi === 0) && !t.forms.every(isStop)) first = bj;
   }
   if (a.addr) {
     // an address needs its house number and a word of its street
@@ -943,7 +968,20 @@ export function scoreAlias(q: QTok[], a: Alias): number {
   const cov = hardN ? hardHit / hardN : 1;
   const firstHard = toks.findIndex((t) => !t.soft);
   const orderBonus = first >= 0 && (first === firstHard || first === 0) ? 0.03 : 0;
-  return (wsum ? sum / wsum : 0) * (0.8 + 0.2 * cov) + orderBonus - 0.015 * dirMiss - 0.2 * clash - (a.penalty ?? 0);
+  // the name's head noun, what the place is: the last word before "of" / "at" (University of
+  // Texas), else the last word (Texas State Capitol). Asking for it ranks the place above others
+  // merely named after the word: "capitol" finds the Capitol before Capitol Square, "school" a
+  // school before School Park.
+  const head = a.head ?? headOf(toks, false);
+  const headBonus = head >= 0 && used[head] && !a.addr ? 0.08 : 0;
+  return (wsum ? sum / wsum : 0) * (0.9 + 0.1 * cov) + orderBonus + headBonus - 0.015 * dirMiss - 0.2 * clash - (a.penalty ?? 0);
+}
+
+/** the head noun's index: the last word before "of" / "at", else the last word (−1: none); a type word counts for places */
+function headOf(toks: Token[], typed: boolean): number {
+  const ofAt = toks.findIndex((t, j) => j > 0 && (t.t === "of" || t.t === "at"));
+  for (let j = (ofAt > 0 ? ofAt : toks.length) - 1; j >= 0; j--) if (!toks[j].soft || (typed && isType(toks[j].t))) return j;
+  return -1;
 }
 
 /** "1100 Congress Avenue" → "1100 Congress Ave" */
@@ -951,6 +989,9 @@ function abbreviateAddress(a: string): string {
   const m = /^(\S+)\s+(.*)$/.exec(a);
   return m ? `${m[1]} ${abbreviate(m[2])}` : a;
 }
+
+/** kinds whose same-named parts nearby are one place */
+const SPREAD = new Set<PlaceKind>(["campus", "park", "street", "trail", "water", "area"]);
 
 const inBox = (p: Vec2, b: BBox, pad: number) => p[0] >= b[0] - pad && p[0] <= b[2] + pad && p[1] >= b[1] - pad && p[1] <= b[3] + pad;
 
@@ -967,12 +1008,18 @@ function dedupe(rs: PlaceResult[]): PlaceResult[] {
       if (o.key === r.key) return true;
       const d = Math.hypot(o.point[0] - r.point[0], o.point[1] - r.point[1]);
       if (normKey(o.label) === k && (d < 300 || inBox(r.point, o.bbox, 100) || inBox(o.point, r.bbox, 100))) return true;
+      // a campus in several parts, a street broken by a park: one place
+      if (normKey(o.label) === k && o.kind === r.kind && SPREAD.has(r.kind) && d < 2000) return true;
       if (r.kind === "stop" && d < 120) return true;
       // the same junction found two ways
       return o.kind === "intersection" && r.kind === "intersection" && d < JUNCTION_CLUSTER;
     });
     if (!near) out.push(r);
-    else if (near.kind !== r.kind && r.kind !== "poi" && r.kind !== "stop" && r.kind !== "address" && r.bbox[2] - r.bbox[0] > near.bbox[2] - near.bbox[0] && inBox(near.point, r.bbox, 50)) {
+    else if (near.kind === r.kind && SPREAD.has(r.kind) && normKey(near.label) === normKey(r.label)) {
+      // frame and highlight every part
+      near.bbox = [Math.min(near.bbox[0], r.bbox[0]), Math.min(near.bbox[1], r.bbox[1]), Math.max(near.bbox[2], r.bbox[2]), Math.max(near.bbox[3], r.bbox[3])];
+      near.ids = [...new Set([...near.ids, ...r.ids])];
+    } else if (near.kind !== r.kind && r.kind !== "poi" && r.kind !== "stop" && r.kind !== "address" && r.bbox[2] - r.bbox[0] > near.bbox[2] - near.bbox[0] && inBox(near.point, r.bbox, 50)) {
       // keep the better-ranked entry, framed by the larger outline (a park's polygon)
       near.bbox = r.bbox;
     }

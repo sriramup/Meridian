@@ -51,8 +51,8 @@ const CANON: Record<string, string> = {
 const TYPES = new Set(["st", "ave", "blvd", "rd", "dr", "ln", "ct", "pl", "pkwy", "hwy", "cir", "ter", "trl", "way", "row", "loop", "expy", "fwy", "xing", "plz", "sq", "alley", "path", "walk"]);
 /** directions (soft) */
 const DIRS = new Set(["n", "s", "e", "w", "ne", "nw", "se", "sw"]);
-/** stop words (soft) */
-const STOP = new Set(["and", "the", "of", "at", "in", "on", "a", "an", "by", "to", "for", "jr", "sr"]);
+/** stop words, and "building", which a query adds to a name that lacks it ("capitol building") (soft) */
+const STOP = new Set(["and", "the", "of", "at", "in", "on", "a", "an", "by", "to", "for", "jr", "sr", "building", "bldg"]);
 
 const UNITS: Record<string, number> = {
   first: 1, second: 2, third: 3, fourth: 4, fifth: 5, sixth: 6, seventh: 7, eighth: 8, ninth: 9, tenth: 10,
@@ -182,6 +182,10 @@ export function queryForms(word: string, partial: boolean): string[] {
 }
 
 export const isSoft = (t: string) => TYPES.has(t) || DIRS.has(t) || STOP.has(t);
+/** a street type ("st", "sq", "plz"): the head of a place's name ("Capitol Square" is a square), not of a street's */
+export const isType = (t: string) => TYPES.has(t);
+/** a stop word ("the", "of", "building"): neutral when a name lacks it */
+export const isStop = (t: string) => STOP.has(t);
 export const isStreetType = (t: string) => TYPES.has(t);
 
 // ---- display -------------------------------------------------------------------------------

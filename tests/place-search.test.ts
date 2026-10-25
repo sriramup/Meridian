@@ -98,7 +98,14 @@ describe("place index on Austin", () => {
     expect(top("guadelupe")?.label).toBe("Guadalupe Street");
     expect(top("hancock")).toMatchObject({ label: "Hancock", kind: "neighbourhood" });
     expect(top("texas state capitol")?.label).toBe("Texas State Capitol");
-    expect(ix.search("capitol").map((r) => r.label)).toContain("Texas State Capitol");
+    // what a place is outranks what it is named after, and the notable one leads
+    expect(top("capitol")?.label).toBe("Texas State Capitol");
+    expect(top("capitol building")?.label).toBe("Texas State Capitol");
+    expect(top("main building")?.label).toBe("Main Building");
+    // a campus mapped in parts is one result
+    const uni = ix.search("university");
+    expect(uni[0]).toMatchObject({ label: "University of Texas at Austin", kind: "campus" });
+    expect(uni.filter((r) => r.label === "University of Texas at Austin" && r.detail === "Campus")).toHaveLength(1);
     expect(top("perry castaneda")?.label).toBe("Perry-Castañeda Library");
   });
 
