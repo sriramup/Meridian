@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { rtMaybe } from "@/state/runtime";
+import { useProjects } from "@/state/projects";
 import { useApp } from "@/state/store";
 import { intersectionOf, placeIndexFor, bestPlace, searchPlaces, type PlaceResult } from "@/search";
 import { flyToPlace } from "@/search/fly";
@@ -160,7 +161,9 @@ export function PlaceSearch() {
   const agentOpen = useApp((s) => s.agentOpen);
   useApp((s) => s.worldVersion);
   const R = rtMaybe();
-  const city = R?.cityId ?? "";
+  // recent places belong to the open project (its designs name their own streets)
+  const projectId = useProjects((s) => s.currentId);
+  const city = projectId ?? R?.cityId ?? "";
   const sandbox = !!R?.meta.sandbox;
 
   // build the index while the app is idle, so the first keystroke is instant
@@ -230,7 +233,7 @@ export function PlaceSearch() {
     leave();
     const RR = rtMaybe();
     if (!RR) return;
-    setRecents(rememberPlace(RR.cityId, r));
+    setRecents(rememberPlace(city || RR.cityId, r));
     const hl = useSearchHighlight.getState();
     hl.show(r.key, highlightShapes(RR.world, r));
     void flyToPlace(r).then(() => useSearchHighlight.getState().land(r.key));
