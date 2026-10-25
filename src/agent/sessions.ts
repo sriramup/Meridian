@@ -33,7 +33,7 @@ import { MAX_STEPS } from "./models";
 import { effectOf } from "./toolDefs";
 import { executeTool, simSummary, type ToolContext, type ToolOutput } from "./tools";
 import type { AgentMode, AgentSession, AgentsApi, ChatItem, Segment, ToolCallView, Zone } from "./types";
-import { zoneFromPolygon, zoneFromSelection, zoneFromText, zoneSummary, fmtHa } from "./zones";
+import { zoneFromPolygon, zoneFromSelection, zoneFromText, zoneSummary, acres } from "./zones";
 
 type MsgParam = Anthropic.Beta.BetaMessageParam;
 type ContentBlock = Anthropic.Beta.BetaContentBlock;
@@ -344,7 +344,7 @@ function setZoneFromTool(sessionId: string, input: { zone?: unknown; clear?: boo
   setZone(sessionId, res.zone);
   if (r.run) r.run.zone = res.zone;
   return {
-    content: { zone: res.zone.label, area_ha: Number(fmtHa(res.zone.poly).split(" ")[0]), summary: zoneSummary(res.zone), alternatives: res.candidates?.map((z) => z.label), note: res.note },
+    content: { zone: res.zone.label, area_acres: Math.round(acres(res.zone.poly) * 10) / 10, summary: zoneSummary(res.zone), alternatives: res.candidates?.map((z) => z.label), note: res.note },
     display: { title: `Zone: ${res.zone.label}`, detail: res.note, status: "ok" },
   };
 }

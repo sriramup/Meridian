@@ -28,6 +28,7 @@ import type { Entity, Polygon, Street, Vec2 } from "@/world/types";
 import type { Changeset } from "@/world/world";
 import type { Zone } from "./types";
 import { blockAt, entityName, entityPoint, junctionOf, polyOf, resolveArea, resolveLocation, streetsNamed } from "./resolve";
+import { fmtArea, fmtLen, toAcres } from "@/lib/units";
 
 export const ZONE_TOL = 10;
 export const ZONE_MARGIN = 30;
@@ -36,14 +37,13 @@ let zseq = 0;
 const zid = () => `z_${Date.now().toString(36)}${(++zseq).toString(36)}`;
 
 export const hectares = (poly: Polygon) => polyArea(poly) / 10000;
-export const fmtHa = (poly: Polygon) => {
-  const ha = hectares(poly);
-  return `${ha < 10 ? ha.toFixed(1) : Math.round(ha)} ha`;
-};
+export const acres = (poly: Polygon) => toAcres(polyArea(poly));
+/** a zone's size as people read it: "3.4 acres" */
+export const fmtZoneArea = (poly: Polygon) => fmtArea(polyArea(poly));
 
-/** "Label · 4.2 ha" */
+/** "Label · 3.4 acres" */
 export function zoneLabel(name: string, poly: Polygon): string {
-  return `${name} · ${fmtHa(poly)}`;
+  return `${name} · ${fmtZoneArea(poly)}`;
 }
 
 /** ring simplified to at most n vertices, rounded to metres (for prompts and tool inputs) */
@@ -59,7 +59,7 @@ export function zoneRing(z: Zone, n = 24): [number, number][] {
 export function zoneSummary(z: Zone): string {
   const b = polyBBox(z.poly).map(Math.round);
   const c = polyCentroid(z.poly);
-  return `“${z.label}” (${fmtHa(z.poly)}; bbox x ${b[0]}…${b[2]}, y ${b[1]}…${b[3]}; centre [${Math.round(c[0])}, ${Math.round(c[1])}]; ring ${JSON.stringify(zoneRing(z, 16))})`;
+  return `“${z.label}” (${fmtZoneArea(z.poly)}; bbox x ${b[0]}…${b[2]}, y ${b[1]}…${b[3]}; centre [${Math.round(c[0])}, ${Math.round(c[1])}]; ring ${JSON.stringify(zoneRing(z, 16))})`;
 }
 
 export function zoneFromPolygon(poly: Polygon | Vec2[], opts: { label?: string; source?: Zone["source"]; query?: string } = {}): Zone {
@@ -135,7 +135,7 @@ function cornerBlocks(p: Vec2): { q: keyof typeof QUAD; poly: Polygon }[] {
 
 /**
  * Resolve words to a zone. Understands:
- *  - "within 300 m of X", "300 m around X"
+ *  - "within 300 m of X", "1000 ft around X"
  *  - "between 5th and 7th from Congress to Lavaca" / "between 5th and 7th, Congress and Lavaca"
  *  - "Congress between 5th and 7th" (a frontage corridor ±60 m)
  *  - "24th St & West Ave block", "the block at Lamar & 6th", "NE block of Lamar & 6th"
@@ -158,7 +158,8 @@ export function zoneFromText(text: string, opts: { selection?: string[] } = {}):
       const xy = m[3].trim().match(/^\[?\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\]?$/);
       const at = xy ? { p: [Number(xy[1]), Number(xy[2])] as Vec2, label: `[${xy[1]}, ${xy[2]}]` } : resolveLocation(m[3]);
       const poly: Polygon = [circle(at.p, r, 48)];
-      return { ok: true, zone: src(`${Math.round(r)} m around ${at.label}`, poly, "place") };
+      // labelled in feet: the user's own figure when they gave feet
+      return { ok: true, zone: src(`${unit === "ft" || unit === "feet" ? `${m[1]} ft` : fmtLen(r)} around ${at.label}`, poly, "place") };
     }
     // between A and B from C to D
     m = q.match(/^between\s+(.+?)\s+(?:and|&)\s+(.+?)(?:,\s*|\s+)(?:from\s+(.+?)\s+to\s+(.+)|(.+?)\s+(?:and|&)\s+(.+))$/i);

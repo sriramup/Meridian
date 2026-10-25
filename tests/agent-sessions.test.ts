@@ -164,13 +164,13 @@ describe("agent sessions", () => {
     expect(st().sessions[z].changesets.length).toBe(1);
     scripts.set("only work within 150 m of [0, -900]", (r) => (r.length ? { text: "ok" } : { tools: [{ name: "set_zone", input: { zone: "within 150 m of [0, -900]" } }] }));
     await A.send(z, "only work within 150 m of [0, -900]");
-    expect(st().sessions[z].zone?.label).toMatch(/150 m around/);
+    expect(st().sessions[z].zone?.label).toMatch(/492 ft around/);
     let ctx = "";
     scripts.set("what zone?", (_r, c) => ((ctx = c), { text: "that one" }));
     await A.send(z, "what zone?");
-    expect(ctx).toMatch(/150 m around/);
+    expect(ctx).toMatch(/492 ft around/);
     const user = st().sessions[z].items.filter((i) => i.kind === "user").at(-1);
-    expect(user?.kind === "user" && user.zone?.label).toMatch(/150 m around/);
+    expect(user?.kind === "user" && user.zone?.label).toMatch(/492 ft around/);
   });
 
   it("a run whose scenario was switched away refuses further edits instead of switching back", async () => {
