@@ -103,3 +103,8 @@ export function setSearchOn(sessionId: string, on: boolean) {
   }
 }
 export const isSearchOn = (sessionId: string) => !!useSerp.getState().searchOn[sessionId];
+
+/** the runtime note a run carries while its session's Search toggle is on */
+export function searchNote(sessionId: string): string | null {
+  return isSearchOn(sessionId) ? "[runtime] Search is on: ground this answer with web_search and/or find_places (Google and Google Maps via SerpApi) and cite the sources." : null;
+}

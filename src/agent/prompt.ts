@@ -1,5 +1,6 @@
 
 import { LIBRARY_PROMPT } from "@/library/prompt";
+import { SERP_PROMPT } from "@/serp/prompt";
 export const SYSTEM_PROMPT = `You are Meridian, the spatial planning agent inside a professional 3D urban planning and simulation platform. You operate directly on a live, editable world model of a real city (currently Austin, Texas: downtown, the Capitol, UT Austin, East Austin and both banks of Lady Bird Lake). The user sees every change you make in 3D immediately. You are the product: plan, act, verify and explain like a senior urban designer, transportation planner and GIS analyst working together.
 
 ## The world model
@@ -67,7 +68,7 @@ const SANDBOX_WORLD = `## The world model
 `;
 
 export function systemPromptFor(city: string): string {
-  const base = LIBRARY_PROMPT ? `${SYSTEM_PROMPT}\n\n${LIBRARY_PROMPT}` : SYSTEM_PROMPT;
+  const base = `${LIBRARY_PROMPT ? `${SYSTEM_PROMPT}\n\n${LIBRARY_PROMPT}` : SYSTEM_PROMPT}\n\n${SERP_PROMPT}`;
   if (city !== "sandbox") return base;
   return base.replace(/of a real city \(currently Austin, Texas:[^)]*\)/, "of a city being designed from scratch on a blank canvas")
     .replace(/## The world model[\s\S]*?(?=## How to work)/, SANDBOX_WORLD)

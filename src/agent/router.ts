@@ -30,8 +30,21 @@ const QUESTION = /^(what|what's|whats|which|where|who|when|how (many|much|tall|h
 const NAV = /^(?:(?:can|could|would) you |please |now |ok(?:ay)?,? |and )*(?:take me (?:to|back to)|bring me to|go (?:to|back to)|fly (?:me )?to|zoom (?:in )?(?:to|on)|jump to|navigate to|head to|center (?:on|the map on)|centre (?:on|the map on)|focus on|show me|where(?:'s| is| are))\s+(.+?)[\s?.!]*$/i;
 const NOT_PLACE = /\b(heat|traffic|overlay|map of|model|simulation|density|access|runoff|flood|zoning|growth|transit coverage|bike stress|sun|shadow|shade|kpis?|results?|options?|alternatives?|how|why|what|where (?:to|i|we|should|could)|best|sites?|spots?|gaps?|bottlenecks?|changes?|history|difference|compare)\b/i;
 
+// live search (SerpApi tools): research beyond the world model → web_search; real places near
+// somewhere → find_places. Both need tool calls and care with sources, so never the quick tier.
+const RESEARCH =
+  /\b(look ?up|research|search (the web|online|google|for)|google|on the web|online|population of|household size|median (household )?(income|rent|age|home (price|value))|demographics?|census (data|figures)|rainfall|precipitation|water (supply|use|usage|data|rates?|restrictions?)|ordinances?|zoning code|code requires?|precedents?|case stud(y|ies)|latest news|news (about|on)|according to|statistics|growth rate|how fast is [^.?!]{1,40} growing)\b/i;
+const DISCOVERY =
+  /\b(restaurants?|caf[eé]s?|coffee( shops?)?|bars?|groceries|grocery( stores?)?|supermarkets?|pharmac(y|ies)|clinics?|doctors?|daycares?|gyms?|tacos?|places to eat|bakery|bakeries|amenit(y|ies))\b[^.?!]{0,50}\b(near|around|close to|within|walking distance|minute walk|nearby)\b|\b(find|where are|any|are there)\b[^.?!]{0,40}\b(near|nearby|around)\b/i;
+
+/** a request for live search: "web" research, "places" discovery, or null */
+export function searchIntent(text: string): "web" | "places" | null {
+  return DISCOVERY.test(text) ? "places" : RESEARCH.test(text) ? "web" : null;
+}
+
 /** "take me to X" → X (null when the request is not plain navigation) */
 export function navigationTarget(text: string): string | null {
+  if (searchIntent(text)) return null;
   const m = NAV.exec(text.trim());
   if (!m) return null;
   const target = m[1].trim();
@@ -44,7 +57,7 @@ export function navigationTarget(text: string): string | null {
 const SMALLTALK = /^(hi|hello|hey|thanks|thank you|ok|okay|cool|great|nice|yes|no|sure|got it|perfect)\b[\s!.,]*$/i;
 
 /** classify one request (plan mode never uses the quick tier for edit-like requests, since those are proposals) */
-export function routeRequest(text: string, opts: { mode?: "plan" | "edit"; hasSelection?: boolean } = {}): Route {
+export function routeRequest(text: string, opts: { mode?: "plan" | "edit"; hasSelection?: boolean; /** the composer's Search toggle */ search?: boolean } = {}): Route {
   const t = text.trim();
   const words = t.split(/\s+/).filter(Boolean).length;
   if (!t) return { tier: "quick", reason: "empty" };
@@ -55,6 +68,8 @@ export function routeRequest(text: string, opts: { mode?: "plan" | "edit"; hasSe
   const edit = EDIT.test(t);
   const analysis = ANALYSIS.test(t);
   if (deep || words > 70 || (sentences >= 3 && (edit || analysis))) return { tier: "deep", reason: deep ? "planning / optimisation / alternatives" : "long multi-part brief" };
+  const intent = searchIntent(t);
+  if (intent || opts.search) return { tier: "standard", reason: intent === "places" ? "local discovery" : intent === "web" ? "web research" : "search on" };
   const question = QUESTION.test(t) || (/\?\s*$/.test(t) && !/^(can|could|would|will) you\b/i.test(t));
   // "what is the current x?" / "how many homes are in the selection?" — answer from the snapshot
   if (question && !analysis && words <= 30 && !(edit && /^(can|could|would|will|please)\b/i.test(t))) {
