@@ -2,6 +2,7 @@
 
 import { AmbientLight, LightingEffect, _SunLight as SunLight, type Layer, type PickingInfo } from "@deck.gl/core";
 import { MapboxOverlay } from "@deck.gl/mapbox";
+import { qualityGovernor } from "@/render/adaptiveQuality";
 import maplibregl from "maplibre-gl";
 import { memo, useEffect, useRef } from "react";
 import { basemapStyle, setBasemapNight } from "@/render/basemap";
@@ -376,9 +377,21 @@ export const MapView = memo(function MapView() {
     let lastAdmit = 0;
     let admitted = false;
     let lastIdle = performance.now();
+    // the 3D layer's pixel density steps down only if moving frames stay slow (render/adaptiveQuality.ts)
+    const quality = qualityGovernor(
+      window.devicePixelRatio || 1,
+      (ratio) => {
+        deck?.setProps({ useDevicePixels: ratio });
+        deck?.redraw("pixel density");
+      },
+      dbg.get("quality") !== "full",
+    );
+    let prevFrame = performance.now();
     const tick = () => {
       frames++;
       const now = performance.now();
+      if (moving && document.visibilityState === "visible") quality.sample(now - prevFrame, now);
+      prevFrame = now;
       if (now - last > 1000) {
         useApp.getState().setFps(Math.round((frames * 1000) / (now - last)));
         frames = 0;
@@ -450,7 +463,7 @@ function bandsOf(o: { ground: Layer[]; top: Layer[] }, slots: ReturnType<typeof 
 interface DeckInternals {
   _onPointerMove: (ev: { type?: string }) => void;
   redraw: (reason?: string) => void;
-  setProps: (p: { _pickable: boolean }) => void;
+  setProps: (p: { _pickable?: boolean; useDevicePixels?: number }) => void;
   device?: { statsManager?: { getStats: (n: string) => { get: (n: string) => { count: number } | undefined } | undefined } };
 }
 
