@@ -1,0 +1,899 @@
+{
+ "_fixture": "recorded live from SerpApi on 2026-10-25 (compacted: metadata, SerpApi links and tokens removed)",
+ "local_results": [
+  {
+   "position": 1,
+   "title": "Trader Joe's",
+   "place_id": "ChIJm4_R2BG1RIYRQcnsPEmzGQY",
+   "gps_coordinates": {
+    "latitude": 30.2676731,
+    "longitude": -97.7527528
+   },
+   "rating": 4.6,
+   "reviews": 3086,
+   "type": "Grocery store",
+   "types": [
+    "Grocery store",
+    "Cheese shop",
+    "Health food store",
+    "Liquor store",
+    "Natural goods store",
+    "Organic food store",
+    "Produce market",
+    "Supermarket",
+    "Wine store"
+   ],
+   "address": "211 Walter Seaholm Dr Ste 100, Austin, TX 78701",
+   "country": "United States",
+   "open_state": "Closed · Opens 9 AM Sun",
+   "hours": "Closed · Opens 9 AM Sun",
+   "operating_hours": {
+    "saturday": "9 AM–9 PM",
+    "sunday": "9 AM–9 PM",
+    "monday": "9 AM–9 PM",
+    "tuesday": "9 AM–9 PM",
+    "wednesday": "9 AM–9 PM",
+    "thursday": "9 AM–9 PM",
+    "friday": "9 AM–9 PM"
+   },
+   "phone": "(512) 474-2263",
+   "website": "https://locations.traderjoes.com/tx/austin/452/?utm_source=gmb&utm_medium=organic&utm_campaign=local",
+   "description": "Specialty grocer with housebrand items. Grocery chain with a variety of signature items, plus produce, dairy & more (most sell wine & beer).",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible entrance",
+      "Wheelchair accessible parking lot",
+      "Wheelchair accessible restroom"
+     ]
+    }
+   ],
+   "unsupported_extensions": [
+    {
+     "accessibility": [
+      "Assistive hearing loop"
+     ]
+    }
+   ],
+   "thumbnail": "https://lh3.googleusercontent.com/grass-cs/AABkmLdbJijZYUEiH923OH7aQFimJ0NhKFh8LN-9nQlkBnnHKXajVLYj76O7G_Pp59kwI4ClXlAGx4V6eCD5ZZY252xCTcXdvEqu7eTzMNNXAiVVEiUPkSG5ezTVdUs5AhfKRWfdO8qs4A=w1000-h1000-c-n"
+  },
+  {
+   "position": 2,
+   "title": "Royal Blue Grocery",
+   "place_id": "ChIJG44vBQi1RIYRvWGHdYUolZY",
+   "gps_coordinates": {
+    "latitude": 30.264956299999998,
+    "longitude": -97.7419864
+   },
+   "rating": 4.4,
+   "reviews": 320,
+   "type": "Grocery store",
+   "types": [
+    "Grocery store",
+    "Beer store",
+    "Coffee shop",
+    "Convenience store",
+    "Deli",
+    "Gourmet grocery store",
+    "Organic food store",
+    "Supermarket",
+    "Wine store"
+   ],
+   "address": "301 Brazos St Ste 110 suite 110, Austin, TX 78701",
+   "country": "United States",
+   "open_state": "Closes soon · 12 AM · Opens 7 AM Sun",
+   "hours": "Closes soon · 12 AM · Opens 7 AM Sun",
+   "operating_hours": {
+    "saturday": "7 AM–12 AM",
+    "sunday": "7 AM–12 AM",
+    "monday": "7 AM–12 AM",
+    "tuesday": "7 AM–12 AM",
+    "wednesday": "7 AM–12 AM",
+    "thursday": "7 AM–12 AM",
+    "friday": "7 AM–12 AM"
+   },
+   "phone": "(512) 386-1617",
+   "website": "http://royalbluegrocery.com/",
+   "description": "Cozy grocery with ready-to-eat fare. Specialty market offering grocery basics, plus local wine, beer & ready-to-eat meals until late.",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible entrance",
+      "Wheelchair accessible seating"
+     ]
+    }
+   ],
+   "unsupported_extensions": [
+    {
+     "accessibility": [
+      "Assistive hearing loop",
+      "Wheelchair accessible restroom"
+     ]
+    }
+   ],
+   "thumbnail": "https://lh3.googleusercontent.com/grass-cs/AABkmLcwZGcS0v5S3uiQWc8wQmI_z3T4d5aUvpWAq2FPU4ol3Rr5I50WULFS671w_yO00UVivod208NSxvzBxMKsdz9BUewyZP-13BuwjLy5bQbF_JRj1Tq4efcNi0KGvqT9u0CaCsU8hg=w1000-h1000-c-n"
+  },
+  {
+   "position": 3,
+   "title": "Royal Blue Grocery",
+   "place_id": "ChIJEWOnS6q1RIYRXT237x8y7Lk",
+   "gps_coordinates": {
+    "latitude": 30.2572251,
+    "longitude": -97.7391231
+   },
+   "rating": 4.3,
+   "reviews": 221,
+   "type": "Grocery store",
+   "types": [
+    "Grocery store",
+    "Beer store",
+    "Coffee shop",
+    "Convenience store",
+    "Gourmet grocery store",
+    "Health food store",
+    "Natural goods store",
+    "Organic food store",
+    "Supermarket",
+    "Wine store"
+   ],
+   "address": "51 Rainey St #120, Austin, TX 78701",
+   "country": "United States",
+   "open_state": "Closes soon · 12 AM · Opens 7 AM Sun",
+   "hours": "Closes soon · 12 AM · Opens 7 AM Sun",
+   "operating_hours": {
+    "saturday": "7 AM–12 AM",
+    "sunday": "7 AM–12 AM",
+    "monday": "7 AM–12 AM",
+    "tuesday": "7 AM–12 AM",
+    "wednesday": "7 AM–12 AM",
+    "thursday": "7 AM–12 AM",
+    "friday": "7 AM–12 AM"
+   },
+   "phone": "(512) 480-0061",
+   "website": "http://www.royalbluegrocery.com/",
+   "description": "Cozy grocery with ready-to-eat fare. Specialty market offering grocery basics, plus local wine, beer & ready-to-eat meals until late.",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible entrance",
+      "Wheelchair accessible parking lot"
+     ]
+    }
+   ],
+   "thumbnail": "https://lh3.googleusercontent.com/grass-cs/AABkmLc1outsrkl-omqCdfttvZHiJJzj3TEIEFXJNbvbIv5I1MLku2se4oQLG_wOb1iS5qUVnW2WPIFoMNyhm2dXaX5ZNRfuJedHM3FiEcU9820xh4LNRF6cYnCdYTL-TFLHd7oyjSZfxg=w1000-h1000-c-n"
+  },
+  {
+   "position": 4,
+   "title": "Whole Foods Market",
+   "place_id": "ChIJf5QJFBK1RIYRjjfxZz9Z0O0",
+   "gps_coordinates": {
+    "latitude": 30.270571,
+    "longitude": -97.75308509999999
+   },
+   "rating": 4.5,
+   "reviews": 4842,
+   "type": "Grocery store",
+   "types": [
+    "Grocery store",
+    "Bakery",
+    "Deli",
+    "Fresh food market",
+    "Grocery delivery service",
+    "Health food store",
+    "Natural goods store",
+    "Organic food store",
+    "Produce market",
+    "Supermarket"
+   ],
+   "address": "525 N Lamar Blvd, Austin, TX 78703",
+   "country": "United States",
+   "open_state": "Closed · Opens 7 AM Sun",
+   "hours": "Closed · Opens 7 AM Sun",
+   "operating_hours": {
+    "saturday": "7 AM–10 PM",
+    "sunday": "7 AM–10 PM",
+    "monday": "7 AM–10 PM",
+    "tuesday": "7 AM–10 PM",
+    "wednesday": "7 AM–10 PM",
+    "thursday": "7 AM–10 PM",
+    "friday": "7 AM–10 PM"
+   },
+   "phone": "(512) 542-2200",
+   "website": "https://www.wholefoodsmarket.com/stores/lamar?utm_source=google&utm_medium=organic&utm_campaign=listings&ref_=US_TRF_ALL_UFG_WFM_FRSEA_1001127",
+   "description": "Mainstay for natural & organic food. Eco-minded chain with natural & organic grocery items, housewares & other products (most sell wine).",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible entrance",
+      "Wheelchair accessible parking lot",
+      "Wheelchair accessible restroom"
+     ]
+    }
+   ],
+   "thumbnail": "https://lh3.googleusercontent.com/grass-cs/AABkmLfc3djvNYRjF8W_he0zH9BHzLi85ag6kV-QWoyDO9WZ3Or_v5qBZDq5huegXceFegOJlq2U0Cgh4sra7toAdwcwp1taEn17aWm9p9Px7epE6BrIWZWS21YXP7D2JAxi9OKdcUMx=w1000-h1000-c-n"
+  },
+  {
+   "position": 5,
+   "title": "Barton Hills Market",
+   "place_id": "ChIJo4w45S-1RIYRhebQ1RFZB6o",
+   "gps_coordinates": {
+    "latitude": 30.261884,
+    "longitude": -97.775004
+   },
+   "rating": 4.1,
+   "reviews": 62,
+   "type": "Supermarket",
+   "types": [
+    "Supermarket",
+    "Convenience store",
+    "Deli",
+    "Grocery store",
+    "Market"
+   ],
+   "address": "1220 Barton Hills Dr, Austin, TX 78704",
+   "country": "United States",
+   "open_state": "Closes soon · 12 AM · Opens 7 AM Sun",
+   "hours": "Closes soon · 12 AM · Opens 7 AM Sun",
+   "operating_hours": {
+    "saturday": "6:30 AM–12 AM",
+    "sunday": "7 AM–11 PM",
+    "monday": "6:30 AM–11 PM",
+    "tuesday": "6:30 AM–11 PM",
+    "wednesday": "6:30 AM–11 PM",
+    "thursday": "6:30 AM–11 PM",
+    "friday": "6:30 AM–12 AM"
+   },
+   "phone": "(512) 707-8656",
+   "description": "Grab-&-go deli & convenience store. Basic convenience store with groceries, beer/wine & a deli counter for sandwiches & breakfast tacos.",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible entrance",
+      "Wheelchair accessible parking lot"
+     ]
+    }
+   ],
+   "thumbnail": "https://lh3.googleusercontent.com/grass-cs/AABkmLcG8SgSGvHxrZ5Nrc3hw-pxZeqEQ112qURTYKlFa_tj9WPlEmXPfGPubW_gxAmc_4RnfHrd6YD_veux6yo1IEuNWCwWbAYjufPw3K411r3v1oOay1fB9wsjbKavmIoJUxCfhEVdeA=w1000-h1000-c-n"
+  },
+  {
+   "position": 6,
+   "title": "Royal Blue Grocery",
+   "place_id": "ChIJo70E8A61RIYRi9UGbBAIm4Y",
+   "gps_coordinates": {
+    "latitude": 30.267667,
+    "longitude": -97.74940959999999
+   },
+   "rating": 4.3,
+   "reviews": 308,
+   "type": "Grocery store",
+   "types": [
+    "Grocery store",
+    "Coffee shop"
+   ],
+   "address": "The 360 Tower, 360 Nueces St #90, Austin, TX 78701",
+   "country": "United States",
+   "open_state": "Closes soon · 12 AM · Opens 7 AM Sun",
+   "hours": "Closes soon · 12 AM · Opens 7 AM Sun",
+   "operating_hours": {
+    "saturday": "7 AM–12 AM",
+    "sunday": "7 AM–12 AM",
+    "monday": "7 AM–12 AM",
+    "tuesday": "7 AM–12 AM",
+    "wednesday": "7 AM–12 AM",
+    "thursday": "7 AM–12 AM",
+    "friday": "7 AM–12 AM"
+   },
+   "phone": "(512) 476-5700",
+   "website": "http://www.royalbluegrocery.com/",
+   "description": "Cozy grocery with ready-to-eat fare. Specialty market offering grocery basics, plus local wine, beer & ready-to-eat meals until late.",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible entrance",
+      "Wheelchair accessible parking lot"
+     ]
+    }
+   ],
+   "thumbnail": "https://lh3.googleusercontent.com/grass-cs/AABkmLexBcgK6y0UUAZXRHGNpIibkonjX3q9ugYS9XoPU5h4X46TCdKadcIpl2yJ6xKw6EteU_9pViz_1AcUw7r1nnwnTeVfkTgYbHYyu1-XP936Ce5Uvg2X1Q_K9vjOZSf7itMN421SEyAbKJYV=w1000-h1000-c-n"
+  },
+  {
+   "position": 7,
+   "title": "H-E-B",
+   "place_id": "ChIJs3AR2c21RIYR55Jz0LWnDwo",
+   "gps_coordinates": {
+    "latitude": 30.2594094,
+    "longitude": -97.7119031
+   },
+   "rating": 4.3,
+   "reviews": 2903,
+   "type": "Grocery store",
+   "types": [
+    "Grocery store"
+   ],
+   "address": "2701 E 7th St, Austin, TX 78702",
+   "country": "United States",
+   "open_state": "Closed · Opens 6 AM Sun",
+   "hours": "Closed · Opens 6 AM Sun",
+   "operating_hours": {
+    "saturday": "6 AM–11 PM",
+    "sunday": "6 AM–11 PM",
+    "monday": "6 AM–11 PM",
+    "tuesday": "6 AM–11 PM",
+    "wednesday": "6 AM–11 PM",
+    "thursday": "6 AM–11 PM",
+    "friday": "6 AM–11 PM"
+   },
+   "phone": "(512) 478-7328",
+   "website": "https://www.heb.com/heb-store/US/tx/austin/7th-street-h-e-b-465?utm_source=google&utm_medium=organic&utm_campaign=gmb_stores",
+   "description": "Supermarket with a deli, florist & more. Branch of a supermarket chain offering groceries, beer & wine, plus a deli, pharmacy & florist.",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible entrance",
+      "Wheelchair accessible parking lot",
+      "Wheelchair accessible restroom"
+     ]
+    }
+   ],
+   "thumbnail": "https://lh3.googleusercontent.com/grass-cs/AABkmLd_RKNPSn0VZdBU1ZcNH-f6odMRtHdvx1ap-H2bDqHlBRqcnxoRODVvF9rMl8fIbJoetLutIYwa-Ip7a_EwEA0FOKyU_vG8HWYyvQ4Cw9wBjvE7LdMXGNY3FIltKQWx1LN8v5g=w1000-h1000-c-n"
+  },
+  {
+   "position": 8,
+   "title": "Royal Blue Grocery",
+   "place_id": "ChIJKTQj0ba1RIYRSxY_0ik0ZSM",
+   "gps_coordinates": {
+    "latitude": 30.262402599999998,
+    "longitude": -97.7251715
+   },
+   "rating": 4.3,
+   "reviews": 128,
+   "type": "Grocery store",
+   "types": [
+    "Grocery store",
+    "Beer store",
+    "Coffee shop",
+    "Convenience store",
+    "Gourmet grocery store",
+    "Health food store",
+    "Natural goods store",
+    "Organic food store",
+    "Supermarket",
+    "Wine store"
+   ],
+   "address": "1629 E 6th St, Austin, TX 78702",
+   "country": "United States",
+   "open_state": "Closes soon · 12 AM · Opens 7 AM Sun",
+   "hours": "Closes soon · 12 AM · Opens 7 AM Sun",
+   "operating_hours": {
+    "saturday": "7 AM–12 AM",
+    "sunday": "7 AM–12 AM",
+    "monday": "7 AM–12 AM",
+    "tuesday": "7 AM–12 AM",
+    "wednesday": "7 AM–12 AM",
+    "thursday": "7 AM–12 AM",
+    "friday": "7 AM–12 AM"
+   },
+   "phone": "(512) 524-0740",
+   "website": "https://www.royalbluegrocery.com/",
+   "description": "Cozy grocery with ready-to-eat fare. Specialty market offering grocery basics, plus local wine, beer & ready-to-eat meals until late.",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible entrance",
+      "Wheelchair accessible parking lot"
+     ]
+    }
+   ],
+   "thumbnail": "https://lh3.googleusercontent.com/grass-cs/AABkmLc9DLO6BK6wSQqUJvFyxqXzgX1CYOD0qQy00eKG9IPmWx6yYSEN753wFtX6FZBpWRFd0WPLwjRPHHeqJkwfAxaKRkKVkDS7H82-vWQoynW_hqUqlYAOoCg0Kl6P1_CCnGiBRpH2=w1000-h1000-c-n"
+  },
+  {
+   "position": 9,
+   "title": "Rio Mart",
+   "place_id": "ChIJdTDi_Xa1RIYR_vc3ktHOxyA",
+   "gps_coordinates": {
+    "latitude": 30.2841401,
+    "longitude": -97.74493299999999
+   },
+   "rating": 4.6,
+   "reviews": 48,
+   "type": "Grocery store",
+   "types": [
+    "Grocery store",
+    "Convenience store"
+   ],
+   "address": "2101 Rio Grande St #1002, Austin, TX 78705",
+   "country": "United States",
+   "open_state": "Open · Closes 1 AM",
+   "hours": "Open · Closes 1 AM",
+   "operating_hours": {
+    "saturday": "7 AM–1 AM",
+    "sunday": "8 AM–12 AM",
+    "monday": "7 AM–12 AM",
+    "tuesday": "7 AM–12 AM",
+    "wednesday": "7 AM–12 AM",
+    "thursday": "7 AM–12 AM",
+    "friday": "7 AM–12 AM"
+   },
+   "phone": "(512) 472-6777",
+   "description": "Functional corner convenience store. Humble corner convenience store selling snacks, beer, cigarettes, groceries & other products.",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible entrance",
+      "Wheelchair accessible parking lot"
+     ]
+    }
+   ],
+   "thumbnail": "https://lh3.googleusercontent.com/grass-cs/AABkmLeBEP9mN8NetNZIwkBjeLVhZTD5D_1EpINaxe66rVvSnpPFFKPS-zcuup59W9H_BbZmIlTazZKBoMf1vvHQ63f_vJwy6Ws1-B9F3hmC4A3IJkf6Wnbty_loqeun_sdUk7Vme8LMKQ=w1000-h1000-c-n"
+  },
+  {
+   "position": 10,
+   "title": "Royal Blue Grocery",
+   "place_id": "ChIJq6qqqgm1RIYRGCbJhx17hBA",
+   "gps_coordinates": {
+    "latitude": 30.265700799999998,
+    "longitude": -97.7460431
+   },
+   "rating": 4.3,
+   "reviews": 231,
+   "type": "Grocery store",
+   "types": [
+    "Grocery store",
+    "Beer store",
+    "Coffee shop",
+    "Convenience store",
+    "Deli",
+    "Gourmet grocery store",
+    "Health food store",
+    "Natural goods store",
+    "Organic food store",
+    "Wine store"
+   ],
+   "address": "241 W 3rd St, Austin, TX 78701",
+   "country": "United States",
+   "open_state": "Closes soon · 12 AM · Opens 7 AM Sun",
+   "hours": "Closes soon · 12 AM · Opens 7 AM Sun",
+   "operating_hours": {
+    "saturday": "7 AM–12 AM",
+    "sunday": "7 AM–12 AM",
+    "monday": "7 AM–12 AM",
+    "tuesday": "7 AM–12 AM",
+    "wednesday": "7 AM–12 AM",
+    "thursday": "7 AM–12 AM",
+    "friday": "7 AM–12 AM"
+   },
+   "phone": "(512) 499-3993",
+   "website": "http://www.royalbluegrocery.com/",
+   "description": "Cozy grocery with ready-to-eat fare. Specialty market offering grocery basics, plus local wine, beer & ready-to-eat meals until late.",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible entrance"
+     ]
+    }
+   ],
+   "thumbnail": "https://lh3.googleusercontent.com/grass-cs/AABkmLezjM76bZkXUWyNNkojx_pQ4JBdh8pBBA9c8iLxvQ_W0PyEszqi8iZ9ZtDeZIxtO12PiB1jjK0MSGfQ6-g2OecdftXeD8awgXvHjkAyPoI2HRc6Vs7tpVdRW0K-bcxi_BtD7Oq8-w=w1000-h1000-c-n"
+  },
+  {
+   "position": 11,
+   "title": "University Market",
+   "place_id": "ChIJERSg72u1RIYRKjQobK1Hq4g",
+   "gps_coordinates": {
+    "latitude": 30.287126599999997,
+    "longitude": -97.74539469999999
+   },
+   "rating": 4.8,
+   "reviews": 55,
+   "type": "Convenience store",
+   "types": [
+    "Convenience store",
+    "Indian grocery store",
+    "Restaurant",
+    "Wine store"
+   ],
+   "address": "711 W 23rd St, Austin, TX 78705",
+   "country": "United States",
+   "open_state": "Open · Closes 1 AM",
+   "hours": "Open · Closes 1 AM",
+   "operating_hours": {
+    "saturday": "7 AM–1 AM",
+    "sunday": "8 AM–12 AM",
+    "monday": "7 AM–12 AM",
+    "tuesday": "7 AM–12 AM",
+    "wednesday": "7 AM–12 AM",
+    "thursday": "7 AM–12 AM",
+    "friday": "7 AM–12 AM"
+   },
+   "phone": "(512) 291-2758",
+   "website": "https://hungermates.square.site/home",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible entrance",
+      "Wheelchair accessible parking lot"
+     ]
+    }
+   ],
+   "thumbnail": "https://lh3.googleusercontent.com/grass-cs/AABkmLePZ42IlegaL2yqTZWsSPpP0gGF5gbsbklG6KQr6AxqTfjxBV07S7GELOKWXgiax4Km-y-hDh6uxs9eiNkj7JwNL2bd0afQGjDU_VJkATuRcBO3lywJRIw1r60b2dxNznAE8cc=w1000-h1000-c-n"
+  },
+  {
+   "position": 12,
+   "title": "H-E-B",
+   "place_id": "ChIJb1NIqD21RIYRG-6i-Hm18Aw",
+   "gps_coordinates": {
+    "latitude": 30.2837909,
+    "longitude": -97.7758207
+   },
+   "rating": 4.5,
+   "reviews": 1113,
+   "type": "Grocery store",
+   "types": [
+    "Grocery store",
+    "Beer store",
+    "Butcher shop",
+    "Cheese shop",
+    "Grocery delivery service",
+    "Meat products store",
+    "Produce market",
+    "Seafood market",
+    "Supermarket",
+    "Wine store"
+   ],
+   "address": "2652 Lake Austin Blvd, Austin, TX 78703",
+   "country": "United States",
+   "open_state": "Closed · Opens 6 AM Sun",
+   "hours": "Closed · Opens 6 AM Sun",
+   "operating_hours": {
+    "saturday": "6 AM–11 PM",
+    "sunday": "6 AM–11 PM",
+    "monday": "6 AM–11 PM",
+    "tuesday": "6 AM–11 PM",
+    "wednesday": "6 AM–11 PM",
+    "thursday": "6 AM–11 PM",
+    "friday": "6 AM–11 PM"
+   },
+   "phone": "(737) 610-6321",
+   "website": "https://www.heb.com/heb-store/US/tx/austin/lake-austin-h-e-b-768?utm_source=google&utm_medium=organic&utm_campaign=gmb_stores&utm_content=lake_austin",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible entrance",
+      "Wheelchair accessible parking lot",
+      "Wheelchair accessible restroom",
+      "Wheelchair accessible seating"
+     ]
+    }
+   ],
+   "thumbnail": "https://lh3.googleusercontent.com/grass-cs/AABkmLeE-7UqZuMJj48oR3JIQc6_A_hCf3hxU5Wi2vNYDukoHDwESBMWBbyQDWZKUglhwv-SVHaWPScctg38UELJa4aZwI8h9mn1uZuTrJCB9-2XYbCUSm3bIHqBRYW6ng4nv1LoUluO=w1000-h1000-c-n"
+  },
+  {
+   "position": 13,
+   "title": "Austin SuperMarket",
+   "place_id": "ChIJHYJ-Qau1RIYR207fV5KprDw",
+   "gps_coordinates": {
+    "latitude": 30.2545625,
+    "longitude": -97.73727799999999
+   },
+   "rating": 2.6,
+   "reviews": 13,
+   "unclaimed_listing": true,
+   "type": "Convenience store",
+   "types": [
+    "Convenience store",
+    "Supermarket"
+   ],
+   "address": "30 S I-35 Frontage Rd, Austin, TX 78701",
+   "country": "United States",
+   "open_state": "Closes soon · 12 AM · Opens 3 AM Sun",
+   "hours": "Closes soon · 12 AM · Opens 3 AM Sun",
+   "operating_hours": {
+    "saturday": "3 AM–12 AM",
+    "sunday": "3 AM–12 AM",
+    "monday": "3 AM–12 AM",
+    "tuesday": "3 AM–12 AM",
+    "wednesday": "3 AM–12 AM",
+    "thursday": "3 AM–12 AM",
+    "friday": "3 AM–12 AM"
+   },
+   "phone": "(512) 441-9266",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible entrance",
+      "Wheelchair accessible parking lot"
+     ]
+    }
+   ],
+   "thumbnail": "https://lh3.googleusercontent.com/grass-cs/AABkmLdabm6p7EuZpqIJiDxtmX-KxHgYLrXLtxLIOF8K8oARIn_tgUu5zYJQbplVyJVJ0SusdJGOsLcLPLtmCUDdHuWBP1zstsbhY8Cz8pr_9bqnKtQWAdtVIS6GWmFQXv2grcwteXCY=w1000-h1000-c-n"
+  },
+  {
+   "position": 14,
+   "title": "East 1st Grocery",
+   "place_id": "ChIJ6fj7e7S1RIYRykTu74PUPBg",
+   "gps_coordinates": {
+    "latitude": 30.2570113,
+    "longitude": -97.72493639999999
+   },
+   "rating": 3.8,
+   "reviews": 58,
+   "type": "Convenience store",
+   "types": [
+    "Convenience store",
+    "Gas station",
+    "Smoke shop"
+   ],
+   "address": "1811 E Cesar Chavez St, Austin, TX 78702",
+   "country": "United States",
+   "open_state": "Open · Closes 1 AM",
+   "hours": "Open · Closes 1 AM",
+   "operating_hours": {
+    "saturday": "7:30 AM–1 AM",
+    "sunday": "8 AM–12 AM",
+    "monday": "6:30 AM–12 AM",
+    "tuesday": "6:30 AM–12 AM",
+    "wednesday": "6:30 AM–12 AM",
+    "thursday": "6:30 AM–12 AM",
+    "friday": "6:30 AM–12 AM"
+   },
+   "phone": "(512) 477-0988",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible entrance",
+      "Wheelchair accessible parking lot",
+      "Wheelchair accessible restroom"
+     ]
+    }
+   ],
+   "thumbnail": "https://lh3.googleusercontent.com/grass-cs/AABkmLfaxZ80msWKKt5Dw7kHYYgqIc8av-Ea-aars2TH-ROEjFs4UVPVHe4-0qgnA1-rnO50MoQvrugkoc8p_ntCGwgYvN0cVJbzaW14smqC3BfjGsfYT4huvBYHemAiYSfuMfdq3V2lzQ=w1000-h1000-c-n"
+  },
+  {
+   "position": 15,
+   "title": "Orange Market 2",
+   "place_id": "ChIJ-wbQnx21RIYRyhQUu6OJ634",
+   "gps_coordinates": {
+    "latitude": 30.2882447,
+    "longitude": -97.74749229999999
+   },
+   "rating": 4.2,
+   "reviews": 55,
+   "type": "Grocery store",
+   "types": [
+    "Grocery store"
+   ],
+   "address": "2401 San Gabriel St, Austin, TX 78705",
+   "country": "United States",
+   "open_state": "Open · Closes 1 AM",
+   "hours": "Open · Closes 1 AM",
+   "operating_hours": {
+    "saturday": "6:30 AM–1 AM",
+    "sunday": "7 AM–12 AM",
+    "monday": "6:30 AM–12 AM",
+    "tuesday": "6:30 AM–12 AM",
+    "wednesday": "6:30 AM–12 AM",
+    "thursday": "6:30 AM–12 AM",
+    "friday": "6:30 AM–12 AM"
+   },
+   "phone": "(512) 524-1394",
+   "website": "https://myweb29.site/explore/orange-market-2",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible entrance",
+      "Wheelchair accessible parking lot"
+     ]
+    }
+   ],
+   "thumbnail": "https://lh3.googleusercontent.com/grass-cs/AABkmLczy3n0qcAu9zD0NmEknhjSABjBemNmxK5ICIKP8LUtwOnEOFWDV_pBoK6O9wChnxZxwg39s6ittErZABz7xIuDcpGjeGqrbKElro6V-aS8VPk_0oC19Ov7XZ_-IQzo984GBCu7=w1000-h1000-c-n"
+  },
+  {
+   "position": 16,
+   "title": "Whole Foods Market",
+   "place_id": "ChIJwTH9mDi1RIYRl2tOoUkzH8c",
+   "gps_coordinates": {
+    "latitude": 30.2643126,
+    "longitude": -97.7340971
+   },
+   "rating": 4.3,
+   "reviews": 898,
+   "type": "Grocery store",
+   "types": [
+    "Grocery store",
+    "Bakery",
+    "Deli",
+    "Fresh food market",
+    "Grocery delivery service",
+    "Health food store",
+    "Natural goods store",
+    "Organic food store",
+    "Produce market",
+    "Supermarket"
+   ],
+   "address": "901 E 5th St. Ste 100, Austin, TX 78702",
+   "country": "United States",
+   "open_state": "Closed · Opens 8 AM Sun",
+   "hours": "Closed · Opens 8 AM Sun",
+   "operating_hours": {
+    "saturday": "8 AM–9 PM",
+    "sunday": "8 AM–9 PM",
+    "monday": "8 AM–9 PM",
+    "tuesday": "8 AM–9 PM",
+    "wednesday": "8 AM–9 PM",
+    "thursday": "8 AM–9 PM",
+    "friday": "8 AM–9 PM"
+   },
+   "phone": "(512) 884-5910",
+   "website": "https://www.wholefoodsmarket.com/stores/eastaustin?utm_source=google&utm_medium=organic&utm_campaign=listings&ref_=US_TRF_ALL_UFG_WFM_FRSOC_1001221",
+   "description": "Mainstay for natural & organic food. Eco-minded chain with natural & organic grocery items, housewares & other products (most sell wine).",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible entrance",
+      "Wheelchair accessible parking lot",
+      "Wheelchair accessible restroom"
+     ]
+    }
+   ],
+   "thumbnail": "https://lh3.googleusercontent.com/grass-cs/AABkmLdeQ7vA6jD3GSJv_EspguQvi9cVY3_UoNndqFH7BUUexo9LQ4EQaUwyji5XkgO6HZRCKMgn1MEYMo8i4HA3ibtBNAgiPh1RhgaQUf__5Z9xQNRdi_zjstOpSJUDRU5CsPQU_iU=w1000-h1000-c-n"
+  },
+  {
+   "position": 17,
+   "title": "Second Street Market Inc",
+   "place_id": "ChIJ72if-Qe1RIYRCzMucGEEdBA",
+   "gps_coordinates": {
+    "latitude": 30.2639633,
+    "longitude": -97.742308
+   },
+   "rating": 3.9,
+   "reviews": 28,
+   "type": "Convenience store",
+   "types": [
+    "Convenience store"
+   ],
+   "address": "200 San Jacinto Blvd, Austin, TX 78701",
+   "country": "United States",
+   "open_state": "Open · Closes 2 AM",
+   "hours": "Open · Closes 2 AM",
+   "operating_hours": {
+    "saturday": "8:30 AM–2 AM",
+    "sunday": "8:30 AM–10 PM",
+    "monday": "8:30 AM–12 AM",
+    "tuesday": "8:30 AM–12 AM",
+    "wednesday": "8:30 AM–12 AM",
+    "thursday": "8:30 AM–12 AM",
+    "friday": "8:30 AM–2 AM"
+   },
+   "phone": "(512) 476-1533",
+   "website": "http://www.2ndstreetdistrict.com/",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible entrance"
+     ]
+    }
+   ],
+   "thumbnail": "https://lh3.googleusercontent.com/grass-cs/AABkmLcvyAYDoX0_BmGeXeP2NwDkuDrF0xMgcMUbR0i710jgB-tiBAXz38jMWcA0mt8ALd1sHBlm0PWaU9JpT7sUASwSIUYVtyq0Kz_oFx31wRr8VCNEbzuQwdiKDqrAB0MwiQ99GxmdPBqKXxM=w1000-h1000-c-n"
+  },
+  {
+   "position": 18,
+   "title": "Sky Market",
+   "place_id": "ChIJjRNIdM-1RIYRo7jCfALOiyg",
+   "gps_coordinates": {
+    "latitude": 30.2818157,
+    "longitude": -97.7096219
+   },
+   "rating": 4.9,
+   "reviews": 57,
+   "type": "Grocery store",
+   "types": [
+    "Grocery store",
+    "Convenience store",
+    "Market"
+   ],
+   "address": "2832 E Martin Luther King Jr Blvd Ste 120, Austin, TX 78702",
+   "country": "United States",
+   "open_state": "Closed · Opens 8 AM Sun",
+   "hours": "Closed · Opens 8 AM Sun",
+   "operating_hours": {
+    "saturday": "8 AM–11 PM",
+    "sunday": "8 AM–11 PM",
+    "monday": "7 AM–11 PM",
+    "tuesday": "7 AM–11 PM",
+    "wednesday": "7 AM–11 PM",
+    "thursday": "7 AM–11 PM",
+    "friday": "7 AM–11 PM"
+   },
+   "phone": "(512) 520-5337",
+   "website": "https://www.skymarketatx.com/",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible entrance",
+      "Wheelchair accessible parking lot"
+     ]
+    }
+   ],
+   "thumbnail": "https://lh3.googleusercontent.com/grass-cs/AABkmLcI1NPUdG3bfz63C9R_tX9OOeqaIuMyVBhoL74L-k2B355C49iQom3G5icIlTyWbF_Z4JkGtf_Dy0sl5TUdDFFmpQM-nkrAnlOTG6pWCEIcrChKHFGb_ijAzjoGfS2gNex0u0Q=w1000-h1000-c-n"
+  },
+  {
+   "position": 19,
+   "title": "Ana's Mart",
+   "place_id": "ChIJCUKHRae1RIYRnZkmnukUCY0",
+   "gps_coordinates": {
+    "latitude": 30.2698145,
+    "longitude": -97.7413141
+   },
+   "rating": 4,
+   "reviews": 26,
+   "type": "Grocery store",
+   "types": [
+    "Grocery store"
+   ],
+   "address": "800 Brazos St #200, Austin, TX 78701",
+   "country": "United States",
+   "open_state": "Open · Closes 1 AM",
+   "hours": "Open · Closes 1 AM",
+   "operating_hours": {
+    "saturday": "6 AM–1 AM",
+    "sunday": "11 AM–12 AM",
+    "monday": "6 AM–12 AM",
+    "tuesday": "6 AM–12 AM",
+    "wednesday": "6 AM–12 AM",
+    "thursday": "6 AM–12 AM",
+    "friday": "6 AM–12 AM"
+   },
+   "phone": "(512) 469-0962",
+   "website": "https://twitter.com/AnasMartATX",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible entrance",
+      "Wheelchair accessible parking lot"
+     ]
+    }
+   ],
+   "thumbnail": "https://lh3.googleusercontent.com/grass-cs/AABkmLdCtnwmg1iU1ZWgsbwkk6_HSYrrdlhX_UJZ87IceqCIprj2v-9yUXehtJ5JGG06_vaSB3ozQh_MfyeGssOQPY7E74Jdf7MIJpxgOM6ragEFOM4f05TwG6ec_t6gUWn7sLhiFGiJ=w1000-h1000-c-n"
+  },
+  {
+   "position": 20,
+   "title": "West Campus Market",
+   "place_id": "ChIJ_3eYMHe1RIYRI-5JP0NXvsQ",
+   "gps_coordinates": {
+    "latitude": 30.285141799999998,
+    "longitude": -97.7463796
+   },
+   "rating": 3.3,
+   "reviews": 18,
+   "type": "Grocery store",
+   "types": [
+    "Grocery store",
+    "Convenience store"
+   ],
+   "address": "709 W 22nd St Ste 200, Austin, TX 78705",
+   "country": "United States",
+   "open_state": "Open · Closes 1 AM",
+   "hours": "Open · Closes 1 AM",
+   "operating_hours": {
+    "saturday": "8:30 AM–1 AM",
+    "sunday": "9 AM–12 AM",
+    "monday": "7:30 AM–12 AM",
+    "tuesday": "7:30 AM–12 AM",
+    "wednesday": "7:30 AM–12 AM",
+    "thursday": "7:30 AM–12 AM",
+    "friday": "7:30 AM–12 AM"
+   },
+   "phone": "(512) 391-9100",
+   "website": "http://www.facebook.com/pages/West-Campus-Market/134718533237445",
+   "description": "Simple grocery & convenience store. Unassuming, late-keeping convenience store offering a range of grocery items & other products.",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible entrance",
+      "Wheelchair accessible parking lot"
+     ]
+    }
+   ],
+   "thumbnail": "https://lh3.googleusercontent.com/grass-cs/AABkmLemnn8vdn7MYDasUoWR02KpmqgacxxNNJpkO-JseI0fV8_emqWVzf0JvBoFhCm8NPjKHnyqerAb5VzfyWBDh8jZwQoLvWBCzCibWJ8UA4toLVwdFcKScUXudF19ozGUCPRDqeIK=w1000-h1000-c-n"
+  }
+ ]
+}

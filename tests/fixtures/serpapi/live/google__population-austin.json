@@ -1,0 +1,245 @@
+{
+ "_fixture": "recorded live from SerpApi on 2026-10-25 (compacted: metadata, SerpApi links and tokens removed)",
+ "related_questions": [
+  {
+   "question": "Is Austin considered a large city?",
+   "type": "featured_snippet"
+  },
+  {
+   "question": "What's the population of the Greater Austin area?",
+   "type": "featured_snippet"
+  },
+  {
+   "question": "Is Austin growing or shrinking?",
+   "type": "featured_snippet"
+  },
+  {
+   "question": "What percent of Austin is white?",
+   "type": "featured_snippet"
+  }
+ ],
+ "ai_overview": {
+  "text_blocks": [
+   {
+    "type": "paragraph",
+    "snippet": "The population of Austin, Texas is 1,002,632 according to the U.S. Census Bureau QuickFacts.",
+    "snippet_links": [
+     {
+      "text": "U.S. Census Bureau QuickFacts",
+      "link": "https://www.census.gov/quickfacts/austincitytexas"
+     }
+    ],
+    "reference_indexes": [
+     0
+    ]
+   },
+   {
+    "type": "heading",
+    "snippet": "Key Population & City Facts"
+   },
+   {
+    "type": "list",
+    "list": [
+     {
+      "snippet": "City Ranking: 12th-most populous city in the United States and 5th-most populous in Texas."
+     },
+     {
+      "snippet": "Metro Area Population: The Greater Austin metropolitan area has roughly 2.55 million residents."
+     },
+     {
+      "snippet": "Median Age: 34.7 years old."
+     },
+     {
+      "snippet": "Median Household Income: $93,658.",
+      "reference_indexes": [
+       1,
+       2,
+       3
+      ]
+     }
+    ]
+   },
+   {
+    "type": "paragraph",
+    "snippet": "Would you like more details on Austin's demographics, housing market, or suburban growth?"
+   }
+  ],
+  "references": [
+   {
+    "index": 0,
+    "title": "U.S. Census Bureau QuickFacts: Austin city, Texas",
+    "link": "https://www.census.gov/quickfacts/austincitytexas",
+    "snippet": "Population: July 2025 estimate 1,002,632; 2020 Census 961,855; 2010 Census 790,390. Demographics: Under 5 5.2%, under 18 18.0%, 65+ 10.4%, female 48.7%; White 55.0...",
+    "source": "Census.gov"
+   },
+   {
+    "index": 1,
+    "title": "Austin, Texas - Wikipedia",
+    "link": "https://en.wikipedia.org/wiki/Austin,_Texas",
+    "snippet": "\"Austin, United States\" and \"City of Austin\" redirect here. For other places and cities, see Austin (disambiguation) § Places. Not to be confused with Austin Count...",
+    "source": "Wikipedia",
+    "thumbnail": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQVhzBoE6mSQVKUI3Uq6pjcN218axr82JIrNepGWoRr0OB6omRrk7niYuDIcV1jWKPtAvWV1JAeUraviLCIa8PaMWkmN6YSyfBC34ZnRucf3XAxLDt7o6ZFZ-oQ-PKQnKov37_6Ugjo_ggZxXus98Glmj41fA"
+   },
+   {
+    "index": 2,
+    "title": "Austin population surpasses 1 million residents, according to new census ...",
+    "link": "https://www.kvue.com/article/money/economy/boomtown-2040/austin-texas-population-surpasses-1-million-residents/269-9143b6b1-60ac-4ab7-92f7-cdd536d84d90",
+    "snippet": "Austin population surpasses 1 million residents, according to new census estimates AUSTIN, Texas — Austin is now home to more than one million residents. New data ...",
+    "source": "KVUE",
+    "thumbnail": "https://encrypted-tbn3.gstatic.com/images?q=tbn:ANd9GcQCzqF0-jOKXL8IQff3DFOzP1cXDNO04vKSumtAzmnBqvSEBX4NWyFx8y4KieyBsbODlBVW8d3wOBA7CTyw8tYjj5AptZsand-UZgrVGCIwQZVWJP-iTYOflTSJ15uTktb4mdLc9Eb9DmKDWaczQ4dlfXWjNA"
+   },
+   {
+    "index": 3,
+    "title": "Austin, TX | Data USA",
+    "link": "https://datausa.io/profile/geo/austin-tx/",
+    "snippet": "* Austin, TX (2024): Pop. 980k; 88.3% US citizens; 18.6% foreign-born; median age 34.7; poverty rate 12%; median household income $93,658. * Property/Economy: Medi...",
+    "source": "Data USA",
+    "thumbnail": "https://encrypted-tbn2.gstatic.com/images?q=tbn:ANd9GcT7uNjx6qa7i3WoCfvAz5fbuLZdtVdo0kIhWp8MzQHYvCherK6c4viub-fdv_30vuPcFb46F5STg82YzzHfot5fczk8aMwtB5n00CGdNRzKTXi7K-LHcHCKnrUv6nfsPd6l_BWD5qq7K9_puz_ZQggvwxbKKg"
+   }
+  ]
+ },
+ "organic_results": [
+  {
+   "position": 1,
+   "title": "Austin, Texas",
+   "link": "https://en.wikipedia.org/wiki/Austin,_Texas",
+   "snippet": "In the 2020 census, Austin had a population of 961,855. The median age was 33.0 years. 19.4% of residents were under the age of 18 and 9.5% of residents were 65 ...",
+   "snippet_highlighted_words": [
+    "Austin",
+    "population"
+   ],
+   "about_this_result": {
+    "source": {
+     "description": "In the 2020 census, Austin had a population of 961,855. The median age was 33.0 years. 19.4% of residents were under the age of 18 and 9.5% of residents were 65 ..."
+    },
+    "languages": [
+     "en"
+    ],
+    "regions": [
+     "US"
+    ]
+   },
+   "source": "Wikipedia"
+  },
+  {
+   "position": 2,
+   "title": "U.S. Census Bureau QuickFacts: Austin city, Texas",
+   "link": "https://www.census.gov/quickfacts/austincitytexas",
+   "snippet": "Population estimates, July 1, 2025, (V2025).. 1,002,632 ; Population estimates base, April 1, 2020, (V2025).. 958,151 ; Population, percent change - ...",
+   "snippet_highlighted_words": [
+    "958,151"
+   ],
+   "about_this_result": {
+    "source": {
+     "description": "Population estimates, July 1, 2025, (V2025).. 1,002,632 ; Population estimates base, April 1, 2020, (V2025).. 958,151 ; Population, percent change - ..."
+    },
+    "languages": [
+     "en"
+    ],
+    "regions": [
+     "US"
+    ]
+   },
+   "source": "Census.gov"
+  },
+  {
+   "position": 3,
+   "title": "Austin Population Milestone: One Million and Counting",
+   "link": "https://www.austintexas.gov/planning/news/austin-population-milestone-one-million-and-counting",
+   "date": "May 14, 2026",
+   "snippet": "Austin's population broke the seven-figure mark in 2025, when 1,002,632 residents called the Texas capital city their home.",
+   "snippet_highlighted_words": [
+    "Austin's population"
+   ],
+   "about_this_result": {
+    "source": {
+     "description": "Austin's population broke the seven-figure mark in 2025, when 1,002,632 residents called the Texas capital city their home."
+    },
+    "languages": [
+     "en"
+    ],
+    "regions": [
+     "US"
+    ]
+   },
+   "source": "City of Austin (.gov)"
+  },
+  {
+   "position": 4,
+   "title": "Austin, Texas Population 2026",
+   "link": "https://worldpopulationreview.com/us-cities/texas/austin",
+   "snippet": "Austin has a 2026 population of 1,011,743. Austin is currently growing at a rate of 0.91% annually. For every 100 females there are 105.5 males.",
+   "snippet_highlighted_words": [
+    "1,011,743"
+   ],
+   "about_this_result": {
+    "source": {
+     "description": "Austin has a 2026 population of 1,011,743. Austin is currently growing at a rate of 0.91% annually. For every 100 females there are 105.5 males."
+    },
+    "languages": [
+     "en"
+    ],
+    "regions": [
+     "US"
+    ]
+   },
+   "source": "World Population Review"
+  },
+  {
+   "position": 5,
+   "title": "Greater Austin",
+   "link": "https://en.wikipedia.org/wiki/Greater_Austin",
+   "snippet": "As of the 2020 U.S. census, with a total population of 2,352,426. 974,447 people. the 2013 population of Austin proper estimated at 885,400.",
+   "snippet_highlighted_words": [
+    "population",
+    "population of Austin"
+   ],
+   "about_this_result": {
+    "source": {
+     "description": "As of the 2020 U.S. census, with a total population of 2,352,426. 974,447 people. the 2013 population of Austin proper estimated at 885,400."
+    },
+    "languages": [
+     "en"
+    ],
+    "regions": [
+     "US"
+    ]
+   },
+   "source": "Wikipedia"
+  },
+  {
+   "position": 6,
+   "title": "Austin Demographics",
+   "link": "https://demographics-austin.hub.arcgis.com/",
+   "snippet": "Austin Demographics at a Glance ; City Population. 1,035,002 ; Median Age. 34.8 ; Total Households. 479,938 ; Average Household Size. 2 ; Median Household Income ($).",
+   "snippet_highlighted_words": [
+    "1,035,002"
+   ],
+   "about_this_result": {
+    "source": {
+     "description": "Austin Demographics at a Glance ; City Population. 1,035,002 ; Median Age. 34.8 ; Total Households. 479,938 ; Average Household Size. 2 ; Median Household Income ($)."
+    },
+    "languages": [
+     "en"
+    ],
+    "regions": [
+     "US"
+    ]
+   },
+   "source": "ArcGIS Online"
+  },
+  {
+   "position": 7,
+   "title": "City of Austin's population surpasses 1 million, new estimates ...",
+   "link": "https://www.youtube.com/watch?v=ZxvCcZ7FYu4",
+   "snippet": "The city of Austin's population has surpassed 1 million, according to estimates released by the U.S. Census Bureau Thursday.",
+   "duration": "3:26",
+   "about_this_result": {
+    "source": {
+     "description": "The city of Austin's population has surpassed 1 million, according to estimates released by the U.S. Census Bureau Thursday."
+    }
+   },
+   "source": "YouTube · KXAN"
+  }
+ ]
+}

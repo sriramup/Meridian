@@ -46,7 +46,7 @@ export interface WebResult {
   engine: "google" | "google_news" | "google_scholar";
   query: string;
   /** Google's direct answer (answer box), when there is one */
-  answer?: { text: string; title?: string; url?: string; domain?: string; /** its source number */ n?: number };
+  answer?: { text: string; title?: string; url?: string; domain?: string; /** its source number */ n?: number; /** "ai_overview" when the answer is Google's AI overview */ kind?: "answer_box" | "ai_overview"; /** key points (AI overview lists), each with its sources */ points?: { text: string; n?: number[] }[] };
   /** knowledge-graph entity (a city, an agency…) with its facts */
   entity?: { title: string; type?: string; description?: string; facts: SerpFact[]; url?: string; domain?: string; n?: number };
   /** "People also ask" answers, each with its source */

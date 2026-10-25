@@ -215,3 +215,26 @@ describe("route handler", () => {
     vi.unstubAllEnvs();
   });
 });
+
+describe("recorded live responses (tests/fixtures/serpapi/live)", () => {
+  const live = (f: string) => JSON.parse(readFileSync(join(FIX, "live", f), "utf8"));
+  it("Google's AI overview becomes a cited answer with key points", () => {
+    const w = normalizeWeb("google", "What is the population of Austin", live("google__population-austin.json"));
+    expect(w.answer?.kind).toBe("ai_overview");
+    expect(w.answer?.text).toMatch(/1,002,632/);
+    expect(w.answer?.n).toBeGreaterThan(0);
+    expect(w.sources.find((s) => s.n === w.answer?.n)?.domain).toBe("census.gov");
+    expect(w.answer?.points?.length).toBeGreaterThan(2);
+    expect(w.answer?.text).not.toMatch(/Would you like/);
+    expect(w.sources.length).toBeGreaterThanOrEqual(5);
+  });
+  it("live Maps results: positions, ratings, 'Closes soon' is open, utm stripped", () => {
+    const r = normalizePlaces("groceries", live("google_maps__groceries.json"));
+    expect(r.places.length).toBeGreaterThanOrEqual(8);
+    expect(r.places.every((p) => Math.abs(p.lat - 30.27) < 0.2 && Math.abs(p.lon + 97.74) < 0.2)).toBe(true);
+    const rb = r.places.find((p) => /Closes soon/.test(p.hours ?? ""));
+    if (rb) expect(rb.open_now).toBe(true);
+    expect(r.places.find((p) => /^Closed/.test(p.hours ?? ""))?.open_now).toBe(false);
+    expect(JSON.stringify(r)).not.toMatch(/utm_|serpapi\.com/);
+  });
+});
