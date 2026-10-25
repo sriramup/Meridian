@@ -7,6 +7,13 @@
 //
 // The flow is picked from the latest user request text (the block after the <context> snapshot),
 // first match wins (case-insensitive):
+//   "… near X" | "… around X" | "… within N-minute walk of X" (find / where are / restaurants / groceries / cafés …)
+//                               live local discovery (SerpApi): find_places {query, near: X, walk_minutes: N} → a short list
+//                               with ratings, walk times and open-now; with "import" / "as destinations" in the request it
+//                               continues import_places → run_simulation access → summary
+//   "look up X" | "research X" | "search the web for X" | "what is the population of X"
+//                               live research (SerpApi): web_search {query} → the answer / facts cited as [n] (domain)
+//                               and a Sources list
 //   "take me to X" | "go to X" | "show me X" | "where is X" | "fly to X" | "zoom to X"
 //                               navigation: go_to {place: X} → "Here's <name>." (or the suggestions when nothing matches)
 //   "design / create / build / make / plan … neighbourhood / district / town" | "neighbourhood for"
@@ -215,6 +222,12 @@ function nextTurn(body) {
 
   if (/lavaca/.test(q)) return { turn: legacy(r) };
 
+  const has = (name) => (body.tools ?? []).some((t) => t.name === name);
+  const disc = discovery(request);
+  if (disc && has("find_places")) return placesFlow(disc, r, last);
+  const research = researchQuery(request);
+  if (research && has("web_search")) return researchFlow(research, r, last);
+
   const nav = request.match(NAV);
   if (nav && !/\b(heat|traffic|overlay|model|options|where (to|should|could))\b/i.test(nav[1])) {
     if (!r.length) return { delay: 120, turn: [call("go_to", { place: nav[1] }), "tool_use"] };
@@ -287,6 +300,50 @@ function nextTurn(body) {
     return { delay: 0, turn: say(answer) };
   }
   return { turn: say("Understood. Tell me what to build, change or analyse.") };
+}
+
+// ---- live search flows (SerpApi tools; the app's server answers them from fixtures in tests)
+const PLACE_WORDS = /\b(restaurants?|caf[eé]s?|coffee( shops?)?|bars?|groceries|grocery( stores?)?|supermarkets?|pharmac(y|ies)|clinics?|tacos?|bakery|bakeries|schools?|parks?|gyms?|daycares?)\b/i;
+function discovery(request) {
+  const t = request.trim().replace(/[?.!]+$/, "");
+  const m = t.match(/^(?:(?:can you |please )?(?:find|show me|where are|where can i (?:get|find)|are there|is there|any)\s+)?(?:the |some |any )?(.+?)\s+(?:within (?:an? |a )?(\d+)[- ]minute walk (?:of|from)|near|around|close to)\s+(.+)$/i);
+  if (!m || !(PLACE_WORDS.test(m[1]) || /^(find|where are)\b/i.test(t))) return null;
+  const what = m[1].replace(/\b(good|best|nearby)\b/gi, "").replace(/\s+/g, " ").trim();
+  const near = m[3].replace(/\s+(and|then)\s+(import|add)\b.*$/i, "").replace(/,.*$/, "").trim();
+  return { what, near, walk: m[2] ? Number(m[2]) : undefined, importToo: /\b(import|as destinations|add them)\b/i.test(t) };
+}
+function placesFlow(d, r, last) {
+  const input = { query: d.what, near: d.near, ...(d.walk ? { walk_minutes: d.walk } : {}) };
+  if (!r.length) return { delay: 150, turn: [call("find_places", input, `Searching Google Maps for ${d.what} near ${d.near}.`), "tool_use"] };
+  const f = r[0];
+  if (f.error) return { delay: 0, turn: say(`I couldn't search for places: ${String(f.data?.error ?? "").slice(0, 200)}`) };
+  const P = f.data.places ?? [];
+  const list = P.slice(0, 5).map((p, i) => `${i + 1}. **${p.name}** — ${p.rating ? `${p.rating}★ (${p.reviews ?? 0}), ` : ""}${p.walk_min} min walk${p.open_now === true ? ", open now" : p.open_now === false ? ", closed now" : ""}`).join("\n");
+  if (d.importToo && r.length === 1 && P.length) return { delay: 150, turn: [call("import_places", { set_id: f.data.set_id }, "Adding them as walk-access destinations."), "tool_use"] };
+  if (d.importToo && r.length === 2 && !r[1].error) return { delay: 150, turn: [call("run_simulation", { kind: "access" }, "Re-running walk access with them."), "tool_use"] };
+  const head = d.walk ? `${f.data.within_walk} of ${P.length} ${d.what} are within a ${d.walk}-minute walk of ${f.data.near}${f.data.within_walk ? ` (${f.data.within_names.join(", ")})` : ""}. Nearest: ${P[0]?.name} at ${P[0]?.walk_min} min.` : `Found ${P.length} ${d.what} near ${f.data.near}:`;
+  const tail = d.importToo ? (r[1]?.error ? `\n\nImport failed: ${String(r[1].data?.error).slice(0, 160)}` : `\n\nImported ${r[1]?.data?.imported ?? 0} as destinations; walk access re-run${last?.data?.kpi ? "" : ""}. Undo removes them.`) : d.walk ? "\n\nWant me to add these as destinations so the walk-access model uses them?" : "";
+  return { delay: 150, turn: say(`${head}\n\n${list}${tail}\n\n_Google Maps via SerpApi._`) };
+}
+function researchQuery(request) {
+  const t = request.trim().replace(/[?!]+$/, "");
+  const m = t.match(/^(?:please |can you )?(?:look up|lookup|research|search (?:the web |online )?for|google)\s+(.+)$/i);
+  if (m) return m[1];
+  if (/^(what(?:'s| is) the (population|household size|median (household )?income|average household size|rainfall)\b)/i.test(t)) return t;
+  return null;
+}
+function researchFlow(query, r, last) {
+  if (!r.length) return { delay: 150, turn: [call("web_search", { query }, "Searching the web."), "tool_use"] };
+  if (last.error) return { delay: 0, turn: say(`The search failed: ${String(last.data?.error ?? "").slice(0, 200)}`) };
+  const d = last.data;
+  const src = (n) => d.sources.find((s) => s.n === n);
+  let fact = "";
+  if (d.answer) fact = `${d.answer.text} [${d.answer.cite}] (${src(d.answer.cite)?.domain})`;
+  else if (d.entity) fact = `${d.entity.name}: ${Object.entries(d.entity.facts).slice(0, 3).map(([k, v]) => `${k.toLowerCase()} ${v}`).join("; ")} [${d.entity.cite}] (${src(d.entity.cite)?.domain})`;
+  else if (d.sources[0]) fact = `${d.sources[0].snippet} [1] (${d.sources[0].domain})`;
+  else return { delay: 0, turn: say("The search found nothing useful for that.") };
+  const sources = d.sources.slice(0, 4).map((s) => `- [${s.n}] ${s.title} — ${s.domain}`).join("\n");
+  return { delay: 100, turn: say(`${fact}\n\n**Sources**\n${sources}`) };
 }
 
 const seenModels = new Set();
