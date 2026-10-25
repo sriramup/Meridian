@@ -4,7 +4,8 @@
 // Click to open (no page load), double-click or F2 to rename, right-click for Rename / Duplicate /
 // Delete, drag (or Alt+↑/↓) to reorder. A new project opens straight away with its name ready to type.
 
-import { Building2, Copy, FolderOpen, PanelLeftClose, Pencil, Plus, SquareDashed, Trash2 } from "lucide-react";
+import { Building2, Copy, FolderOpen, ImageUp, PanelLeftClose, Pencil, Plus, SquareDashed, Trash2 } from "lucide-react";
+import { openSketchStart } from "../sketch/SketchStart";
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent as RPointerEvent } from "react";
 import { confirmAction } from "../ConfirmDialog";
 import {
@@ -165,6 +166,13 @@ function NewProjectMenu() {
             </DropdownMenuItem>
           );
         })}
+        <DropdownMenuItem onSelect={() => openSketchStart()} className="h-auto items-start py-1.5 leading-normal" data-testid="new-from-sketch">
+          <ImageUp className="mt-0.5 text-rose" />
+          <span className="min-w-0 flex-1">
+            <span className="block font-medium">From a sketch or photo…</span>
+            <span className="block text-[11px] leading-snug text-ink-4">A bird’s-eye plan the agent reads and builds on a blank canvas</span>
+          </span>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

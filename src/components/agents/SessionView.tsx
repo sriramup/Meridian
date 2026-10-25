@@ -3,6 +3,7 @@
 import { ChevronLeft, Ellipsis } from "lucide-react";
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import type { AgentMode, AgentSession, Zone } from "@/agent/types";
+import type { SketchAttachment } from "@/sketch/store";
 import { rtMaybe } from "@/state/runtime";
 import { Button, Tooltip } from "@/components/ui/kit";
 import { Composer, type ComposerHandle } from "./Composer";
@@ -86,7 +87,7 @@ export const SessionView = forwardRef<ComposerHandle, { session: AgentSession; o
         placeholder={configured === false ? "Agent not connected" : undefined}
         onMode={(m: AgentMode) => agents.setMode(s.id, m)}
         onZone={(z: Zone | null) => agents.setZone(s.id, z)}
-        onSend={(t) => sendFirst(s, t)}
+        onSend={(t, sketch) => sendFirst(s, t, sketch)}
         onTyped={setTyped}
         onStop={() => agents.stop(s.id)}
       />
@@ -95,9 +96,9 @@ export const SessionView = forwardRef<ComposerHandle, { session: AgentSession; o
 });
 
 /** the first message names the agent (unless the user already did) */
-function sendFirst(s: AgentSession, text: string) {
-  if (!s.items.some((i) => i.kind === "user") && s.title === "New agent") agents.renameSession(s.id, titleFromText(text));
-  void agents.send(s.id, text);
+function sendFirst(s: AgentSession, text: string, sketch?: SketchAttachment) {
+  if (!s.items.some((i) => i.kind === "user") && s.title === "New agent") agents.renameSession(s.id, titleFromText(text || (sketch ? `Sketch: ${sketch.name}` : "")));
+  void agents.send(s.id, text, sketch ? { sketch } : undefined);
 }
 
 /** a fresh agent's few starting points, as chips just above the composer; they fill it, they don't send */

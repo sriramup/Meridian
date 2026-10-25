@@ -9,6 +9,10 @@ import { rtMaybe } from "@/state/runtime";
 import { useApp } from "@/state/store";
 import { ZonePicker } from "./ZonePicker";
 import { SearchToggle } from "../serp/SearchToggle";
+import { SketchAttachButton, SketchChip, useSketchDraft } from "../sketch/SketchAttach";
+import { attachImage, clearSketchDraft, takeReadySketch } from "../sketch/draft";
+import { displayName, imageFromItems } from "@/sketch/image";
+import type { SketchAttachment } from "@/sketch/store";
 
 const MODES: { value: AgentMode; label: string; title: string }[] = [
   { value: "plan", label: "Plan", title: "Investigate and propose; never edits the map" },
@@ -48,7 +52,7 @@ interface Props {
   placeholder?: string;
   onMode: (m: AgentMode) => void;
   onZone: (z: Zone | null) => void;
-  onSend: (text: string) => void;
+  onSend: (text: string, sketch?: SketchAttachment) => void;
   onStop: () => void;
   /** whether the composer holds any text */
   onTyped?: (typed: boolean) => void;
@@ -102,10 +106,14 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer({ dr
 
   const typed = !!text.trim();
   useEffect(() => onTyped?.(typed), [typed, onTyped]);
-  const canSend = !!text.trim() && !running && !disabled;
+  // an attached sketch can be sent on its own (the request defaults to "build this sketch")
+  const sketch = useSketchDraft(draftKey);
+  const canSend = (!!text.trim() || sketch?.state === "ready") && sketch?.state !== "processing" && !running && !disabled;
   const submit = () => {
     if (!canSend) return;
-    onSend(text.trim());
+    const att = takeReadySketch(draftKey);
+    if (att) clearSketchDraft(draftKey);
+    onSend(text.trim(), att);
     setText("");
   };
 
@@ -131,8 +139,15 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer({ dr
             </Tooltip>
           </div>
         )}
+        <SketchChip draftKey={draftKey} />
         <Textarea
           ref={ta}
+          onPaste={(e) => {
+            const f = imageFromItems(e.clipboardData?.items, e.clipboardData?.files);
+            if (!f || disabled) return;
+            e.preventDefault();
+            void attachImage(draftKey, f, f.name && !/^image\.(png|jpe?g)$/i.test(f.name) ? displayName(f.name, "Pasted image") : "Pasted image");
+          }}
           value={text}
           minRows={2}
           maxRows={9}
@@ -147,7 +162,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer({ dr
               else ta.current?.blur();
             }
           }}
-          placeholder={placeholder ?? (mode === "plan" ? "What should we investigate?" : "What should we change?")}
+          placeholder={placeholder ?? (sketch?.state === "ready" ? "Add a note, or press Enter to build the sketch" : mode === "plan" ? "What should we investigate?" : "What should we change?")}
           aria-label="Message the agent"
           className="border-0 bg-transparent px-3 pt-2.5 pb-1 text-[13px] leading-[19px] shadow-none hover:border-0 focus-visible:ring-0"
         />
@@ -161,6 +176,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer({ dr
           </ToggleGroup>
           <ZonePicker value={zone} onChange={onZone} colorKey={colorKey} onClosed={() => ta.current?.focus()} />
           <SearchToggle sessionKey={draftKey} disabled={disabled} />
+          <SketchAttachButton draftKey={draftKey} disabled={disabled || running} onAttached={() => ta.current?.focus()} />
           <div className="ml-auto flex items-center">
             {running ? (
               <Tooltip content="Stop" kbd="Esc" side="top">

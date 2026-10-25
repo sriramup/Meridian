@@ -13,6 +13,7 @@ import { useNow } from "./SessionList";
 import { agents } from "./store";
 import { TOOL_ICON, TOOL_VERB } from "./toolMeta";
 import { SerpCards } from "../serp/SerpCards";
+import { SketchThumb } from "../sketch/SketchThumb";
 
 /**
  * One session's conversation. Each reply of the agent reads as its answer under a single quiet
@@ -55,6 +56,7 @@ const UserMsg = memo(function UserMsg({ item, prev }: { item: Extract<ChatItem, 
           })}
         </div>
       )}
+      {item.sketch && <SketchThumb sketch={item.sketch} />}
       <div className="max-w-full rounded-[10px] bg-paper-3 px-3 py-2 text-[13px] leading-[1.5] break-words whitespace-pre-wrap text-ink">{item.text}</div>
       {meta && (
         <div className="flex max-w-full items-center gap-1 text-[11px] text-ink-4">

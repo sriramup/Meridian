@@ -1,6 +1,7 @@
 "use client";
 
-import { LayoutGrid, MessageSquare, Search, Spline, X } from "lucide-react";
+import { ImageUp, LayoutGrid, MessageSquare, Search, Spline, X } from "lucide-react";
+import { openSketchStart } from "./sketch/SketchStart";
 import { useMemo } from "react";
 import { Kbd } from "@/components/ui/kit";
 import { ensureLibrary, listPrimitives, type Category } from "@/library";
@@ -84,6 +85,13 @@ export function StartCard() {
           <Kbd size="xs">D</Kbd>
         </button>
       </div>
+      <button onClick={() => openSketchStart({ reuse: true })} data-testid="start-from-sketch" className="mt-1.5 flex w-full items-center gap-2 rounded-[7px] border border-line px-2 py-1.5 text-left hover:border-accent/60 hover:bg-accent-2">
+        <ImageUp size={15} strokeWidth={1.7} className="text-rose" />
+        <span className="flex-1">
+          <span className="block text-[11.5px] font-medium text-ink">From a sketch or photo…</span>
+          <span className="block text-[10.5px] text-ink-4">Upload or photograph a bird’s-eye plan; the agent builds it here</span>
+        </span>
+      </button>
       <div className="mt-3 flex items-center justify-between border-t border-line pt-2.5 text-[11.5px]">
         {!agentOpen ? (
           <button onClick={() => useApp.getState().setAgentOpen(true)} className="flex items-center gap-1.5 text-ink-2 hover:text-ink">
