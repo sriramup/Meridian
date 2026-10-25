@@ -390,7 +390,8 @@ function ghost(def: PrimitiveDef, place: PlacementInput, params: Record<string, 
 }
 
 /** place the armed primitive exactly as previewed; selects what was made. A red preview does nothing. */
-export function commitPlacement(): boolean {
+/** place the armed primitive; the library then closes on the placed item, unless `keepArmed` (Shift held) */
+export function commitPlacement(keepArmed = false): boolean {
   const def = armedDef();
   if (!def) return false;
   const pv = computePreview(def, true);
@@ -400,7 +401,14 @@ export function commitPlacement(): boolean {
   const primary = (res.data?.primary as string | undefined) ?? res.created[0];
   if (primary) useApp.getState().setSelection([primary]);
   const s = useLibrary.getState();
-  // point / rect placement keeps the tool for the next one; drawn shapes start over
   useLibrary.setState({ points: [], drag: null, tick: s.tick + 1 });
+  if (!keepArmed) {
+    // done: back to selecting, with the new item selected for its inspector (after this press's
+    // click has gone by, so the select tool doesn't take it as a click on empty ground)
+    setTimeout(() => {
+      useLibrary.getState().disarm();
+      useApp.getState().setTool("select");
+    }, 0);
+  }
   return true;
 }

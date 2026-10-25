@@ -76,11 +76,12 @@ function useMapPointer() {
         const p = at(e);
         useLibrary.setState({ drag: { from: p, to: p }, cursor: p });
       };
-      const up = (e: { lngLat: { lng: number; lat: number } }) => {
+      const up = (e: { lngLat: { lng: number; lat: number }; originalEvent: MouseEvent }) => {
         const s = useLibrary.getState();
         if (!armed() || !s.drag) return;
         useLibrary.setState({ drag: { from: s.drag.from, to: at(e) } });
-        commitPlacement();
+        // Shift keeps the item armed to place another
+        commitPlacement(e.originalEvent.shiftKey);
         useLibrary.setState({ drag: null });
       };
       const click = (e: { lngLat: { lng: number; lat: number } }) => {
