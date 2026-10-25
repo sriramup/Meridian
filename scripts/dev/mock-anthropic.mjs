@@ -9,7 +9,7 @@
 // first match wins (case-insensitive):
 //   "take me to X" | "go to X" | "show me X" | "where is X" | "fly to X" | "zoom to X"
 //                               navigation: go_to {place: X} → "Here's <name>." (or the suggestions when nothing matches)
-//   "design … neighbourhood / district / town" | "neighbourhood for"
+//   "design / create / build / make / plan … neighbourhood / district / town" | "neighbourhood for"
 //                               design flow: design_neighborhood when the server offers it (site sized to the programme
 //                               at ~30 homes per gross acre, facilities = the request's words; it frames itself) → summary
 //                               with homes, residents, jobs, civic uses and the critique score; without that tool:
@@ -223,7 +223,7 @@ function nextTurn(body) {
     return { delay: 0, turn: say(`Here's ${g.name}${g.type === "junction" ? "" : ` (${g.type})`}.${last.data.alternatives?.length ? ` Also matching: ${last.data.alternatives.join(", ")}.` : ""}`) };
   }
 
-  if (/\b(design|masterplan|master plan)\b.*\b(neighbou?rhood|district|town|quarter)\b|\bneighbou?rhood for\b/.test(q)) return designFlow(body, r, home);
+  if (/\b(design|masterplan|master plan|create|build|make|lay out|plan)\b.*\b(neighbou?rhood|district|town|quarter)\b|\bneighbou?rhood for\b/.test(q)) return designFlow(body, r, home);
 
   if (/\b(long|slow|grid)\b/.test(q)) {
     const [x, y] = at(request, home);

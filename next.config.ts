@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: false,
+  // the dev badge sits over the projects sidebar's footer; build and runtime errors still show
+  devIndicators: false,
   async headers() {
     return [
       {
