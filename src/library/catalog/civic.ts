@@ -84,7 +84,7 @@ export const CIVIC: PrimitiveDef[] = [
     description: "Fire / EMS station with apparatus bays and an apron (counts as a fire station in the response model).",
     icon: "siren",
     defaults: { ...civ, name: "Fire Station", width: 36, depth: 24, floors: 2, groundFloorHeight: 5.5, facade: "brick_red", fitToSite: false },
-    extra: [int("bays", "Apparatus bays", 3, { group: SITE, min: 1, max: 8, description: "≈ 4.3 m wide, 4.3 m tall doors" }), bool("hoseTower", "Hose tower", true, { group: SITE })],
+    extra: [int("bays", "Apparatus bays", 3, { group: SITE, min: 1, max: 8, description: "≈ 14 ft wide, 14 ft tall doors" }), bool("hoseTower", "Hose tower", true, { group: SITE })],
     decorate: ({ r, out, info }) => {
       const [x0, , x1, y1] = info.bbox;
       const n = r.n("bays");

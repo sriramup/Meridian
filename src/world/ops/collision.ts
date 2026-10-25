@@ -4,6 +4,7 @@
 // replace what is there. Pure geometry, so the rules are tested directly (tests/collision.test.ts).
 
 import { overlapArea, polyArea, polyBBox, translatePoly } from "@/geometry/polygon";
+import { fmtLen } from "@/lib/units";
 import type { Polygon, Vec2 } from "../types";
 
 /**
@@ -92,10 +93,10 @@ export function nearestFreeOffset(pieces: Polygon[], obs: Obstacle[], opts: { ma
   return null;
 }
 
-/** "4 m east" style wording for a hint (compass from local x = east, y = north) */
+/** "14 ft east" style wording for a hint (compass from local x = east, y = north) */
 export function describeOffset(d: Vec2): string {
   const m = Math.hypot(d[0], d[1]);
   const names = ["east", "north-east", "north", "north-west", "west", "south-west", "south", "south-east"];
   const k = Math.round(((Math.atan2(d[1], d[0]) * 180) / Math.PI + 360) / 45) % 8;
-  return `${m < 10 ? m.toFixed(1) : Math.round(m)} m ${names[k]}`;
+  return `${fmtLen(m)} ${names[k]}`;
 }

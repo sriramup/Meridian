@@ -2,6 +2,7 @@
 // pets, urban wildlife and farm / park animals. Purely visual (no simulation effect); sizes are
 // typical adult body lengths and shoulder heights.
 
+import { fmtDepth } from "@/lib/units";
 import type { Solid } from "@/world/types";
 import type { PrimitiveDef } from "../types";
 import { C, hexToRgb, shade } from "../geometry/palette";
@@ -50,7 +51,7 @@ const ANIMALS: AnimalPreset[] = [
   { id: "squirrels", name: "Squirrels", tags: ["squirrel", "grey squirrel", "fox squirrel", "wildlife", "rodent"], description: "Squirrels with bushy tails.", icon: "squirrel", count: 3, spread: 4, color: [140, 120, 104], accent: [176, 150, 120], length: 0.25, build: (col, acc, i) => quadrupedSolids({ length: 0.25, height: 0.12, neck: 0.15, neckAngle: 60, head: 0.32, tail: 1.0, tailAngle: 70, ears: "pointed", girth: 0.7, bushyTail: true, sitting: i % 2 === 1, color: col, accent: acc }) },
   { id: "rabbits", name: "Rabbits", tags: ["rabbit", "bunny", "cottontail", "hare"], description: "Cottontail rabbits on a lawn.", icon: "rabbit", count: 3, spread: 4, color: [150, 130, 110], accent: [236, 232, 224], length: 0.35, build: (col, acc) => quadrupedSolids({ length: 0.35, height: 0.18, neck: 0.1, neckAngle: 60, head: 0.35, tail: 0.12, tailAngle: 60, ears: "long", girth: 0.9, sitting: true, color: col, accent: acc }) },
   { id: "deer", name: "Deer", tags: ["white-tailed deer", "doe", "buck", "stag", "wildlife"], description: "White-tailed deer (bucks with antlers).", icon: "paw-print", count: 3, spread: 8, color: [160, 120, 84], accent: [236, 226, 210], length: 1.6, build: (col, acc, i) => quadrupedSolids({ length: 1.6, height: 1.0, neck: 0.4, neckAngle: 55, head: 0.22, tail: 0.12, tailAngle: 50, ears: "pointed", girth: 0.4, antlers: i === 0, color: col, accent: acc }) },
-  { id: "horses", name: "Horses", tags: ["horse", "pony", "equine", "mounted police", "carriage horse"], description: "Horses (≈ 1.6 m at the shoulder).", icon: "paw-print", count: 2, spread: 6, color: [110, 74, 52], accent: [40, 34, 30], length: 2.2, build: quad({ length: 2.2, height: 1.6, neck: 0.42, neckAngle: 55, head: 0.28, tail: 0.4, tailAngle: -40, ears: "pointed", girth: 0.42 }) },
+  { id: "horses", name: "Horses", tags: ["horse", "pony", "equine", "mounted police", "carriage horse"], description: "Horses (≈ 5 ft 3 in at the shoulder).", icon: "paw-print", count: 2, spread: 6, color: [110, 74, 52], accent: [40, 34, 30], length: 2.2, build: quad({ length: 2.2, height: 1.6, neck: 0.42, neckAngle: 55, head: 0.28, tail: 0.4, tailAngle: -40, ears: "pointed", girth: 0.42 }) },
   { id: "cows", name: "Cattle", tags: ["cow", "cattle", "livestock", "farm animals", "longhorn"], description: "Grazing cattle.", icon: "beef", count: 4, spread: 10, color: [60, 50, 46], accent: [236, 232, 224], length: 2.2, build: quad({ length: 2.2, height: 1.4, neck: 0.2, neckAngle: 10, head: 0.25, tail: 0.35, tailAngle: -70, ears: "pointed", girth: 0.6 }) },
   { id: "sheep", name: "Sheep", tags: ["sheep", "lamb", "flock", "goats", "grazing"], description: "Grazing sheep (useful for meadow management!).", icon: "cloud", count: 6, spread: 8, color: [236, 232, 220], accent: [40, 38, 36], length: 1.2, build: quad({ length: 1.2, height: 0.8, neck: 0.15, neckAngle: 20, head: 0.25, tail: 0.1, tailAngle: -60, ears: "floppy", girth: 0.75 }) },
 ];
@@ -67,7 +68,7 @@ function animalDef(a: AnimalPreset): PrimitiveDef {
     params: [
       int("count", "Number", a.count, { group: G, min: 1, max: 60 }),
       num("spread", "Spread radius", a.spread, { group: G, unit: "m", min: 0, max: 50, step: 0.5, description: "Animals are scattered within this radius" }),
-      num("size", "Size", 100, { group: D, unit: "%", min: 30, max: 250, step: 5, description: `100 % ≈ ${a.length} m long` }),
+      num("size", "Size", 100, { group: D, unit: "%", min: 30, max: 250, step: 5, description: `100 % ≈ ${fmtDepth(a.length)} long` }),
       color("color", "Colour", hex(a.color), { group: A }),
       ...(a.accent ? [color("accent", "Accent colour", hex(a.accent), { group: A })] : []),
       int("seed", "Arrangement", 1, { group: G, min: 1, max: 999, advanced: true }),
@@ -91,7 +92,7 @@ export const PEOPLE: PrimitiveDef = propDef({
   name: "People",
   category: FA,
   tags: ["pedestrians", "crowd", "person", "figures", "scale figures", "people"],
-  description: "Simple standing figures (≈ 1.7 m) for scale and liveliness: a few pedestrians or a crowd.",
+  description: "Simple standing figures (≈ 5 ft 7 in) for scale and liveliness: a few pedestrians or a crowd.",
   icon: "users",
   siting: { overlapProps: true },
   params: [int("count", "People", 6, { group: G, min: 1, max: 200 }), num("spread", "Spread radius", 5, { group: G, unit: "m", min: 0, max: 60, step: 0.5 }), bool("varied", "Varied clothing", true, { group: A }), int("seed", "Arrangement", 1, { group: G, min: 1, max: 999, advanced: true })],

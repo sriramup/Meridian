@@ -215,7 +215,7 @@ export function isSolidProp(q: Prop): boolean {
 
 const nameOf = (b: Building) => b.name ?? (libOf(b) ? `${resolveDef(libOf(b)!.def)?.name ?? libOf(b)!.def} ${b.id}` : `building ${b.id}`);
 
-/** " Nearest free spot: 4.2 m east, at [x, y]." for a refusal (empty when there is none close by) */
+/** " Nearest free spot: 14 ft east, at [x, y]." for a refusal (empty when there is none close by) */
 function freeHint(v: View, pieces: Polygon[], foreign: (e: Entity) => boolean, propsOnly = false): string {
   const bb = grow(pieces.map((p) => polyBBox(p)).reduce((a, c) => [Math.min(a[0], c[0]), Math.min(a[1], c[1]), Math.max(a[2], c[2]), Math.max(a[3], c[3])]), 40);
   const obs = obstacles(

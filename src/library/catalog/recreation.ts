@@ -1,6 +1,7 @@
 // Recreation: playgrounds and sports facilities at regulation dimensions (field markings, goals,
 // nets and hoops as solids over a pitch area), skate parks, pools, dog parks and fitness areas.
 
+import { fmtDims, fmtFt } from "@/lib/units";
 import type { AreaType, Solid, Vec2 } from "@/world/types";
 import type { PrimitiveDef } from "../types";
 import { frameOf, polyToWorld } from "../geometry/frame";
@@ -243,8 +244,8 @@ const SPORT_DIMS: Record<Sport, [number, number, number]> = {
 function sportDef(sport: Sport, id: string, name: string, tags: string[], description: string, surface: AreaType, hardColor?: RGB): PrimitiveDef {
   const [L0, W0, ro] = SPORT_DIMS[sport];
   const params: ParamSpec[] = [
-    num("length", "Playing length", L0, { group: D, unit: "m", min: L0 * 0.4, max: L0 * 1.3, step: 0.1, description: `Regulation ${L0} m` }),
-    num("width", "Playing width", W0, { group: D, unit: "m", min: W0 * 0.4, max: W0 * 1.3, step: 0.1, description: `Regulation ${W0} m` }),
+    num("length", "Playing length", L0, { group: D, unit: "m", min: L0 * 0.4, max: L0 * 1.3, step: 0.1, description: `Regulation ${fmtFt(L0, 0)}` }),
+    num("width", "Playing width", W0, { group: D, unit: "m", min: W0 * 0.4, max: W0 * 1.3, step: 0.1, description: `Regulation ${fmtFt(W0, 0)}` }),
     num("runoff", "Run-off margin", ro, { group: D, unit: "m", min: 0, max: 20, step: 0.5 }),
     ...(hardColor ? [color("surfaceColor", "Court colour", "#" + hardColor.map((c) => c.toString(16).padStart(2, "0")).join(""), { group: A, swatches: ["#4a7a5c", "#3c6ca8", "#b05846", "#6a6c70"] })] : []),
     bool("fence", "Perimeter fence", sport === "tennis" || sport === "pickleball", { group: A }),
@@ -295,7 +296,7 @@ function sportDef(sport: Sport, id: string, name: string, tags: string[], descri
       const nb = r.n("benches");
       for (let i = 0; i < nb; i++) solids.push(...moveSolids(benchSolids("backless", Math.min(4, GL / (nb + 1))), -GL / 2 + (GL * (i + 1)) / (nb + 1), -GW / 2 - 1.5, 0));
       out.prop(id, f, solids, { primary: false, height: Math.max(0.1, ...solids.map((q) => q.at[2] + q.size[2])) }).cover = hardColor ? "paving" : "lawn";
-      out.summary.push(`${name}: ${L.toFixed(1)} × ${W.toFixed(1)} m playing area`);
+      out.summary.push(`${name}: ${fmtDims(L, W)} playing area`);
       return out.done();
     },
   };
@@ -312,16 +313,16 @@ export const RECREATION: PrimitiveDef[] = [
     params: [choice("kind", "Type", "school", opts("toddler", "school", "adventure", "nature", "inclusive"), { group: A }), num("size", "Size", 20, { group: D, unit: "m", min: 8, max: 60, step: 1, description: "Side of the play area incl. fall zones" }), color("accent", "Equipment colour", "#e48034", { group: A, swatches: ["#e48034", "#3c6ca8", "#c43a30", "#407e54", "#e8c440"] }), color("surface", "Surfacing", "#b0604a", { group: A, swatches: ["#b0604a", "#3c6ca8", "#407e54", "#c4a070"] })],
     build: (r) => ({ solids: playgroundSolids(r.s("kind") as PlayKind, r.n("size"), hexToRgb(r.c("accent")), hexToRgb(r.c("surface"))), cover: "permeable" }),
   }),
-  sportDef("soccer", "recreation.soccer_field", "Soccer field", ["football pitch", "futbol", "association football", "pitch", "sports field"], "FIFA-size soccer pitch (105 × 68 m) with markings and goals; scale down for youth fields.", "pitch"),
+  sportDef("soccer", "recreation.soccer_field", "Soccer field", ["football pitch", "futbol", "association football", "pitch", "sports field"], "FIFA-size soccer pitch (115 × 74 yd) with markings and goals; scale down for youth fields.", "pitch"),
   sportDef("football", "recreation.football_field", "American football field", ["gridiron", "football field", "nfl field", "high school football"], "American football field (120 × 53⅓ yd incl. end zones) with yard lines and goal posts.", "pitch"),
-  sportDef("rugby", "recreation.rugby_field", "Rugby pitch", ["rugby", "rugby union", "rugby league"], "Rugby pitch (100 × 70 m) with H-posts.", "pitch"),
+  sportDef("rugby", "recreation.rugby_field", "Rugby pitch", ["rugby", "rugby union", "rugby league"], "Rugby pitch (328 × 230 ft) with H-posts.", "pitch"),
   sportDef("baseball", "recreation.baseball_field", "Baseball / softball field", ["ballpark", "diamond", "little league", "softball"], "Baseball diamond (90 ft bases) with infield, backstop and outfield fence; scale down for softball / little league.", "pitch"),
-  sportDef("basketball", "recreation.basketball_court", "Basketball court", ["hoops", "court", "streetball", "half court"], "FIBA basketball court (28 × 15 m) with hoops.", "plaza", [74, 122, 92]),
-  sportDef("tennis", "recreation.tennis_court", "Tennis court", ["tennis", "court", "hard court"], "Doubles tennis court (23.77 × 10.97 m) with net and fence.", "plaza", [60, 108, 168]),
-  sportDef("pickleball", "recreation.pickleball_court", "Pickleball court", ["pickleball", "paddle", "court"], "Pickleball court (13.41 × 6.10 m) with net.", "plaza", [74, 122, 92]),
-  sportDef("volleyball", "recreation.volleyball_court", "Volleyball court", ["beach volleyball", "sand volleyball", "volleyball"], "Volleyball court (18 × 9 m) on sand or hard court.", "plaza", [222, 204, 164]),
+  sportDef("basketball", "recreation.basketball_court", "Basketball court", ["hoops", "court", "streetball", "half court"], "FIBA basketball court (92 × 49 ft) with hoops.", "plaza", [74, 122, 92]),
+  sportDef("tennis", "recreation.tennis_court", "Tennis court", ["tennis", "court", "hard court"], "Doubles tennis court (78 × 36 ft) with net and fence.", "plaza", [60, 108, 168]),
+  sportDef("pickleball", "recreation.pickleball_court", "Pickleball court", ["pickleball", "paddle", "court"], "Pickleball court (44 × 20 ft) with net.", "plaza", [74, 122, 92]),
+  sportDef("volleyball", "recreation.volleyball_court", "Volleyball court", ["beach volleyball", "sand volleyball", "volleyball"], "Volleyball court (59 × 29.5 ft) on sand or hard court.", "plaza", [222, 204, 164]),
   sportDef("track", "recreation.running_track", "Running track", ["athletics track", "400m track", "stadium", "track and field", "oval"], "400 m eight-lane athletics track around a football / soccer infield.", "pitch"),
-  sportDef("cricket", "recreation.cricket_ground", "Cricket ground", ["cricket", "oval", "pitch", "wicket"], "Cricket oval with a 20.12 m pitch and stumps.", "pitch"),
+  sportDef("cricket", "recreation.cricket_ground", "Cricket ground", ["cricket", "oval", "pitch", "wicket"], "Cricket oval with a 22-yard pitch and stumps.", "pitch"),
   propDef({
     id: "recreation.skate_park",
     name: "Skate park",
@@ -354,10 +355,10 @@ export const RECREATION: PrimitiveDef[] = [
     name: "Swimming pool",
     category: RC,
     tags: ["pool", "lido", "natatorium", "aquatic center", "outdoor pool", "lap pool"],
-    description: "Outdoor pool (25 m short course or 50 m Olympic) with a deck, lane lines and loungers.",
+    description: "Outdoor pool (25 yd / 25 m short course or 50 m Olympic) with a deck, lane lines and loungers.",
     icon: "waves",
     siting: { water: true },
-    params: [num("length", "Pool length", 25, { group: D, unit: "m", min: 6, max: 60, step: 0.5, description: "25 m short course, 50 m long course" }), num("width", "Pool width", 12.5, { group: D, unit: "m", min: 3, max: 30, step: 0.5 }), int("lanes", "Lanes", 6, { group: D, min: 0, max: 10 }), num("deck", "Deck width", 4, { group: D, unit: "m", min: 1, max: 15, step: 0.5 }), int("loungers", "Loungers", 8, { group: A, min: 0, max: 40 })],
+    params: [num("length", "Pool length", 25, { group: D, unit: "m", min: 6, max: 60, step: 0.5, description: "Short course 25 yd (75 ft) or 25 m (82 ft); long course 50 m (164 ft)" }), num("width", "Pool width", 12.5, { group: D, unit: "m", min: 3, max: 30, step: 0.5 }), int("lanes", "Lanes", 6, { group: D, min: 0, max: 10 }), num("deck", "Deck width", 4, { group: D, unit: "m", min: 1, max: 15, step: 0.5 }), int("loungers", "Loungers", 8, { group: A, min: 0, max: 40 })],
     build: (r) => {
       const L = r.n("length"),
         W = r.n("width"),

@@ -18,8 +18,8 @@ const SITE = "Site";
 
 /** parking params shared by car-oriented types */
 export const parkingParams = (on: boolean, depth = 40): ParamSpec[] => [
-  bool("parking", "Surface parking", on, { group: SITE, description: "Striped lot in front of the building (2.6 × 5.5 m stalls, 7 m aisles)" }),
-  num("parkingDepth", "Parking depth", depth, { group: SITE, unit: "m", min: 10, max: 300, step: 1, when: { key: "parking", in: [true] }, description: "Each 18 m adds a double-loaded bay" }),
+  bool("parking", "Surface parking", on, { group: SITE, description: "Striped lot in front of the building (8.5 × 18 ft stalls, 24 ft aisles)" }),
+  num("parkingDepth", "Parking depth", depth, { group: SITE, unit: "m", min: 10, max: 300, step: 1, when: { key: "parking", in: [true] }, description: "Each 60 ft adds a double-loaded bay" }),
   bool("parkingTrees", "Lot trees and lights", true, { group: SITE, when: { key: "parking", in: [true] } }),
 ];
 
@@ -72,7 +72,7 @@ export const COMMERCIAL: PrimitiveDef[] = [
     name: "Supermarket",
     category: CM,
     tags: ["grocery store", "grocer", "food store", "market", "hypermarket"],
-    description: "Full-service grocery store (≈ 4,000 m²) with a surface parking lot.",
+    description: "Full-service grocery store (≈ 45,000 sq ft) with a surface parking lot.",
     icon: "shopping-cart",
     defaults: { ...shop, width: 70, depth: 55, groundFloorHeight: 7, facade: "brick_buff", fitToSite: false },
     extra: parkingParams(true, 45),
@@ -193,7 +193,7 @@ export const COMMERCIAL: PrimitiveDef[] = [
     name: "Big-box store",
     category: CM,
     tags: ["warehouse store", "superstore", "home improvement", "discount store", "hypermarket", "costco"],
-    description: "Large single-storey store (≈ 10,000 m²) with a garden centre and a big parking field.",
+    description: "Large single-storey store (≈ 110,000 sq ft) with a garden centre and a big parking field.",
     icon: "warehouse",
     defaults: { ...shop, width: 120, depth: 90, groundFloorHeight: 9, parapetHeight: 2, facade: "concrete", awningColor: "#c43a30", fitToSite: false, solar: true },
     extra: parkingParams(true, 90),
@@ -355,7 +355,7 @@ export const COMMERCIAL: PrimitiveDef[] = [
     name: "Food truck",
     category: CM,
     tags: ["food cart", "street food", "taco truck", "mobile vendor", "ice cream truck"],
-    description: "Food truck (≈ 7 × 2.4 m) with a serving hatch and awning.",
+    description: "Food truck (≈ 23 × 8 ft) with a serving hatch and awning.",
     icon: "truck",
     params: [num("length", "Length", 7, { group: SITE, unit: "m", min: 3, max: 12, step: 0.1 }), color("color", "Livery", "#e8c440", { group: SITE }), bool("awning", "Awning", true, { group: SITE })],
     build: (r) => {
@@ -372,7 +372,7 @@ export const COMMERCIAL: PrimitiveDef[] = [
     name: "Market stalls",
     category: CM,
     tags: ["farmers market", "flea market", "night market", "vendor tents", "pop-up market", "bazaar"],
-    description: "Rows of 3 × 3 m canopy tents with tables (farmers market, pop-up market).",
+    description: "Rows of 10 × 10 ft canopy tents with tables (farmers market, pop-up market).",
     icon: "tent",
     params: [int("stalls", "Stalls", 8, { group: SITE, min: 1, max: 60 }), int("rows", "Rows", 2, { group: SITE, min: 1, max: 6 }), num("aisle", "Aisle width", 5, { group: SITE, unit: "m", min: 2, max: 15, step: 0.5 }), bool("varied", "Varied canopy colours", true, { group: SITE })],
     build: (r) => {

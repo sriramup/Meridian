@@ -1,5 +1,6 @@
 // Industrial and transport buildings and facilities.
 
+import { fmtArea, fmtDims, fmtFt, fmtLen, fmtSqFt } from "@/lib/units";
 import type { Solid } from "@/world/types";
 import type { PrimitiveDef } from "../types";
 import { frameOf, polyToWorld, subFrame, toWorld } from "../geometry/frame";
@@ -27,7 +28,7 @@ export const INDUSTRIAL: PrimitiveDef[] = [
     description: "Tilt-up warehouse with loading docks and a truck court.",
     icon: "warehouse",
     defaults: { use: "industrial", width: 120, depth: 70, floors: 1, groundFloorHeight: 12, roofType: "flat", parapetHeight: 1, facade: "concrete", fitToSite: false, solar: true },
-    extra: [int("docks", "Loading docks", 10, { group: SITE, min: 0, max: 60 }), num("truckCourt", "Truck court depth", 40, { group: SITE, unit: "m", min: 0, max: 80, step: 1, description: "≈ 40 m for 53 ft trailers" })],
+    extra: [int("docks", "Loading docks", 10, { group: SITE, min: 0, max: 60 }), num("truckCourt", "Truck court depth", 40, { group: SITE, unit: "m", min: 0, max: 80, step: 1, description: "≈ 130 ft for 53 ft trailers" })],
     decorate: ({ r, out, info }) => {
       const [x0, , x1, y1] = info.bbox;
       const n = r.n("docks");
@@ -126,7 +127,7 @@ export const INDUSTRIAL: PrimitiveDef[] = [
 
 const shelterParams = [
   choice("style", "Style", "glass", opts("glass", "canopy", "historic", "minimal"), { group: A }),
-  num("length", "Length", 4.5, { group: D, unit: "m", min: 1.5, max: 30, step: 0.1, description: "Standard 3–6 m" }),
+  num("length", "Length", 4.5, { group: D, unit: "m", min: 1.5, max: 30, step: 0.1, description: "Standard 10–20 ft" }),
   num("depth", "Depth", 1.6, { group: D, unit: "m", min: 1, max: 4, step: 0.1 }),
   num("height", "Height", 2.6, { group: D, unit: "m", min: 2.2, max: 4.5, step: 0.1 }),
   bool("bench", "Bench", true, { group: A }),
@@ -167,7 +168,7 @@ const STREET_CLASSES = [
 ];
 const BIKE_OPTS = [{ value: "none", label: "None" }, { value: "lane", label: "Painted bike lanes" }, { value: "track", label: "Protected cycle tracks" }];
 const STREET_PARAMS = [choice("cls", "Street type", "residential", STREET_CLASSES, { group: D, description: "Sets lanes, parking, sidewalks and design speed" }), choice("bike", "Bike facility", "none", BIKE_OPTS, { group: A }), bool("trees", "Street trees", true, { group: A }), text("name", "Street name", "", { group: A })];
-const GRID_PARAMS = [num("width", "Width (if not drawn)", 400, { group: D, unit: "m", min: 60, max: 3000, step: 5 }), num("depth", "Depth (if not drawn)", 300, { group: D, unit: "m", min: 60, max: 3000, step: 5 }), num("blockLength", "Block length", 110, { group: D, unit: "m", min: 40, max: 400, step: 5, description: "Walkable grids: 60–120 m blocks" }), num("blockWidth", "Block width", 80, { group: D, unit: "m", min: 40, max: 400, step: 5 }), choice("cls", "Local streets", "residential", STREET_CLASSES, { group: A }), choice("mainCls", "Edge / spine streets", "tertiary", STREET_CLASSES, { group: A }), bool("perimeter", "Perimeter streets", true, { group: A }), choice("bike", "Bike facility on spines", "lane", BIKE_OPTS, { group: A }), bool("trees", "Street trees", true, { group: A })];
+const GRID_PARAMS = [num("width", "Width (if not drawn)", 400, { group: D, unit: "m", min: 60, max: 3000, step: 5 }), num("depth", "Depth (if not drawn)", 300, { group: D, unit: "m", min: 60, max: 3000, step: 5 }), num("blockLength", "Block length", 110, { group: D, unit: "m", min: 40, max: 400, step: 5, description: "Walkable grids: 200–400 ft blocks" }), num("blockWidth", "Block width", 80, { group: D, unit: "m", min: 40, max: 400, step: 5 }), choice("cls", "Local streets", "residential", STREET_CLASSES, { group: A }), choice("mainCls", "Edge / spine streets", "tertiary", STREET_CLASSES, { group: A }), bool("perimeter", "Perimeter streets", true, { group: A }), choice("bike", "Bike facility on spines", "lane", BIKE_OPTS, { group: A }), bool("trees", "Street trees", true, { group: A })];
 
 export const TRANSPORT: PrimitiveDef[] = [
   {
@@ -186,7 +187,7 @@ export const TRANSPORT: PrimitiveDef[] = [
       const path = place.path && place.path.length >= 2 ? place.path : defaultPath(place, 100);
       const bike = r.s("bike");
       out.streets.push({ path, cls: r.s("cls") as "residential", name: r.s("name") || undefined, bike: bike === "none" ? null : (bike as "lane"), trees: r.b("trees") });
-      out.summary.push(`${STREET_CLASSES.find((c) => c.value === r.s("cls"))?.label}: ${Math.round(pathLength(path))} m`);
+      out.summary.push(`${STREET_CLASSES.find((c) => c.value === r.s("cls"))?.label}: ${fmtLen(pathLength(path))}`);
       return out.done();
     },
   },
@@ -222,7 +223,7 @@ export const TRANSPORT: PrimitiveDef[] = [
         out.streets.push({ path: [P(-W / 2, y), P(W / 2, y)], cls: (main ? r.s("mainCls") : r.s("cls")) as "residential", bike: main && bike !== "none" ? (bike as "lane") : null, trees: r.b("trees") });
       }
       if (!out.streets.length) out.streets.push({ path: [P(-W / 2, 0), P(W / 2, 0)], cls: r.s("cls") as "residential", trees: r.b("trees") });
-      out.summary.push(`Street grid: ${nx} × ${ny} blocks of ≈ ${Math.round(W / nx)} × ${Math.round(Dd / ny)} m`);
+      out.summary.push(`Street grid: ${nx} × ${ny} blocks of ≈ ${fmtDims(W / nx, Dd / ny)}`);
       return out.done();
     },
   },
@@ -231,7 +232,7 @@ export const TRANSPORT: PrimitiveDef[] = [
     name: "Crosswalk markings",
     category: TR,
     tags: ["zebra crossing", "pedestrian crossing", "continental crosswalk", "ladder crosswalk", "raised crossing"],
-    description: "High-visibility continental (zebra) crosswalk bars across a carriageway (3 m min. width, bars 0.6 m).",
+    description: "High-visibility continental (zebra) crosswalk bars across a carriageway (10 ft min. width, 2 ft bars).",
     icon: "footprints",
     siting: { carriageway: true, overlapProps: true },
     params: [num("length", "Crossing length", 12, { group: D, unit: "m", min: 3, max: 50, step: 0.5, description: "Kerb to kerb" }), num("width", "Crosswalk width", 3.5, { group: D, unit: "m", min: 1.8, max: 10, step: 0.1 }), bool("raised", "Raised crossing", false, { group: A })],
@@ -297,7 +298,7 @@ export const TRANSPORT: PrimitiveDef[] = [
     name: "Parking garage",
     category: TR,
     tags: ["parking structure", "multi-storey car park", "deck", "parkade", "ramp"],
-    description: "Open-deck parking structure (≈ 30 m² per space) with a stair / elevator core.",
+    description: "Open-deck parking structure (≈ 325 sq ft per space) with a stair / elevator core.",
     icon: "square-parking",
     defaults: { use: "parking", width: 60, depth: 36, floors: 5, groundFloorHeight: 3.4, floorHeight: 3.1, roofType: "flat", parapetHeight: 1.1, facade: "concrete", fitToSite: false, entrance: true },
     extra: [bool("openDecks", "Open decks (spandrels)", true, { group: SITE })],
@@ -318,7 +319,7 @@ export const TRANSPORT: PrimitiveDef[] = [
     name: "Surface parking lot",
     category: TR,
     tags: ["car park", "parking", "lot", "stalls", "parking area"],
-    description: "Striped surface lot: 2.6 × 5.5 m stalls on 18 m double-loaded bays, with lights and edge trees.",
+    description: "Striped surface lot: 8.5 × 18 ft stalls on 60 ft double-loaded bays, with lights and edge trees.",
     icon: "square-parking",
     placement: "rect",
     params: LOT_PARAMS,
@@ -330,7 +331,7 @@ export const TRANSPORT: PrimitiveDef[] = [
         Dd = frame.siteD || r.n("depth");
       const stalls = parkingLot(out, { ...frame, siteW: 0, siteD: 0 }, 0, 0, W, Dd, { lamps: r.b("lights"), trees: r.b("trees") });
       if (r.b("permeable")) for (const a of out.areas) a.type = "permeable";
-      out.summary.push(`${stalls} stalls on ${Math.round(W * Dd).toLocaleString()} m² (${Math.round((W * Dd) / Math.max(1, stalls))} m² per stall)`);
+      out.summary.push(`${stalls} stalls on ${fmtArea(W * Dd)} (${fmtSqFt((W * Dd) / Math.max(1, stalls))} per stall)`);
       return out.done();
     },
   },
@@ -400,7 +401,7 @@ export const TRANSPORT: PrimitiveDef[] = [
       out.prop("transport.transit_hub", f, s, { primary: false, shade: { r: L / 2, h: 5 } });
       if (r.b("station")) buildBuilding(out, reader({ use: "civic", width: 24, depth: 12, floors: 1, groundFloorHeight: 5, roofType: "shed", roofPitch: 8, facade: "glass_clear", fitToSite: false, jobs: 10, name: "Transit centre" }, BUILDING_PARAMS), subFrame(f, [-L / 2 - 16, -2]), {}, false);
       if (r.b("bikeShare")) out.prop("transport.bike_share_dock", subFrame(f, [L / 2 + 6, -3], 90), [box(0, 0, 0, 8, 0.5, 0.08, C.steelDark, "metal"), box(-4.4, 0, 0, 0.5, 0.4, 1.8, [42, 108, 176], "metal")], { primary: false });
-      out.summary.push(`Transit hub: ${n} bus bays under a ${L} m canopy`);
+      out.summary.push(`Transit hub: ${n} bus bays under a ${fmtFt(L)} canopy`);
       return out.done();
     },
   },

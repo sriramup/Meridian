@@ -102,7 +102,7 @@ describe("collision-safe ops (default policy)", () => {
     const r = placePrimitive(R.world, { def: "test.block", at: [20, 0] }, user);
     expect(r.ok).toBe(false);
     expect(r.error).toMatch(/would overlap/);
-    expect(r.error).toMatch(/Nearest free spot: 10 m east, at \[30, 0\]/);
+    expect(r.error).toMatch(/Nearest free spot: 33 ft east, at \[30, 0\]/);
     // flush beside it is fine
     commit(placePrimitive(R.world, { def: "test.block", at: [30, 0] }, user));
     expect(R.world.get(a.created[0])).toBeTruthy();
@@ -153,8 +153,8 @@ describe("collision-safe ops (default policy)", () => {
 describe("refusal wording for the map", () => {
   it("is short, without ids or the agent's advice", async () => {
     const { shortError } = await import("@/components/library/placement");
-    expect(shortError('Single-family home would overlap Single-family home b:xmv12. Nearest free spot: 4 m east, at [3, 4]. Move it, or use on_conflict "carve".')).toBe("Overlaps Single-family home");
-    expect(shortError("Test kiosk can't stand at [1, 2]: inside a building. Nearest free spot: 4 m east, at [3, 4].")).toBe("Inside a building");
+    expect(shortError('Single-family home would overlap Single-family home b:xmv12. Nearest free spot: 13 ft east, at [3, 4]. Move it, or use on_conflict "carve".')).toBe("Overlaps Single-family home");
+    expect(shortError("Test kiosk can't stand at [1, 2]: inside a building. Nearest free spot: 13 ft east, at [3, 4].")).toBe("Inside a building");
     expect(shortError("No room for Oak at [1, 2]: crown would hit a building")).toBe("Crown would hit a building");
   });
 });

@@ -2,7 +2,7 @@
 // cascades can compose (a building trimmed by one rule and demolished by
 // another ends as one consistent op), plus the cascade report.
 
-import { fmtArea, fmtFloorArea, fmtLen } from "@/lib/units";
+import { fmtArea, fmtFloorArea, fmtFt, fmtLen } from "@/lib/units";
 import { polyArea } from "@/geometry/polygon";
 import { massesGFA } from "@/geometry/massing";
 import type { Building, Entity, Use } from "../types";
@@ -99,7 +99,7 @@ export class OpBuilder {
     if (c.parcels) lines.push(`Right-of-way acquisition: ${fmt.area(c.taken)} from ${c.parcels} parcel${c.parcels > 1 ? "s" : ""}`);
     if (c.trees) lines.push(`${c.trees} tree${c.trees > 1 ? "s" : ""} removed from the new carriageway`);
     if (c.inlets) lines.push(`${c.inlets} kerb inlet${c.inlets > 1 ? "s" : ""} relocated to the new kerb line`);
-    if (c.minor) lines.push(`${c.minor} façade${c.minor > 1 ? "s" : ""} within 0.6 m of the new ROW edge — absorbed in sidewalk detailing, no building change`);
+    if (c.minor) lines.push(`${c.minor} façade${c.minor > 1 ? "s" : ""} within ${fmtFt(0.6, 0)} of the new ROW edge — absorbed in sidewalk detailing, no building change`);
     if (c.stops) lines.push(`${c.stops} bus stop${c.stops > 1 ? "s" : ""} moved to the new kerb`);
     for (const [k, v] of c.areas) if (v > 1) lines.push(`${k} reduced by ${fmt.area(v)}`);
     if (c.parkTaken > 1) this.warn(`Takes ${fmt.area(c.parkTaken)} of park land`);

@@ -338,7 +338,7 @@ export function mergeBuildings(world: World, ids: string[], opts: { podiumFloors
     for (const q of bridge.slice(0, 1)) {
       const slim = insetPoly(q, Math.max(0, Math.sqrt(polyArea(q)) * 0.35)) ?? q;
       masses.push({ poly: slim, base: podiumH + 2, top: podiumH + 7, role: "bridge" });
-      b.summary(`Sky-bridge across ${street.name ?? "street"} (street remains open below, 6.5 m clearance)`);
+      b.summary(`Sky-bridge across ${street.name ?? "street"} (street remains open below, ${fmtFt(6.5)} clearance)`);
     }
   }
   const fp = unionMany(masses.filter((m) => m.base < 0.5).map((m) => m.poly)).sort((a, c) => polyArea(c) - polyArea(a))[0] ?? blds[0].footprint;

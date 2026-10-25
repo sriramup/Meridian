@@ -1,6 +1,7 @@
 // Water: fountains, ponds, reflecting pools, splash pads, canals and streams (path → water band),
 // retention ponds with storage depth, rain gardens and bioswales, docks and footbridges.
 
+import { fmtArea, fmtFt, fmtLen, fmtVol } from "@/lib/units";
 import { insetPoly, isValidPoly, polyArea, polyCentroid } from "@/geometry/polygon";
 import type { Solid, Vec2 } from "@/world/types";
 import type { ParamSpec, PrimitiveDef } from "../types";
@@ -101,7 +102,7 @@ export const WATER: PrimitiveDef[] = [
         for (const q of st) if (rand() < 0.45) s.push(...moveSolids(shrubSolids("grass_clump", 1.4, 1.3 + rand() * 0.6, [120, 150, 80], undefined, rand() * 10), q.p[0] - c[0], q.p[1] - c[1]));
         if (s.length) out.prop("water.pond", { c, a: 0, siteW: 0, siteD: 0 }, s, { primary: false, height: 2 }).cover = "planting";
       }
-      out.summary.push(`Pond ${Math.round(polyArea([ring])).toLocaleString()} m², ${Math.round(polyArea([ring]) * r.n("waterDepth")).toLocaleString()} m³`);
+      out.summary.push(`Pond ${fmtArea(polyArea([ring]))}, ${fmtVol(polyArea([ring]) * r.n("waterDepth"))}`);
       return out.done();
     },
   },
@@ -196,7 +197,7 @@ export const WATER: PrimitiveDef[] = [
           if (s.length) out.prop("water.retention_pond", { c, a: 0, siteW: 0, siteD: 0 }, s, { primary: false, height: 1.3 }).cover = "raingarden";
         }
       }
-      out.summary.push(`Retention pond: ${Math.round(polyArea(poly) * r.n("storageDepth")).toLocaleString()} m³ storage`);
+      out.summary.push(`Retention pond: ${fmtVol(polyArea(poly) * r.n("storageDepth"))} storage`);
       return out.done();
     },
   },
@@ -244,7 +245,7 @@ export const WATER: PrimitiveDef[] = [
       const c = path[0];
       for (const off of [-r.n("width") / 4, r.n("width") / 4]) for (const st of stations(offsetPath(path, off), r.n("planting"), 0, false).slice(0, 600)) s.push(...moveSolids(shrubSolids("grass_clump", r.n("planting") * 1.2, 0.8, [120, 150, 84], undefined, st.s), st.p[0] - c[0], st.p[1] - c[1]));
       if (s.length) out.prop("water.bioswale", { c, a: 0, siteW: 0, siteD: 0 }, s, { primary: false, height: 1 }).cover = "raingarden";
-      out.summary.push(`Bioswale ${Math.round(pathLength(path))} m × ${r.n("width")} m`);
+      out.summary.push(`Bioswale ${fmtLen(pathLength(path))} long, ${fmtFt(r.n("width"))} wide`);
       return out.done();
     },
   },
@@ -327,6 +328,6 @@ function waterBand(values: Record<string, unknown>, place: Parameters<PrimitiveD
     }
   }
   if (r.b("towpath")) out.path(offsetPath(path, w / 2 + 2.5), "footway", { primary: false });
-  out.summary.push(`${label}: ${Math.round(pathLength(path))} m × ${w} m`);
+  out.summary.push(`${label}: ${fmtLen(pathLength(path))} long, ${fmtFt(w)} wide`);
   return out.done();
 }
