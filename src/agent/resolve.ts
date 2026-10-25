@@ -8,7 +8,7 @@ import { dist } from "@/geometry/vec";
 import { rt } from "@/state/runtime";
 import { useApp } from "@/state/store";
 import { LocalProjection } from "@/world/projection";
-import type { Entity, Place, Polygon, Street, StreetNode, Vec2 } from "@/world/types";
+import type { AreaType, Building, Entity, Place, Polygon, Street, StreetNode, Vec2 } from "@/world/types";
 import { streetBand } from "@/world/ops/validate";
 
 export type Loc = Vec2 | string;
@@ -92,10 +92,23 @@ export function nameScore(query: string, name?: string): number {
   if (tok(n).includes(tok(q))) return 0.8;
   // typos: every distinctive token matches (allowing one or two letters off) → nearly as good as exact
   if (qc.length && nc.length && qc.length === nc.length && qc.every((t, i) => tokEq(t, nc[i]))) return 0.85;
-  const qt = q.split(" ").filter((t) => t.length > 1);
+  // partial overlap on the distinctive tokens only ("Elm Street" shares nothing with "Pine Street")
+  const qt = (qc.length ? qc : q.split(" ")).filter((t) => t.length > 1);
   const nt = n.split(" ");
   const hits = qt.filter((t) => nt.some((x) => tokEq(t, x))).length;
   return qt.length ? (0.7 * hits) / qt.length : 0;
+}
+
+/** looser similarity for "did you mean" suggestions (never used to act on a name) */
+export function looseScore(query: string, name?: string): number {
+  if (!name) return 0;
+  const s = nameScore(query, name);
+  if (s >= 0.3) return s;
+  const qc = core(norm(query)).filter((t) => t.length >= 3 && !/\d/.test(t));
+  const nc = core(norm(name));
+  if (!qc.length) return 0;
+  const hits = qc.filter((t) => nc.some((x) => lev(t, x) <= (t.length >= 6 ? 2 : t.length >= 4 && t[0] === x[0] ? 2 : 1))).length;
+  return (0.5 * hits) / qc.length;
 }
 
 export function entityPoint(e: Entity): Vec2 {
@@ -266,6 +279,8 @@ export function resolvePlace(query: string, limit = 5): PlaceMatch[] {
     const sc = nameScore(q, p.name);
     if (sc >= 0.85) out.push({ name: p.name!, type: p.category, p: p.p, id: p.id, score: sc - 0.1 });
   }
+  // generic kinds ("the school") when no name matched well
+  if (!out.some((x) => x.score >= 0.8)) out.push(...kindMatches(q));
   const seen = new Set<string>();
   return out
     .sort((a, b) => b.score - a.score)
@@ -276,6 +291,44 @@ export function resolvePlace(query: string, limit = 5): PlaceMatch[] {
       return true;
     })
     .slice(0, limit);
+}
+
+/**
+ * Generic kinds people name instead of a proper name ("the school", "a park", "the fire station"):
+ * matched on building use / name words, area types and POI categories, nearest to the view first.
+ */
+const KINDS: { re: RegExp; label: string; building?: (b: Building) => boolean; area?: AreaType[]; poi?: RegExp; place?: string[] }[] = [
+  { re: /^(elementary |primary |middle |high )?schools?$/, label: "school", building: (b) => b.use === "education" && !/gym|annex|portable/i.test(b.name ?? ""), poi: /school/ },
+  { re: /^(university|college|campus)$/, label: "campus", area: ["campus"], place: ["campus"] },
+  { re: /^(parks?|green|playground)$/, label: "park", area: ["park"] },
+  { re: /^(plaza|square|town square)$/, label: "plaza", area: ["plaza"] },
+  { re: /^(lake|pond|river|water)$/, label: "water", area: ["water", "retention"] },
+  { re: /^(fire station|firehouse|fire hall)$/, label: "fire station", building: (b) => /fire/i.test(b.name ?? ""), poi: /fire/ },
+  { re: /^(police station|police)$/, label: "police station", building: (b) => /police/i.test(b.name ?? ""), poi: /police/ },
+  { re: /^(hospital|clinic|health cent(er|re))$/, label: "clinic", building: (b) => b.use === "health", poi: /hospital|clinic|doctor/ },
+  { re: /^(library)$/, label: "library", building: (b) => /librar/i.test(b.name ?? ""), poi: /library/ },
+  { re: /^(grocery( store)?|supermarket|market)$/, label: "grocery", building: (b) => /grocer|market|supermarket/i.test(b.name ?? ""), poi: /supermarket|grocery/ },
+  { re: /^(cafe|café|coffee shop)$/, label: "café", building: (b) => /caf[eé]|coffee|bean|espresso/i.test(b.name ?? ""), poi: /cafe/ },
+  { re: /^(restaurant)$/, label: "restaurant", building: (b) => b.use === "retail" && !!b.name, poi: /restaurant/ },
+  { re: /^(office|offices|office building)$/, label: "office", building: (b) => b.use === "office" },
+  { re: /^(hotel)$/, label: "hotel", building: (b) => b.use === "hotel" },
+];
+
+export function kindMatches(query: string, limit = 3): PlaceMatch[] {
+  const q = query.toLowerCase().replace(/^(the|a|an|our|my|nearest|closest)\s+/g, "").replace(/^(nearest|closest)\s+/, "").trim();
+  const k = KINDS.find((x) => x.re.test(q));
+  if (!k) return [];
+  const R = rt();
+  const w = R.world;
+  const c = R.map ? viewCenter() : (R.meta.initialView?.center ?? [0, 0]);
+  const out: PlaceMatch[] = [];
+  if (k.building) for (const b of w.all("building")) if (k.building(b)) out.push({ name: b.name ?? k.label, type: k.label, p: polyCentroid(b.footprint), id: b.id, poly: b.footprint, score: 0.75 });
+  if (k.area) for (const a of w.all("area")) if (k.area.includes(a.type) && polyArea(a.poly) > 400) out.push({ name: a.name ?? k.label, type: a.type, p: polyCentroid(a.poly), id: a.id, poly: a.poly, score: 0.75 });
+  if (k.place) for (const p of w.all("place")) if (k.place.includes(p.type)) out.push({ name: p.name, type: p.type, p: p.poly ? polyCentroid(p.poly) : p.p, id: p.id, poly: p.poly, score: 0.75 });
+  if (k.poi) for (const p of w.all("poi")) if (k.poi.test(p.category)) out.push({ name: p.name ?? k.label, type: p.category, p: p.p, id: p.id, score: 0.74 });
+  // nearest first; named and larger features break near-ties
+  const rank = (m: PlaceMatch) => dist(m.p, c) - (m.name !== k.label ? 60 : 0) - Math.sqrt(m.poly ? polyArea(m.poly) : 0);
+  return out.sort((a, b) => rank(a) - rank(b)).slice(0, limit);
 }
 
 export function viewCenter(): Vec2 {

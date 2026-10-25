@@ -34,6 +34,7 @@ import { checkBuilding, frontage, heightLimit, parcelsUnder, rowConflicts, stree
 import type { Area, AreaType, Building, Entity, Parcel, Polygon, Street, StreetNode, TransitRoute, Use, Vec2 } from "@/world/types";
 import type { Changeset } from "@/world/world";
 import { NAV_TOOLS } from "./navTools";
+import { DESIGN_TOOLS } from "./designTools";
 import { LIBRARY_TOOLS, libraryBrief, libraryDetail, libraryMatch } from "./libraryTools";
 import { blockAt, entityName, entityPoint, junctionOf, polyOf, resolveArea, resolveLocation, resolvePlace, resolveStreets, viewBounds, viewCenter, type AreaRef, type Loc } from "./resolve";
 
@@ -2213,6 +2214,7 @@ export const TOOLS: Record<string, (i: In, ctx: ToolContext) => Promise<ToolOutp
     return { content: { placed: notes.length }, display: { title: `Annotated ${notes.length} location${notes.length === 1 ? "" : "s"}`, status: "ok" } };
   },
   ...NAV_TOOLS,
+  ...DESIGN_TOOLS,
   ...LIBRARY_TOOLS,
 };
 

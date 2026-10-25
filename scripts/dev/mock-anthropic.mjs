@@ -7,6 +7,13 @@
 //
 // The flow is picked from the latest user request text (the block after the <context> snapshot),
 // first match wins (case-insensitive):
+//   "take me to X" | "go to X" | "show me X" | "where is X" | "fly to X" | "zoom to X"
+//                               navigation: go_to {place: X} → "Here's <name>." (or the suggestions when nothing matches)
+//   "design … neighbourhood / district / town" | "neighbourhood for"
+//                               design flow: design_neighborhood when the server offers it (site sized to the programme
+//                               at ~30 homes per gross acre, facilities = the request's words) → go_to the site → summary
+//                               with homes, residents, jobs, civic uses and the critique score; without that tool:
+//                               streets → school + parks → generate_district ×2 (parallel calls per turn) → summary
 //   "lavaca"                    legacy Austin flow: resolve Lavaca & 4th → vacant parcel → 30-storey tower → PM traffic
 //   "long" | "slow" | "grid"    long-running task: 4 streets drawn one per turn (≈1.2 s delay per turn), so two
 //                               sessions visibly run in parallel; "at X, Y" sets where (default: zone centre or 0,0)
@@ -29,6 +36,10 @@
 //   question words (what / how many / which / where / is / are / does …) with none of the above
 //                               quick answer: immediate text from the <context> block, no tools
 //   anything else               a short text reply
+// Usage: every response carries cache-shaped usage (tools + system read from cache after the first
+// request per model, the new history written, the newest turn uncached), so the server's spend ledger
+// (src/agent/spend.ts) records realistic entries; point MERIDIAN_SPEND_LEDGER at a scratch file when
+// testing against the mock, and set MERIDIAN_SPEND_CAP_USD low to exercise the cap.
 // Turn latency: quick answers are immediate; other turns wait MOCK_DELAY ms (default 250; long flow 1200).
 import http from "node:http";
 
@@ -41,8 +52,8 @@ function sse(res, events) {
   res.end();
 }
 
-function message(blocks, stop, model) {
-  const ev = [{ type: "message_start", message: { id: `msg_mock_${Date.now()}`, type: "message", role: "assistant", model: model ?? "mock", content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: 10, output_tokens: 1 } } }];
+function message(blocks, stop, model, usage) {
+  const ev = [{ type: "message_start", message: { id: `msg_mock_${Date.now()}`, type: "message", role: "assistant", model: model ?? "mock", content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: 10, output_tokens: 1, ...usage } } }];
   blocks.forEach((b, index) => {
     if (b.type === "text") {
       ev.push({ type: "content_block_start", index, content_block: { type: "text", text: "" } });
@@ -88,6 +99,9 @@ function conversation(messages) {
   return { context, request, results };
 }
 
+// navigation phrasing (kept in step with src/agent/router.ts navigationTarget)
+const NAV = /^(?:(?:can|could|would) you |please |now )*(?:take me (?:to|back to)|bring me to|go (?:to|back to)|fly (?:me )?to|zoom (?:in )?(?:to|on)|jump to|navigate to|head to|show me|where(?:'s| is| are))\s+(.+?)[\s?.!]*$/i;
+
 let n = 0;
 const call = (name, input, text) => [...(text ? [{ type: "text", text }] : []), { type: "tool_use", id: `toolu_mock_${++n}`, name, input }];
 const say = (text) => [[{ type: "text", text }], "end_turn"];
@@ -130,6 +144,69 @@ function legacy(r) {
   }
 }
 
+// design flow: the order a good planner works in — street hierarchy, civic sites, fabric, critique, fix,
+// report. Uses design_neighborhood / critique_design when the server offers them, else the general tools.
+function designFlow(body, r, home) {
+  const has = (n) => (body.tools ?? []).some((t) => t.name === n);
+  const [cx, cy] = home;
+  const P = (pts) => pts.map(([x, y]) => [cx + x, cy + y]);
+  const phases = [];
+  if (has("design_neighborhood")) {
+    // size the site to the programme: ~30 homes per gross acre, 2.5 residents per home
+    const req = conversation(body.messages).request;
+    const num = Number((req.match(/(\d[\d,]*)\s*(residents|people|population|homes|units)/i)?.[1] ?? "6000").replace(/,/g, ""));
+    const homes = /homes|units/i.test(req.match(/\d[\d,]*\s*(\w+)/)?.[1] ?? "") ? num : num / 2.5;
+    const side = Math.round(Math.sqrt((homes / 30) * 4047) / 10) * 10;
+    const h = side / 2;
+    phases.push({ say: "Designing the neighborhood: street hierarchy, civic sites, then the building fabric.", calls: [["design_neighborhood", { area: P([[-h, -h], [h, -h], [h, h], [-h, h]]), homes: Math.round(homes), facilities: req, name: "Mock Neighborhood" }]] });
+    phases.push({ say: "", calls: [["go_to", { place: [cx, cy], zoom: 15.6 }]] });
+    const done = r.length;
+    if (done < 2) return { delay: 400, turn: [phases[done].calls.flatMap(([n, i], j) => call(n, i, j === 0 && phases[done].say ? phases[done].say : undefined)), "tool_use"] };
+    const d = r[0].data ?? {};
+    if (r[0].error) return { delay: 200, turn: say(`The design failed: ${String(d.error ?? "").slice(0, 200)}`) };
+    const c = d.critique ?? {};
+    const sqft = d.data?.gfa_sqft ? ` (${Math.round(d.data.gfa_sqft / 1e5) / 10}M sq ft)` : "";
+    return { delay: 200, turn: say(`Designed it: about ${d.data?.homes ?? "?"} homes for ${d.data?.residents ?? "?"} residents and ${d.data?.jobs ?? "?"} jobs${sqft}, with ${(d.data?.civic ?? []).map((x) => x.name).slice(0, 4).join(", ")}. Design score ${c.overall ?? "?"} (${c.grade ?? "?"})${c.issues?.length ? `; still weak: ${c.issues.slice(0, 2).map((x) => x.message).join("; ")}` : ""}.`) };
+  }
+  else {
+    phases.push({
+      say: "Street hierarchy first: a main street, a central avenue and edge roads.",
+      calls: [
+        ["create_street", { path: P([[-600, 0], [600, 0]]), cls: "secondary", name: "Main Street", parking: true, trees: true, bike: "lane" }],
+        ["create_street", { path: P([[0, -500], [0, 500]]), cls: "tertiary", name: "Central Avenue", trees: true }],
+        ["create_street", { path: P([[-600, -500], [600, -500]]), cls: "tertiary", name: "South Road" }],
+        ["create_street", { path: P([[-600, 500], [600, 500]]), cls: "tertiary", name: "North Road" }],
+      ],
+    });
+    phases.push({
+      say: "Civic sites next: the school and two parks.",
+      calls: [
+        ["create_building", { site: P([[60, 220], [200, 220], [200, 320], [60, 320]]), typology: "courtyard", floors: 2, use: "education", name: "Elementary School" }],
+        ["create_area", { type: "park", area: P([[-380, 180], [-220, 180], [-220, 320], [-380, 320]]), name: "North Green", shade_trees: true }],
+        ["create_area", { type: "park", area: P([[220, -330], [380, -330], [380, -180], [220, -180]]), name: "South Park", shade_trees: true }],
+      ],
+    });
+    phases.push({
+      say: "Now the fabric: mixed-use along Main Street, homes behind it.",
+      calls: [
+        ["generate_district", { area: P([[-590, 15], [590, 15], [590, 490], [-590, 490]]), style: "european", target_units: 1300, max_floors: 5, new_streets: true, block_size: 120 }],
+        ["generate_district", { area: P([[-590, -490], [590, -490], [590, -15], [-590, -15]]), style: "midrise", target_units: 1300, max_floors: 5, new_streets: true, block_size: 120 }],
+      ],
+    });
+  }
+  if (has("critique_design")) phases.push({ say: "Checking the design.", calls: [["critique_design", { area: P([[-600, -500], [600, -500], [600, 500], [-600, 500]]) }]] });
+  // which phase: count the tool-result batches seen so far
+  const done = r.length;
+  let k = 0,
+    used = 0;
+  while (k < phases.length && used + phases[k].calls.length <= done) used += phases[k++].calls.length;
+  if (k < phases.length) return { delay: 400, turn: [phases[k].calls.flatMap(([n, i], j) => call(n, i, j === 0 ? phases[k].say : undefined)), "tool_use"] };
+  const failed = r.filter((x) => x.error).length;
+  const crit = r[r.length - 1]?.data;
+  const issues = crit?.issues?.length ? ` Remaining issues: ${crit.issues.slice(0, 3).map((x) => (typeof x === "string" ? x : x.message ?? x.code)).join("; ")}.` : "";
+  return { delay: 300, turn: say(`Done: a walkable neighbourhood with a main street, a school and parks.${failed ? ` ${failed} step${failed > 1 ? "s" : ""} failed.` : ""}${issues}`) };
+}
+
 function nextTurn(body) {
   const { context, request, results: r } = conversation(body.messages);
   const q = request.toLowerCase();
@@ -138,6 +215,16 @@ function nextTurn(body) {
   const last = r[r.length - 1];
 
   if (/lavaca/.test(q)) return { turn: legacy(r) };
+
+  const nav = request.match(NAV);
+  if (nav && !/\b(heat|traffic|overlay|model|options|where (to|should|could))\b/i.test(nav[1])) {
+    if (!r.length) return { delay: 120, turn: [call("go_to", { place: nav[1] }), "tool_use"] };
+    if (last.error) return { delay: 0, turn: say(`I couldn't find “${nav[1]}” on this map${last.data?.suggestions?.length ? ` — did you mean ${last.data.suggestions.slice(0, 3).join(", ")}?` : "."}`) };
+    const g = last.data.went_to;
+    return { delay: 0, turn: say(`Here's ${g.name}${g.type === "junction" ? "" : ` (${g.type})`}.${last.data.alternatives?.length ? ` Also matching: ${last.data.alternatives.join(", ")}.` : ""}`) };
+  }
+
+  if (/\b(design|masterplan|master plan)\b.*\b(neighbou?rhood|district|town|quarter)\b|\bneighbou?rhood for\b/.test(q)) return designFlow(body, r, home);
 
   if (/\b(long|slow|grid)\b/.test(q)) {
     const [x, y] = at(request, home);
@@ -203,6 +290,9 @@ function nextTurn(body) {
   return { turn: say("Understood. Tell me what to build, change or analyse.") };
 }
 
+const seenModels = new Set();
+const prevHistory = new Map();
+
 http
   .createServer((req, res) => {
     let raw = "";
@@ -215,7 +305,17 @@ http
       const body = JSON.parse(raw);
       const { turn, delay } = nextTurn(body);
       console.log(JSON.stringify({ tools: body.tools?.length, msgs: body.messages.length, model: body.model, effort: body.output_config?.effort, thinking: body.thinking?.type, stop: turn[1] }));
-      setTimeout(() => sse(res, message(turn[0], turn[1], body.model)), delay ?? BASE_DELAY);
+      // usage shaped like the real API's with caching: the stable prefix (tools + system) is read from
+      // cache after the first request per model, the history since the last breakpoint is written,
+      // and only the newest user turn is uncached — so the server's spend ledger sees realistic fields
+      const prefix = Math.round((JSON.stringify(body.tools ?? []).length + JSON.stringify(body.system ?? "").length) / 3.5);
+      const history = Math.round(JSON.stringify(body.messages).length / 3.5);
+      const lastTurn = Math.round(JSON.stringify(body.messages[body.messages.length - 1] ?? "").length / 3.5);
+      const warm = seenModels.has(body.model);
+      seenModels.add(body.model);
+      const usage = { input_tokens: lastTurn, cache_creation_input_tokens: (warm ? 0 : prefix) + Math.max(0, history - lastTurn - (prevHistory.get(body.model) ?? 0)), cache_read_input_tokens: (warm ? prefix : 0) + Math.min(prevHistory.get(body.model) ?? 0, Math.max(0, history - lastTurn)) };
+      prevHistory.set(body.model, Math.max(0, history - lastTurn));
+      setTimeout(() => sse(res, message(turn[0], turn[1], body.model, usage)), delay ?? BASE_DELAY);
     });
   })
   .listen(port, () => console.log(`mock Anthropic API on :${port}`));

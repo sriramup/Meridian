@@ -9,7 +9,7 @@ import { useApp } from "@/state/store";
 import { flyTo, pedestrianAt } from "@/render/camera";
 import { LocalProjection } from "@/world/projection";
 import type { Street, Vec2 } from "@/world/types";
-import { nameScore, polyOf, resolvePlace, type PlaceMatch } from "./resolve";
+import { looseScore, polyOf, resolvePlace, type PlaceMatch } from "./resolve";
 import type { ToolContext, ToolOutput } from "./tools";
 
 type In = Record<string, any>;
@@ -34,12 +34,21 @@ function boundsOf(m: PlaceMatch): BBox | null {
   return null;
 }
 
-/** same-named pieces of one place (a campus mapped as several polygons) framed together */
-function mergedBounds(all: PlaceMatch[], top: PlaceMatch): BBox | null {
-  const same = all.filter((m) => m.name === top.name && m.type === top.type);
-  const bbs = same.map(boundsOf).filter((b): b is BBox => !!b);
-  if (!bbs.length) return null;
-  return [Math.min(...bbs.map((b) => b[0])), Math.min(...bbs.map((b) => b[1])), Math.max(...bbs.map((b) => b[2])), Math.max(...bbs.map((b) => b[3]))];
+const area = (b: BBox) => (b[2] - b[0]) * (b[3] - b[1]);
+const gap = (a: BBox, b: BBox) => Math.max(0, a[0] - b[2], b[0] - a[2], a[1] - b[3], b[1] - a[3]);
+
+/**
+ * Same-named pieces of one place (a campus mapped as several polygons) framed together: the largest
+ * piece anchors the view and only pieces next to it join (a satellite site across town does not).
+ */
+function placeFrame(all: PlaceMatch[], top: PlaceMatch): { anchor: PlaceMatch; bb: BBox | null } {
+  const same = all.filter((m) => m.name === top.name && m.type === top.type).map((m) => ({ m, bb: boundsOf(m) }));
+  const withBox = same.filter((x): x is { m: PlaceMatch; bb: BBox } => !!x.bb).sort((a, b) => area(b.bb) - area(a.bb));
+  if (!withBox.length) return { anchor: top, bb: null };
+  const A = withBox[0];
+  const near = withBox.filter((x) => gap(x.bb, A.bb) < 250).map((x) => x.bb);
+  const bb: BBox = [Math.min(...near.map((b) => b[0])), Math.min(...near.map((b) => b[1])), Math.max(...near.map((b) => b[2])), Math.max(...near.map((b) => b[3]))];
+  return { anchor: { ...A.m, p: [(A.bb[0] + A.bb[2]) / 2, (A.bb[1] + A.bb[3]) / 2] }, bb };
 }
 
 /** fly to frame a local-metre box (aerial, pitched) */
@@ -61,7 +70,7 @@ function frame(bb: BBox, zoomOverride?: number) {
       zoom = undefined;
     }
     // pitched views show more than the flat fit: back off a little, and keep within a useful range
-    zoom = Math.max(14.5, Math.min(17.6, (zoom ?? 16.5) - 0.4));
+    zoom = Math.max(15, Math.min(17.4, (zoom ?? 16.5) - 0.3));
   }
   flyTo(c, { zoom, pitch: 55 });
 }
@@ -94,14 +103,16 @@ export const NAV_TOOLS: Record<string, (i: In, ctx: ToolContext) => Promise<Tool
         isError: true,
       };
     }
-    const top = matches[0];
-    const bb = top.type === "junction" ? null : mergedBounds(matches, top);
+    const framed = matches[0].type === "junction" ? { anchor: matches[0], bb: null } : placeFrame(matches, matches[0]);
+    const top = framed.anchor;
+    const bb = framed.bb;
     leaveStreetLevel();
     if (i.street_level) {
       pedestrianAt(top.p);
       st.setCameraMode("pedestrian");
     } else if (bb && (bb[2] - bb[0] > 40 || bb[3] - bb[1] > 40)) frame(bb, i.zoom);
-    else flyTo(top.p, { zoom: i.zoom ?? (top.type === "junction" ? 17.6 : 17.4), pitch: 55 });
+    // a junction: close enough to read the corner, pitched less so towers on the corners don't hide it
+    else flyTo(top.p, { zoom: i.zoom ?? (top.type === "junction" ? 17.3 : 17.2), pitch: top.type === "junction" ? 45 : 55 });
     // highlight: the junction's streets, the corridor, or the feature itself
     let ids: string[] = [];
     if (top.type === "junction" && top.id) ids = [top.id, ...R.world.incident(top.id).map((s) => s.id)];
@@ -130,8 +141,8 @@ export function suggest(q: string, limit = 5): string[] {
   const names = new Map<string, number>();
   const consider = (name: string | undefined) => {
     if (!name) return;
-    const sc = Math.max(...parts.map((p) => nameScore(p, name)));
-    if (sc >= 0.3 && (names.get(name) ?? 0) < sc) names.set(name, sc);
+    const sc = Math.max(...parts.map((p) => looseScore(p, name)));
+    if (sc >= 0.25 && (names.get(name) ?? 0) < sc) names.set(name, sc);
   };
   for (const s of w.all("street")) consider(s.name);
   for (const p of w.all("place")) consider(p.name);
