@@ -3,6 +3,7 @@
 // kerb inlets, transit stops and the connected junctions; the consequences are
 // either resolved (and recorded) or reported as unresolved conflicts.
 
+import { fmtFt } from "@/lib/units";
 import { carriagewayWidth, countType, kerbOffsets, laneCount, sectionWidth, buildSection, cloneSection } from "@/geometry/crossSection";
 import { bufferPoly, circle, difference, isValidPoly, overlapArea, pointInPoly, polyArea, polyBBox, polyCentroid, union, unionMany } from "@/geometry/polygon";
 import { bandRing, closestOnPath, curvatureStats, filletPath, minRadiusForSpeed, offsetPath, pathBBox, pointAt, polyLength, simplifyPath, slicePath, smoothPath } from "@/geometry/polyline";
@@ -52,7 +53,7 @@ export function cascadeRow(b: OpBuilder, before: Street | null, after: Street | 
         continue;
       }
       if (policy === "report" || (bld.historic && policy !== "demolish")) {
-        b.conflict(bld.id, "row", `${nm}${bld.historic ? " (historic-designated)" : ""} would encroach ≈${depth.toFixed(1)} m into the new right-of-way of ${label} — not changed`, false);
+        b.conflict(bld.id, "row", `${nm}${bld.historic ? " (historic-designated)" : ""} would encroach ≈${fmtFt(depth)} into the new right-of-way of ${label} — not changed`, false);
         continue;
       }
       const cut = bufferPoly(newBand, 0.3);
@@ -75,7 +76,7 @@ export function cascadeRow(b: OpBuilder, before: Street | null, after: Street | 
         stats.demolished++;
         stats.gfaLost += pr.gfa;
         stats.unitsLost += pr.units;
-        b.conflict(bld.id, "row", `${nm} demolished (≈${depth.toFixed(1)} m inside the new right-of-way)`, true);
+        b.conflict(bld.id, "row", `${nm} demolished (≈${fmtFt(depth)} inside the new right-of-way)`, true);
       }
     }
     // ---- parcels: right-of-way acquisition
@@ -179,8 +180,8 @@ function describeChange(b: OpBuilder, before: Street, after: Street) {
     c1 = carriagewayWidth(after.section);
   const parts: string[] = [];
   if (lf0 !== lf1 || lb0 !== lb1) parts.push(`lanes ${lf0}+${lb0} → ${lf1}+${lb1}`);
-  if (Math.abs(w1 - w0) > 0.1) parts.push(`ROW ${w0.toFixed(1)} → ${w1.toFixed(1)} m`);
-  if (Math.abs(c1 - c0) > 0.1) parts.push(`crossing distance ${c0.toFixed(1)} → ${c1.toFixed(1)} m`);
+  if (Math.abs(w1 - w0) > 0.1) parts.push(`ROW ${fmtFt(w0)} → ${fmtFt(w1)}`);
+  if (Math.abs(c1 - c0) > 0.1) parts.push(`crossing distance ${fmtFt(c0)} → ${fmtFt(c1)}`);
   const p0 = parkingSpaces(before),
     p1 = parkingSpaces(after);
   if (Math.abs(p1 - p0) >= 1) parts.push(`on-street parking ${p1 > p0 ? "+" : "−"}${Math.round(Math.abs(p1 - p0))} spaces`);
@@ -271,7 +272,7 @@ export function editStreetSections(world: World, p: EditSectionParams, actor: Ac
       if (!o.name || o.name !== mine[0].name) continue;
       const after = b.get<Street>(mine[0].id)!;
       const dw = Math.abs(carriagewayWidth(after.section) - carriagewayWidth(o.section));
-      if (dw > 1) b.warn(`Width transition at the ${o.name} corridor end (${dw.toFixed(1)} m change) — taper or extend the treatment`);
+      if (dw > 1) b.warn(`Width transition at the ${o.name} corridor end (${fmtFt(dw)} change) — taper or extend the treatment`);
     }
   }
   return b.finish(p.label ?? `Edit ${nEdited} street segment${nEdited > 1 ? "s" : ""}`);
@@ -336,7 +337,7 @@ export function setNodeControl(world: World, nodeId: string, control: NodeContro
         trees++;
       }
     }
-    b.summary(`${names}: ${lanes}-lane roundabout, outer radius ${R.toFixed(0)} m (inscribed diameter ${(2 * R).toFixed(0)} m); ${inc.length} approaches rebuilt with entry flares and crossings set back`);
+    b.summary(`${names}: ${lanes}-lane roundabout, outer radius ${fmtFt(R, 0)} (inscribed diameter ${fmtFt(2 * R, 0)}); ${inc.length} approaches rebuilt with entry flares and crossings set back`);
     if (taken) b.summary(`Corner right-of-way acquisition ${fmt.area(taken)}`);
     if (trim) b.summary(`${trim} corner building${trim > 1 ? "s" : ""} trimmed`);
     if (dem) b.summary(`${dem} building${dem > 1 ? "s" : ""} demolished for the roundabout footprint`);
@@ -681,7 +682,7 @@ export function moveStreets(world: World, ids: string[], offset: Vec2, opts: { p
     const n = b.get<Street>(id)!;
     released += difference(streetBand(o), streetBand(n)).reduce((s, q) => s + polyArea(q), 0);
   }
-  b.summary(`Shifted ${ids.length} segment${ids.length > 1 ? "s" : ""} by ${Math.hypot(offset[0], offset[1]).toFixed(1)} m; ${touched.size - ids.length} connecting streets re-attached; ${nodes.size} junctions rebuilt`);
+  b.summary(`Shifted ${ids.length} segment${ids.length > 1 ? "s" : ""} by ${fmt.m(Math.hypot(offset[0], offset[1]))}; ${touched.size - ids.length} connecting streets re-attached; ${nodes.size} junctions rebuilt`);
   if (released > 5) b.summary(`${fmt.area(released)} of former right-of-way released for reuse`);
   return b.finish(`Shift ${world.get<Street>(ids[0])?.name ?? "street"}`);
 }
@@ -697,7 +698,7 @@ export function realignStreets(world: World, ids: string[], opts: { radius?: num
     const V = opts.designSpeed ?? s.speed ?? 40;
     const R = opts.radius ?? Math.round(minRadiusForSpeed(V));
     if (!(before.minRadius < R * 0.95)) {
-      b.summary(`${s.name ?? id}: tightest curve already ${before.minRadius.toFixed(0)} m ≥ ${R} m design radius — unchanged`);
+      b.summary(`${s.name ?? id}: tightest curve already ${fmtFt(before.minRadius, 0)} ≥ ${fmtFt(R, 0)} design radius — unchanged`);
       continue;
     }
     const f = filletPath(s.path, R);
@@ -707,8 +708,8 @@ export function realignStreets(world: World, ids: string[], opts: { radius?: num
     cascadeRow(b, s, ns, opts.policy ?? "trim");
     n++;
     const basis = opts.radius ? "requested" : `AASHTO minimum for ${Math.round(V / 1.609344)} mph, e = 4%`;
-    b.summary(`${s.name ?? id}: tightest curve ${before.minRadius.toFixed(0)} m → ${after.minRadius.toFixed(0)} m (design radius ${R} m, ${basis})`);
-    if (after.minRadius < R * 0.9) b.warn(`${s.name ?? id}: only ${after.minRadius.toFixed(0)} m achievable within the existing alignment — the bend is too close to the junctions for a ${R} m curve; consider a lower speed limit or moving the junction`);
+    b.summary(`${s.name ?? id}: tightest curve ${fmtFt(before.minRadius, 0)} → ${fmtFt(after.minRadius, 0)} (design radius ${fmtFt(R, 0)}, ${basis})`);
+    if (after.minRadius < R * 0.9) b.warn(`${s.name ?? id}: only ${fmtFt(after.minRadius, 0)} achievable within the existing alignment — the bend is too close to the junctions for a ${R} m curve; consider a lower speed limit or moving the junction`);
   }
   if (!n) b.summary("No curves needed realignment");
   return b.finish(`Realign ${world.get<Street>(ids[0])?.name ?? "street"}`);

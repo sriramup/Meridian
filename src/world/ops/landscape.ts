@@ -1,4 +1,4 @@
-import { fmtVol } from "@/lib/units";
+import { fmtFt, fmtVol } from "@/lib/units";
 import { PED_REALM, stripOffsets } from "@/geometry/crossSection";
 import { difference, isValidPoly, overlapArea, pointInPoly, polyArea, polyBBox, polyCentroid } from "@/geometry/polygon";
 import { closestOnPath, offsetPath, pointAt, polyLength } from "@/geometry/polyline";
@@ -298,7 +298,7 @@ export function updateTree(world: World, id: string, p: { species?: string; r?: 
   const r = p.r ?? (p.species && sp ? sp.r : t.r);
   const h = p.species && sp ? sp.h * (r / sp.r) : t.h * (r / t.r);
   b.update<Tree>({ ...t, species: sp?.id ?? t.species, r, h });
-  b.summary(`${sp ? sp.name : "Tree"}: crown ${r.toFixed(1)} m radius, ${h.toFixed(0)} m tall`);
+  b.summary(`${sp ? sp.name : "Tree"}: crown ${fmtFt(2 * r)} across, ${fmtFt(h)} tall`);
   return b.finish(sp && p.species ? `Change tree to ${sp.name.toLowerCase()}` : "Resize tree");
 }
 

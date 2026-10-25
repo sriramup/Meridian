@@ -2,6 +2,7 @@
 // and the fixed colour each session's zone is drawn in. No React, no runtime imports (tested in
 // tests/agents-pane.test.ts).
 
+import { fmtArea } from "@/lib/units";
 import type { AgentSession, ChatItem, Segment, SessionStatus, ToolCallView } from "@/agent/types";
 import { polyArea } from "@/geometry/polygon";
 import type { Polygon } from "@/world/types";
@@ -78,13 +79,9 @@ export function editCount(s: AgentSession): number {
   return n;
 }
 
-/** a hectare figure for a zone label: 0.42 ha, 3.2 ha, 48 ha, then km² */
+/** an area for a zone label, imperial: 8,600 sq ft, 3.2 acres, 48 acres, then sq mi */
 export function formatArea(m2: number): string {
-  const ha = m2 / 10_000;
-  if (ha >= 100) return `${(ha / 100).toFixed(ha >= 1000 ? 1 : 2)} km²`;
-  if (ha >= 10) return `${Math.round(ha)} ha`;
-  if (ha >= 1) return `${ha.toFixed(1)} ha`;
-  return `${ha.toFixed(2)} ha`;
+  return fmtArea(m2);
 }
 
 export function drawnZoneLabel(poly: Polygon): string {

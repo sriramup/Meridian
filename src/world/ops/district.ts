@@ -84,7 +84,7 @@ export function generateDistrict(world: World, p: DistrictParams, actor: Actor):
         if (r.ok) newStreetIds.push(...((r.data?.streetIds as string[]) ?? []));
       }
     }
-    if (newStreetIds.length) b.summary(`${newStreetIds.length} new local street segments subdivide the oversized blocks (~${size} m grain)`);
+    if (newStreetIds.length) b.summary(`${newStreetIds.length} new local street segments subdivide the oversized blocks (~${fmt.m(size)} grain)`);
   }
 
   // ---- 2. blocks and existing buildings

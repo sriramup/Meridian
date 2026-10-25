@@ -1,3 +1,4 @@
+import { fmtFt } from "@/lib/units";
 import { addSetbacks, floorsForHeight, generateMassing, heightForFloors, stretchAbovePodium, type MassingSpec } from "@/geometry/massing";
 import {
   difference,
@@ -222,7 +223,7 @@ export function modifyBuildings(world: World, p: ModifyBuildingParams, actor: Ac
         const lim = heightLimit(world, cur.footprint, cur.ground);
         if (p.massing.maxHeight != null && (lim.limit == null || p.massing.maxHeight < lim.limit)) {
           lim.limit = p.massing.maxHeight;
-          lim.source.push(`study height cap ${Math.round(p.massing.maxHeight)} m`);
+          lim.source.push(`study height cap ${fmtFt(p.massing.maxHeight, 0)}`);
         }
         for (let k = 0; k < 8; k++) {
           const ratio = before.gfa / Math.max(1, gen.gfa);
@@ -234,7 +235,7 @@ export function modifyBuildings(world: World, p: ModifyBuildingParams, actor: Ac
               spec.floors--;
               gen = generateMassing(cur.footprint, spec);
             }
-            notes.push(`floor area could not be fully held: capped at ${gen.floors} floors by the ${Math.round(lim.limit)} m limit (${lim.source[lim.source.length - 1]})`);
+            notes.push(`floor area could not be fully held: capped at ${gen.floors} floors by the ${fmtFt(lim.limit, 0)} limit (${lim.source[lim.source.length - 1]})`);
             break;
           }
         }

@@ -13,6 +13,7 @@ import { useApp } from "@/state/store";
 import { entityName } from "@/agent/resolve";
 import { modifyBuildings, mergeBuildings, removeBuildings, heightLimitAt } from "@/world/ops/buildings";
 import { fmt, programmeOf } from "@/world/ops/core";
+import { M_PER_FT, fmtArea, fmtFt, fmtLen, fmtNum, fmtSqFt, toSqFt } from "@/lib/units";
 import { removeEntities, convertAreas, renameEntities, updateTree } from "@/world/ops/landscape";
 import { SPECIES, speciesOf } from "@/world/species";
 import { editStreetSections, removeStreets, setNodeControl } from "@/world/ops/streets";
@@ -145,9 +146,9 @@ function BuildingPanel({ b, onClose }: { b: Building; onClose: () => void }) {
       <Header icon={<Building2 size={15} />} kind={`${b.use} building`} title={b.name ?? b.address ?? "Unnamed building"} onClose={onClose} onRename={rename([b.id])} badge={b.createdBy ? <Provenance kind="proposed" /> : b.historic ? <span className="rounded-[4px] bg-paper-3 px-1.5 py-0.5 text-[10.5px] font-medium text-ink-2">Historic</span> : undefined} />
       <div className="scroll-thin overflow-y-auto">
         <div className="grid grid-cols-3 gap-3 px-3 pt-3">
-          <Stat label="Height" value={`${b.height.toFixed(0)} m`} />
+          <Stat label="Height" value={fmtFt(b.height, 0)} />
           <Stat label="Floors" value={b.floors} />
-          <Stat label="GFA" value={`${(p.gfa / 1000).toFixed(1)}k m²`} />
+          <Stat label="Floor area" value={`${fmtNum(toSqFt(p.gfa) / 1000, toSqFt(p.gfa) >= 1e5 ? 0 : 1)}k sq ft`} />
           <Stat label="Homes" value={p.units >= 1 ? fmt.int(p.units) : "—"} />
           <Stat label="Residents" value={p.residents >= 1 ? fmt.int(p.residents) : "—"} />
           <Stat label="Jobs" value={p.jobs >= 1 ? fmt.int(p.jobs) : "—"} />
@@ -156,10 +157,10 @@ function BuildingPanel({ b, onClose }: { b: Building; onClose: () => void }) {
           <Row k="Height source" v={b.heightSource === "measured" ? "LiDAR 2023" : b.heightSource} prov={b.heightSource} />
           <Row k="Use" v={Object.entries(b.program).map(([u, s]) => `${u} ${Math.round((s ?? 0) * 100)}%`).join(", ")} prov={b.useSource} />
           {b.existing && <Row k="Occupancy" v="Census / LODES" prov="estimated" />}
-          <Row k="Footprint" v={fmt.m2(polyArea(b.footprint))} />
+          <Row k="Footprint" v={fmtSqFt(polyArea(b.footprint))} />
           <Row k="Volumes" v={b.masses.map((m) => m.role).filter((r, i, a) => a.indexOf(r) === i).join(" · ")} />
           {par && <Row k="Zoning" v={par.zoning} />}
-          <Row k="Height limit" v={hl.limit != null ? `${hl.limit.toFixed(0)} m` : "none (FAR-governed)"} />
+          <Row k="Height limit" v={hl.limit != null ? fmtFt(hl.limit, 0) : "none (FAR-governed)"} />
           {hl.source.length > 0 && <div className="pb-1 text-right text-[10.5px] text-ink-4">{hl.source[hl.source.length - 1]}</div>}
         </div>
         {issues.length > 0 && (
@@ -233,16 +234,17 @@ function StreetPanel({ s, onClose }: { s: Street; onClose: () => void }) {
   const W0 = sectionWidth(s.section);
   const dirty = JSON.stringify(strips) !== JSON.stringify(s.section.strips);
   const apply = (edits: SectionEdit[]) => applyOp(editStreetSections(R.world, { streetIds: ids, edits, keepRowWidth: keepRow, policy: "trim" }, user));
-  const setW = (i: number, w: number) => setStrips(strips.map((x, k) => (k === i ? { ...x, width: Math.max(0.5, Math.round(w * 10) / 10) } : x)));
+  // widths step in half feet (stored in metres)
+  const setW = (i: number, w: number) => setStrips(strips.map((x, k) => (k === i ? { ...x, width: Math.max(M_PER_FT * 1.5, (Math.round((w / M_PER_FT) * 2) / 2) * M_PER_FT) } : x)));
   return (
     <>
       <Header icon={<Route size={15} />} kind={`${s.cls} street${s.oneway ? " · one-way" : ""}`} title={s.name ?? "Unnamed street"} onClose={onClose} onRename={rename(sameStreet.map((x) => x.id))} badge={s.createdBy ? <Provenance kind="proposed" /> : undefined} />
       <div className="scroll-thin overflow-y-auto">
         <div className="grid grid-cols-4 gap-2 px-3 pt-3">
-          <Stat label="ROW" value={`${W0.toFixed(1)} m`} />
-          <Stat label="Kerb–kerb" value={`${carriagewayWidth(s.section).toFixed(1)} m`} />
+          <Stat label="ROW" value={fmtFt(W0, 0)} />
+          <Stat label="Curb–curb" value={fmtFt(carriagewayWidth(s.section), 0)} />
           <Stat label="Lanes" value={`${laneCount(s.section, 1)}${s.oneway ? "" : `+${laneCount(s.section, -1)}`}`} />
-          <Stat label="Length" value={`${polyLength(s.path).toFixed(0)} m`} />
+          <Stat label="Length" value={fmtLen(polyLength(s.path))} />
         </div>
         <div className="flex items-center justify-between px-3 pt-3">
           <span className="font-legend text-[12.5px] leading-none text-ink-3">Cross-section</span>
@@ -255,7 +257,7 @@ function StreetPanel({ s, onClose }: { s: Street; onClose: () => void }) {
               <button
                 key={i}
                 onClick={() => setSel(sel === i ? null : i)}
-                title={`${STRIP_LABEL[x.type]} ${x.width.toFixed(1)} m${x.dir ? (x.dir > 0 ? " →" : " ←") : ""}`}
+                title={`${STRIP_LABEL[x.type]} ${fmtFt(x.width)}${x.dir ? (x.dir > 0 ? " →" : " ←") : ""}`}
                 className={cx("relative flex items-end justify-center border-r border-white/50 pb-0.5 text-[9px] font-medium text-white/90 last:border-r-0", sel === i && "ring-2 ring-accent ring-inset")}
                 style={{ width: `${(x.width / W) * 100}%`, background: rgb(MODEL.strip[x.type]) }}
               >
@@ -266,7 +268,7 @@ function StreetPanel({ s, onClose }: { s: Street; onClose: () => void }) {
           <div className="mt-1 flex justify-between text-[10.5px] text-ink-4 tabular">
             <span>left</span>
             <span className={cx(Math.abs(W - W0) > 0.05 && "font-medium text-proposed")}>
-              {W.toFixed(1)} m{Math.abs(W - W0) > 0.05 ? ` (${W - W0 > 0 ? "+" : ""}${(W - W0).toFixed(1)})` : ""}
+              {fmtFt(W)}{Math.abs(W - W0) > 0.05 ? ` (${W - W0 > 0 ? "+" : "−"}${fmtFt(Math.abs(W - W0))})` : ""}
             </span>
             <span>right</span>
           </div>
@@ -281,11 +283,11 @@ function StreetPanel({ s, onClose }: { s: Street; onClose: () => void }) {
         {sel !== null && strips[sel] && (
           <div className="mx-3 mt-2 flex items-center gap-1.5 rounded-[6px] bg-paper-2 p-2">
             <SelectField value={strips[sel].type} onValueChange={(v) => setStrips(strips.map((x, k) => (k === sel ? { ...x, type: v as StripType, width: DEFAULT_WIDTH[v as StripType] } : x)))} options={(Object.keys(STRIP_LABEL) as StripType[]).map((t) => ({ value: t, label: STRIP_LABEL[t] }))} aria-label="Strip type" className="min-w-0 flex-1" />
-            <IconButton size="sm" onClick={() => setW(sel, strips[sel].width - 0.25)}>
+            <IconButton size="sm" onClick={() => setW(sel, strips[sel].width - M_PER_FT / 2)}>
               <Minus size={12} />
             </IconButton>
-            <span className="tabular w-10 text-center text-[12px]">{strips[sel].width.toFixed(2)}</span>
-            <IconButton size="sm" onClick={() => setW(sel, strips[sel].width + 0.25)}>
+            <span className="tabular w-12 text-center text-[12px]">{fmtFt(strips[sel].width)}</span>
+            <IconButton size="sm" onClick={() => setW(sel, strips[sel].width + M_PER_FT / 2)}>
               <Plus size={12} />
             </IconButton>
             <IconButton size="sm" title="Reverse direction" onClick={() => setStrips(strips.map((x, k) => (k === sel ? { ...x, dir: (x.dir === 0 ? 0 : -x.dir) as 1 | -1 | 0 } : x)))}>
@@ -377,7 +379,7 @@ function NodePanel({ n, onClose }: { n: StreetNode; onClose: () => void }) {
       <div className="p-3">
         <Row k="Approaches" v={inc.length} />
         <Row k="Control" v={n.plaza ? "pedestrian plaza" : n.control} />
-        {n.roundabout && <Row k="Roundabout" v={`R ${n.roundabout.radius.toFixed(0)} m · ${n.roundabout.lanes} lane`} />}
+        {n.roundabout && <Row k="Roundabout" v={`radius ${fmtFt(n.roundabout.radius, 0)} · ${n.roundabout.lanes} lane`} />}
         {n.ramps && <Row k="Curb ramps" v={`${n.ramps.ok} ok · ${n.ramps.poor} poor · ${n.ramps.absent} absent`} prov="measured" />}
         {n.evp && <Row k="Signal preemption" v="fitted (emergency vehicles)" prov="proposed" />}
         <div className="mt-3 flex flex-wrap gap-1.5">
@@ -398,7 +400,7 @@ function NodePanel({ n, onClose }: { n: StreetNode; onClose: () => void }) {
             <button key={s.id} onClick={() => useApp.getState().setSelection([s.id])} className="flex w-full justify-between rounded-[4px] px-1 py-0.5 text-left text-[11.5px] text-ink-2 hover:bg-paper-3">
               <span className="truncate">{s.name ?? s.cls}</span>
               <span className="tabular text-ink-4">
-                {laneCount(s.section, 1)}+{laneCount(s.section, -1)} · {sectionWidth(s.section).toFixed(0)} m
+                {laneCount(s.section, 1)}+{laneCount(s.section, -1)} · {fmtFt(sectionWidth(s.section), 0)}
               </span>
             </button>
           ))}
@@ -415,7 +417,7 @@ function AreaPanel({ a, onClose }: { a: Area; onClose: () => void }) {
     <>
       <Header icon={<Combine size={15} />} kind={a.type} title={a.name ?? a.type} onClose={onClose} onRename={rename([a.id])} badge={<Provenance kind={a.provenance} />} />
       <div className="p-3">
-        <Row k="Area" v={fmt.m2(polyArea(a.poly))} />
+        <Row k="Area" v={fmtArea(polyArea(a.poly))} />
         {a.type === "parking" && <Row k="Spaces (est.)" v={`≈${fmt.int(polyArea(a.poly) / 30)}`} prov="estimated" />}
         <div className="mt-3 flex items-center gap-2">
           <span className="text-[12px] text-ink-3">Convert to</span>
@@ -436,13 +438,13 @@ function ParcelPanel({ p, onClose }: { p: Parcel; onClose: () => void }) {
       <Header icon={<Combine size={15} />} kind="Parcel" title={p.id} onClose={onClose} />
       <div className="p-3">
         <Row k="Zoning" v={p.zoning} prov="measured" />
-        <Row k="Lot area" v={fmt.m2(p.area)} />
+        <Row k="Lot area" v={fmtArea(p.area)} />
         <Row k="Land use" v={p.landUse} />
         <Row k="Max FAR" v={p.maxFar ?? "—"} />
-        <Row k="Max height" v={p.maxHeight != null ? `${p.maxHeight.toFixed(0)} m` : "—"} />
+        <Row k="Max height" v={p.maxHeight != null ? fmtFt(p.maxHeight, 0) : "—"} />
         {p.cvcCeiling != null && <Row k="Capitol View Corridor" v={`${(p.cvcCeiling / 0.3048).toFixed(0)} ft ASL`} />}
         {p.historic && <Row k="Historic" v="yes" />}
-        {p.value && <Row k="Appraised land" v={`$${fmt.int(p.value.land)} ($${fmt.int(p.value.land / Math.max(1, p.area))}/m²)`} prov="measured" />}
+        {p.value && <Row k="Appraised land" v={`$${fmt.int(p.value.land)} ($${fmt.int(p.value.land / Math.max(1, toSqFt(p.area)))}/sq ft)`} prov="measured" />}
         {p.value && <Row k="Improvements" v={`$${fmt.int(p.value.improvements)}${p.value.improvements < 0.5 * p.value.land ? " · underused" : ""}`} prov="measured" />}
         <Row k="Owner" v={p.owner ?? (p.value ? "private" : "—")} prov={p.owner || p.value ? "measured" : undefined} />
         {p.etod && <Row k="ETOD overlay" v={`subdistrict ${p.etod.subdistrict} · up to ${(p.etod.maxHeight / 0.3048).toFixed(0)} ft with affordability bonus`} prov="measured" />}
@@ -457,7 +459,7 @@ function RoutePanel({ r, onClose }: { r: TransitRoute; onClose: () => void }) {
     <>
       <Header icon={<TramFront size={15} />} kind={`${r.mode === "brt" ? "rapid bus" : r.mode} line`} title={r.name || r.ref || "Transit line"} onClose={onClose} onRename={rename([r.id])} badge={<Provenance kind={r.provenance} />} />
       <div className="p-3">
-        <Row k="Length" v={`${(polyLength(r.path) / 1000).toFixed(2)} km`} />
+        <Row k="Length" v={fmtLen(polyLength(r.path))} />
         <Row k="Stops" v={r.stops.length} />
         <Row k="Every" v={`${r.headway} min`} />
         <Row k="Streets" v={r.streets.length} />
@@ -477,9 +479,9 @@ function TreePanel({ t, onClose }: { t: Tree; onClose: () => void }) {
     <>
       <Header icon={<Leaf size={15} />} kind={sp ? sp.name : "Tree"} title={t.createdBy ? `Proposed ${sp ? sp.name.toLowerCase() : "tree"}` : "Mapped tree"} onClose={onClose} badge={<Provenance kind={t.provenance} />} />
       <div className="p-3">
-        <Row k="Crown" v={`${(t.r * 2).toFixed(1)} m across`} />
-        <Row k="Height" v={`${t.h.toFixed(0)} m`} />
-        <Row k="Shade footprint" v={`${Math.round(Math.PI * t.r * t.r)} m²`} />
+        <Row k="Crown" v={`${fmtFt(t.r * 2, 0)} across`} />
+        <Row k="Height" v={fmtFt(t.h, 0)} />
+        <Row k="Shade footprint" v={fmtSqFt(Math.PI * t.r * t.r)} />
         {t.createdBy && (
           <>
             <label className="mt-2.5 flex items-center justify-between gap-2 text-[12px]">
@@ -511,7 +513,7 @@ function Multi({ ents, onClose }: { ents: Entity[]; onClose: () => void }) {
     <>
       <Header icon={<MousePointer2 size={15} />} kind="Selection" title={Object.entries(counts).map(([k, v]) => `${v} ${k}${v > 1 ? "s" : ""}`).join(", ")} onClose={onClose} />
       <div className="p-3">
-        {blds.length > 0 && <Row k="Total GFA" v={fmt.m2(gfa)} />}
+        {blds.length > 0 && <Row k="Total floor area" v={fmt.m2(gfa)} />}
         <div className="mt-2 flex flex-wrap gap-1.5">
           {blds.length >= 2 && (
             <Button size="sm" onClick={() => applyOp(mergeBuildings(R.world, blds.map((b) => b.id), {}, user))}>

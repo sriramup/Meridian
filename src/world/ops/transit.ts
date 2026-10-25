@@ -171,7 +171,7 @@ export function optimizeStops(world: World, routeIds: string[], demand: { p: Vec
         ids.push(st.id);
       });
     b.update<TransitRoute>({ ...r, stops: ids });
-    b.summary(`Route ${r.ref}: ${oldStops.length} → ${ids.length} stops; demand-weighted walk to nearest stop ${before.toFixed(0)} → ${after.toFixed(0)} m (straight-line ×1.3 detour factor)`);
+    b.summary(`Route ${r.ref}: ${oldStops.length} → ${ids.length} stops; demand-weighted walk to nearest stop ${fmt.m(before)} → ${fmt.m(after)} (straight-line ×1.3 detour factor)`);
   }
   return b.finish(`Optimise stops on ${routeIds.length} route${routeIds.length > 1 ? "s" : ""}`);
 }

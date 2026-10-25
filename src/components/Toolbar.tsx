@@ -115,7 +115,7 @@ function PlantingPalette() {
   return (
     <Panel
       title="Plant trees"
-      hint={`${pl.mode === "single" ? "Click to plant one tree." : "Click along a sidewalk, then Enter: trees go a crown apart."} A tree needs room for its leaves (${sp ? `${(sp.r * 2).toFixed(0)} m across` : "its crown"}): red means they'd hit a building or another tree.`}
+      hint={`${pl.mode === "single" ? "Click to plant one tree." : "Click along a sidewalk, then Enter: trees go a crown apart."} A tree needs room for its leaves (${sp ? `${Math.round((sp.r * 2) / 0.3048)} ft across` : "its crown"}): red means they'd hit a building or another tree.`}
     >
       <div className="grid grid-cols-2 gap-1">
         {SPECIES.map((x) => (
@@ -178,7 +178,7 @@ const STREETS: { cls: Palette["street"]["cls"]; name: string; note: string }[] =
   { cls: "tertiary", name: "Collector", note: "2 lanes" },
   { cls: "secondary", name: "Avenue", note: "4 lanes" },
   { cls: "primary", name: "Boulevard", note: "4–6 lanes" },
-  { cls: "living", name: "Living street", note: "shared, 10 km/h" },
+  { cls: "living", name: "Living street", note: "shared, 6 mph" },
   { cls: "pedestrian", name: "Pedestrian", note: "no traffic" },
 ];
 
@@ -186,7 +186,7 @@ function StreetPalette() {
   const p = useApp((s) => s.palette.street);
   const set = useApp((s) => s.setPalette);
   return (
-    <Panel title="Street" hint={`≈ ${paletteStreetWidth(p).toFixed(0)} m right-of-way. Click to place points, then click the last point or press Enter. Crossings become junctions.`}>
+    <Panel title="Street" hint={`≈ ${Math.round(paletteStreetWidth(p) / 0.3048)} ft right-of-way. Click to place points, then click the last point or press Enter. Crossings become junctions.`}>
       <div className="grid grid-cols-2 gap-1">
         {STREETS.map((x) => (
           <Choice key={x.cls} on={p.cls === x.cls} onClick={() => set("street", { cls: x.cls })}>
