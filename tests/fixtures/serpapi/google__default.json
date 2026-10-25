@@ -1,0 +1,13 @@
+{
+ "_fixture": "hand-written for tests (shape of a SerpApi google response); not live data",
+ "search_metadata": { "id": "fixture", "status": "Success" },
+ "search_information": { "total_results": 1000 },
+ "answer_box": { "type": "organic_result", "title": "Average household size — fixture.example.gov", "snippet": "The average household size in the fixture city is 2.31 persons (5-year estimate).", "link": "https://www.fixture.example.gov/quickfacts?ved=abc" },
+ "organic_results": [
+  { "position": 1, "title": "QuickFacts: Fixture City", "link": "https://www.fixture.example.gov/quickfacts", "displayed_link": "https://www.fixture.example.gov › quickfacts", "snippet": "Persons per household, 2019-2023: 2.31. Median household income: $91,461.", "source": "Census fixture", "date": "Jul 1, 2024" },
+  { "position": 2, "title": "Housing data hub", "link": "https://data.fixture.example.org/housing?utm_campaign=x", "snippet": "Household size has fallen from 2.48 in 2000 to 2.31 today.", "source": "Fixture Data Hub" },
+  { "position": 3, "title": "Duplicate of #1", "link": "https://www.fixture.example.gov/quickfacts", "snippet": "dup" },
+  { "position": 4, "title": "Planning precedent report", "link": "https://planning.fixture.example.org/report.pdf", "snippet": "A study of walkable neighborhood precedents.", "date": "2 days ago" }
+ ],
+ "related_questions": [ { "question": "What is the average household size?", "snippet": "About 2.3 people per household.", "link": "https://www.fixture.example.gov/faq" } ]
+}

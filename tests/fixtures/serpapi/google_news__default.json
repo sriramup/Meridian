@@ -1,0 +1,7 @@
+{
+ "_fixture": "hand-written for tests (shape of a SerpApi google_news response); not live data",
+ "news_results": [
+  { "position": 1, "title": "City council weighs fixture corridor plan", "link": "https://news.fixture.example.com/corridor", "source": { "name": "Fixture News", "icon": "https://x/i.png" }, "date": "10/20/2026, 07:00 AM, +0000 UTC", "snippet": "Planners presented options for the corridor." },
+  { "position": 2, "title": "Cluster", "stories": [ { "title": "Transit line breaks ground (fixture)", "link": "https://transit.fixture.example.com/story", "source": { "name": "Fixture Transit Daily" }, "date": "10/18/2026" } ] }
+ ]
+}
