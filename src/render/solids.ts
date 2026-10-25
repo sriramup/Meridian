@@ -150,6 +150,16 @@ function anchorOf(e: Prop | Building): Vec2 {
   return [x / r.length, y / r.length];
 }
 
+/**
+ * An object painted one colour (Prop.paint) keeps its parts apart by their lightness: each part
+ * takes the paint, lightened or darkened by how light its own colour is.
+ */
+function tinted(paint: [number, number, number], own: ArrayLike<number>): [number, number, number] {
+  const l = (0.2126 * own[0] + 0.7152 * own[1] + 0.0722 * own[2]) / 255;
+  const k = Math.max(0.55, Math.min(1.2, 0.7 + (l - 0.45) * 0.8));
+  return [Math.min(255, paint[0] * k), Math.min(255, paint[1] * k), Math.min(255, paint[2] * k)];
+}
+
 function buildEntry(e: Prop | Building, cellKey: CellKeyFn): Entry {
   const groups = new Map<LayerKey, Solid[]>();
   const vol = (s: Solid) => Math.abs(s.size[0] * s.size[1] * s.size[2]);
@@ -163,6 +173,7 @@ function buildEntry(e: Prop | Building, cellKey: CellKeyFn): Entry {
   }
   const parts: Entry["parts"] = new Map();
   const isProp = e.kind === "prop";
+  const paint = isProp ? e.paint : undefined;
   for (const [k, list] of groups) {
     const data = new Float32Array(list.length * STRIDE);
     const colors = new Uint8Array(list.length * 4);
@@ -173,9 +184,10 @@ function buildEntry(e: Prop | Building, cellKey: CellKeyFn): Entry {
       ext[i] = Math.max(Math.abs(s.size[0]), Math.abs(s.size[1]), Math.abs(s.size[2]));
       if (isProp) writeInstance(data, i * STRIDE, s, e.p[0], e.p[1], e.rot);
       else writeInstance(data, i * STRIDE, s, 0, 0, 0);
-      colors[i * 4] = s.color[0];
-      colors[i * 4 + 1] = s.color[1];
-      colors[i * 4 + 2] = s.color[2];
+      const c = paint ? tinted(paint, s.color) : s.color;
+      colors[i * 4] = c[0];
+      colors[i * 4 + 1] = c[1];
+      colors[i * 4 + 2] = c[2];
       colors[i * 4 + 3] = 255;
     });
     parts.set(k, { data, colors, n: list.length, ext, rank });

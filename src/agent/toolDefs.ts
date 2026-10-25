@@ -145,12 +145,18 @@ export const TOOL_DEFS: ToolDef[] = [
   },
   {
     name: "modify_buildings",
-    description: "Change existing buildings: height (m) | floors | height_scale (1.2 = 20% taller, adds floors above the podium, footprint unchanged) | translate [dx,dy] | rotate_deg | footprint_scale | use | massing {typology, keep_gfa, floors, podium_floors, tower_coverage} (regenerate the form on the same footprint, e.g. slimmer tower on a podium holding GFA) | setbacks {above_floor, depth} | green_roof | name.",
+    description: "Change existing buildings: height (m) | floors | height_scale (1.2 = 20% taller, adds floors above the podium, footprint unchanged) | translate [dx,dy] | rotate_deg | footprint_scale | use | massing {typology, keep_gfa, floors, podium_floors, tower_coverage} (regenerate the form on the same footprint, e.g. slimmer tower on a podium holding GFA) | setbacks {above_floor, depth} | green_roof | name | color (repaint the walls: a colour name like 'blue' or 'brick', '#rrggbb' or [r,g,b]; null restores the default). color is paint only: geometry, floor area and occupancy are untouched, so recolouring never needs a rebuild or demolition.",
     input_schema: {
       type: "object",
-      properties: { ids, height: { type: "number" }, floors: { type: "number" }, height_scale: { type: "number" }, translate: point, rotate_deg: { type: "number" }, footprint_scale: { type: "number" }, use: { type: "string" }, program: { type: "object" }, massing: { type: "object" }, setbacks: { type: "object" }, green_roof: { type: "boolean" }, name: { type: "string" } },
+      properties: { ids, height: { type: "number" }, floors: { type: "number" }, height_scale: { type: "number" }, translate: point, rotate_deg: { type: "number" }, footprint_scale: { type: "number" }, use: { type: "string" }, program: { type: "object" }, massing: { type: "object" }, setbacks: { type: "object" }, green_roof: { type: "boolean" }, name: { type: "string" }, color: { anyOf: [{ type: "string" }, { type: "array", items: { type: "number" } }, { type: "null" }] } },
       required: ["ids"],
     },
+  },
+  {
+    name: "customize",
+    description:
+      "Change how any feature looks or what it is, in place, without rebuilding anything: ids of any kind (buildings, areas, trees, paths, streets, transit lines, library items and objects). color: a colour name ('blue', 'brick', 'teal'…), '#rrggbb' or [r,g,b]; null restores the default — building walls, area and roadway surfaces, paths, tree crowns, transit lines, whole objects; on a library item it sets the item's own colour parameter. set: {attribute: value} for the feature's other editable attributes — any library parameter of a library item (see library_describe), or name / notes / historic / facade (buildings), name / depth (areas), species / r / h (trees), name / type (paths), name (streets), name / ref / headway (transit lines). Geometry, programme and street sections have their own tools; anything that needs one is refused with the tool to use. This is always the first choice for appearance and naming requests.",
+    input_schema: { type: "object", properties: { ids, color: { anyOf: [{ type: "string" }, { type: "array", items: { type: "number" } }, { type: "null" }] }, set: { type: "object" } }, required: ["ids"] },
   },
   {
     name: "optimize_massing",
@@ -360,7 +366,7 @@ export const TOOL_DEFS: ToolDef[] = [
   ...SERP_TOOL_DEFS,
 ];
 
-const MUTATING = new Set(["create_building", "modify_buildings", "merge_buildings", "remove_features", "green_roofs", "edit_streets", "set_junction", "create_street", "move_streets", "realign_streets", "remove_streets", "set_street_attributes", "create_area", "convert_areas", "plant_trees", "create_transit_route", "optimize_stops", "generate_district", "optimize_emergency", "design_neighborhood"]);
+const MUTATING = new Set(["create_building", "modify_buildings", "customize", "merge_buildings", "remove_features", "green_roofs", "edit_streets", "set_junction", "create_street", "move_streets", "realign_streets", "remove_streets", "set_street_attributes", "create_area", "convert_areas", "plant_trees", "create_transit_route", "optimize_stops", "generate_district", "optimize_emergency", "design_neighborhood"]);
 for (const t of TOOL_DEFS) if (MUTATING.has(t.name)) (t.input_schema.properties as Record<string, unknown>).dry_run = dryRun;
 
 // what each tool does to the world: gates plan mode and zones (tools not listed default to "edit")
