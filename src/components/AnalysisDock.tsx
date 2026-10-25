@@ -485,9 +485,9 @@ function TrafficKpiBlock({ rec }: { rec: SimRecord | undefined }) {
       title="Across the network, for the hour shown"
       kpis={[
         { label: "Trips this hour", value: fmtNum(k.vehTrips, 0), hint: "Vehicle trips starting in this hour" },
-        { label: "Avg speed", value: fmtSpeed(k.avgSpeed), hint: "Distance-weighted mean speed of traffic on the network" },
+        { label: "Avg speed", value: fmtSpeed(k.avgSpeed, 1), hint: "Distance-weighted mean speed of traffic on the network" },
         { label: "Congested", value: k.congestedM < 1 ? "None" : fmtLen(k.congestedM), hint: "Street length running above 90% of capacity" },
-        { label: "Delay", value: `${fmtNum(k.delayHours, 0)} veh·h`, hint: "Vehicle-hours lost to congestion in this hour, against free flow" },
+        { label: "Delay", value: k.delayHours < 1 ? `${fmtNum(k.delayHours * 60, 0)} veh·min` : `${fmtNum(k.delayHours, k.delayHours < 10 ? 1 : 0)} veh·h`, hint: "Vehicle-hours lost to congestion in this hour, against free flow" },
       ]}
     />
   );
