@@ -21,7 +21,7 @@ describe("zoneFromText on the Austin pack", () => {
     const ha = Z.hectares(r.zone.poly);
     expect(ha).toBeGreaterThan(2);
     expect(ha).toBeLessThan(8);
-    expect(r.zone.label).toMatch(/ha$/);
+    expect(r.zone.label).toMatch(/acres?$/);
     // the comma form and the reversed order name the same area
     const r2 = Z.zoneFromText("between 7th and 5th, Lavaca and Congress");
     expect(r2.ok && Math.abs(Z.hectares(r2.zone.poly) - ha)).toBeLessThan(0.01);

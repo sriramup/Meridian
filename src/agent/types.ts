@@ -14,7 +14,7 @@ export type AgentMode = "plan" | "edit";
  */
 export interface Zone {
   id: string;
-  /** what the user sees, e.g. "Drawn area · 4.2 ha" or "24th St & West Ave block" */
+  /** what the user sees, e.g. "Drawn area · 3.4 acres" or "24th St & West Ave block" */
   label: string;
   /** local metres, outer ring counter-clockwise */
   poly: Polygon;

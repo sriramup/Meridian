@@ -25,7 +25,7 @@ import { mergeBuildings, modifyBuildings, createBuilding, removeBuildings } from
 import { OpBuilder, programmeOf, fmt, type OpResult } from "@/world/ops/core";
 import { generateDistrict, type DistrictStyle } from "@/world/ops/district";
 import { convertAreas, createArea, plantTrees, removeEntities } from "@/world/ops/landscape";
-import { dF, toF } from "@/lib/units";
+import { dF, fmtFt, toF } from "@/lib/units";
 import type { SectionEdit } from "@/world/ops/sectionEdit";
 import { createStreet, editStreetSections, moveStreets, realignStreets, removeStreets, setNodeControl, setSignalPreemption, setStreetAttributes, setTransitPriority, upgradeCurbRamps, type ConflictPolicy } from "@/world/ops/streets";
 import { createTransitRoute, optimizeStops } from "@/world/ops/transit";
@@ -1270,7 +1270,7 @@ export const TOOLS: Record<string, (i: In, ctx: ToolContext) => Promise<ToolOutp
     }
     if (!ok.length) return err("Green roofs", "No suitable roofs found");
     const res = modifyBuildings(w, { ids: ok.map((b) => b.id), greenRoof: true }, actor);
-    if (res.ok) res.report.summary.unshift(`Green roofs on ${ok.length} buildings — ${fmt.m2(planted)} planted (inside a ${GREEN_ROOF_SETBACK} m edge setback)${i.target_m2 ? (planted >= i.target_m2 ? `; target ${fmt.m2(i.target_m2)} met` : `; target ${fmt.m2(i.target_m2)} NOT met — only ${fmt.m2(planted)} of suitable roof`) : ""}`);
+    if (res.ok) res.report.summary.unshift(`Green roofs on ${ok.length} buildings — ${fmt.m2(planted)} planted (inside a ${fmtFt(GREEN_ROOF_SETBACK)} edge setback)${i.target_m2 ? (planted >= i.target_m2 ? `; target ${fmt.m2(i.target_m2)} met` : `; target ${fmt.m2(i.target_m2)} NOT met — only ${fmt.m2(planted)} of suitable roof`) : ""}`);
     if (res.ok && res.changeset) res.changeset.label = `Green roofs on ${ok.length} buildings`;
     // suppress per-building lines
     if (res.ok) res.report.summary = res.report.summary.filter((l) => !l.includes(" → "));
@@ -1737,7 +1737,7 @@ export const TOOLS: Record<string, (i: In, ctx: ToolContext) => Promise<ToolOutp
         const b = new OpBuilder(w, actor.author);
         const lane = FIRE_LANE_WIDTH / 2;
         const made = createStreet(w, { path: p.path!, cls: "service", name: "Emergency access lane", snap: 1, policy: "report", closed: true, serviceAccess: true, strips: [{ type: "travel", width: lane, dir: 1 }, { type: "travel", width: lane, dir: -1 }] }, actor, b);
-        if (made.ok) b.summary(`Fire lane ${FIRE_LANE_WIDTH} m wide behind removable bollards: emergency vehicles only${p.parcels ? `; crosses ${p.parcels} private parcel${p.parcels > 1 ? "s" : ""} (needs an easement)` : ""}`);
+        if (made.ok) b.summary(`Fire lane ${fmtFt(FIRE_LANE_WIDTH)} wide behind removable bollards: emergency vehicles only${p.parcels ? `; crosses ${p.parcels} private parcel${p.parcels > 1 ? "s" : ""} (needs an easement)` : ""}`);
         res = made.ok ? b.finish("Emergency access lane") : made;
       }
       if (!res.ok || !res.changeset) {
@@ -1853,7 +1853,7 @@ export const TOOLS: Record<string, (i: In, ctx: ToolContext) => Promise<ToolOutp
         for (const iss of checkBuilding(w, e)) if (!pre.has(iss.kind)) issues.push({ id: e.id, name: entityName(e), severity: iss.severity, kind: iss.kind, message: iss.message });
         // street frontage / access
         const near = w.query([...polyBBox(e.footprint)].map((v, k) => v + (k < 2 ? -30 : 30)) as [number, number, number, number], ["street"]);
-        if (!near.length) issues.push({ id: e.id, name: entityName(e), severity: "warning", kind: "access", message: "No street within 30 m — needs access / frontage" });
+        if (!near.length) issues.push({ id: e.id, name: entityName(e), severity: "warning", kind: "access", message: "No street within 100 ft — needs access / frontage" });
       } else if (e.kind === "street") {
         for (const n of [e.from, e.to]) if (w.incident(n).length === 1 && e.cls !== "service") issues.push({ id: e.id, name: entityName(e), severity: "info", kind: "network", message: `Dead end at ${n}` });
         const conf = rowConflicts(w, streetBand(e));
