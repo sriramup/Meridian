@@ -122,13 +122,89 @@ export function cleanPieces(ps: Polygon[], minArea = 1): Polygon[] {
   return ps.map((p) => normalizePoly(p)).filter((p) => isValidPoly(p) && polyArea(p) >= minArea);
 }
 
+type BB = [number, number, number, number];
+const bbOf = (p: Polygon): BB => {
+  let x0 = Infinity,
+    y0 = Infinity,
+    x1 = -Infinity,
+    y1 = -Infinity;
+  for (const q of p[0]) {
+    if (q[0] < x0) x0 = q[0];
+    if (q[1] < y0) y0 = q[1];
+    if (q[0] > x1) x1 = q[0];
+    if (q[1] > y1) y1 = q[1];
+  }
+  return [x0, y0, x1, y1];
+};
+const bbHit = (a: BB, b: BB) => a[0] <= b[2] && a[2] >= b[0] && a[1] <= b[3] && a[3] >= b[1];
+
+function isConvex(r: Ring): boolean {
+  let sign = 0;
+  for (let i = 0; i < r.length; i++) {
+    const a = r[i],
+      b = r[(i + 1) % r.length],
+      c = r[(i + 2) % r.length];
+    const z = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]);
+    if (Math.abs(z) < 1e-9) continue;
+    if (sign === 0) sign = Math.sign(z);
+    else if (Math.sign(z) !== sign) return false;
+  }
+  return true;
+}
+
+/** Sutherland–Hodgman: a convex subject clipped by a convex CCW window */
+function clipConvex(subject: Ring, win: Ring): Ring {
+  let out = subject;
+  for (let i = 0; i < win.length && out.length; i++) {
+    const a = win[i],
+      b = win[(i + 1) % win.length];
+    const inside = (p: Vec2) => (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]) >= -1e-9;
+    const inp = out;
+    out = [];
+    for (let k = 0; k < inp.length; k++) {
+      const p = inp[k],
+        q = inp[(k + 1) % inp.length];
+      const pi = inside(p),
+        qi = inside(q);
+      if (pi) out.push(p);
+      if (pi !== qi) {
+        const dx = q[0] - p[0],
+          dy = q[1] - p[1];
+        const den = (b[0] - a[0]) * dy - (b[1] - a[1]) * dx;
+        if (Math.abs(den) > 1e-12) {
+          const t = ((b[1] - a[1]) * (p[0] - a[0]) - (b[0] - a[0]) * (p[1] - a[1])) / den;
+          out.push([p[0] + dx * t, p[1] + dy * t]);
+        }
+      }
+    }
+  }
+  return out;
+}
+
 export function clip(a: Polygon, b: Polygon, minArea = 1): Polygon[] {
+  if (!bbHit(bbOf(a), bbOf(b))) return [];
+  // fast path: two convex simple polygons (blocks, strips and lot rectangles usually are)
+  if (a.length === 1 && b.length === 1 && isConvex(a[0]) && isConvex(b[0])) {
+    const ca = normalizePoly(a),
+      cb = normalizePoly(b);
+    const r = clipConvex(ca[0], cb[0]);
+    return r.length >= 3 ? cleanPieces([[r]], minArea) : [];
+  }
   return cleanPieces(intersection(a, b), minArea);
 }
 
+/** a minus every b (only the bs whose bounds touch a are clipped) */
 export function minus(a: Polygon, bs: Polygon[], minArea = 1): Polygon[] {
-  let cur: Polygon[] = [a];
-  for (const b of bs) cur = cur.flatMap((q) => difference(q, b));
+  const ab = bbOf(a);
+  const hit = bs.filter((b) => b.length && b[0].length >= 3 && bbHit(ab, bbOf(b)));
+  if (!hit.length) return cleanPieces([a], minArea);
+  let cur: Polygon[];
+  try {
+    cur = difference(a, ...hit);
+  } catch {
+    cur = [a];
+    for (const b of hit) cur = cur.flatMap((q) => difference(q, b));
+  }
   return cleanPieces(cur, minArea);
 }
 

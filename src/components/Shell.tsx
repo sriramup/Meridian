@@ -53,6 +53,8 @@ export function Shell() {
       (window as unknown as { __meridianApp: unknown }).__meridianApp = useApp;
       import("@/sim/client").then((c) => ((window as unknown as { __meridianSims: unknown }).__meridianSims = c.useSims));
       (window as unknown as { __meridianTools: unknown }).__meridianTools = { run: (name: string, input: Record<string, unknown>) => m.executeTool(name, input, { requestApproval: async () => true, approvals: false }) };
+      // the design generator and critique (src/design), with the agent's commit path
+      import("@/design").then((d) => ((window as unknown as { __meridianDesign: unknown }).__meridianDesign = { ...d, commit: m.commit }));
     });
     // the multi-agent runtime for automation: AgentsApi functions, `.agents` (the useAgents store) and `.sessions` (the module)
     import("@/agent/sessions").then((m) => ((window as unknown as { __meridianAgent: unknown }).__meridianAgent = { ...m.agentsApi, agents: m.useAgents, sessions: m }));
