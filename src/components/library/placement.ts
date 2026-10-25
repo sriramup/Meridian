@@ -174,6 +174,9 @@ function obstaclesNear(pieces: Polygon[], reach: number, withStreets: boolean, s
   return obstacles(polys);
 }
 
+/** how far a blocked placement may slide on its own: a little for its size, or most of a grid step (the grid can't land between) */
+const slideReach = (size: number) => Math.max(Math.min(6, Math.max(1.5, size * 0.4)), Math.min(16, gridStep() * 0.75));
+
 const isCollision = (err?: string) => !!err && /would overlap|inside a building|another object|on a tree|on top of an object/.test(err);
 
 function shifted(place: PlacementInput, d: Vec2): PlacementInput {
@@ -239,7 +242,7 @@ export function computeMovePreview(): Preview | null {
     const pieces = solidPieces(m.entities.map((id) => W.get(id)).filter((e): e is Entity => !!e)).map((p) => translatePoly(p, m.by));
     if (pieces.length && pieces.length <= 4) {
       const size = Math.sqrt(Math.max(...pieces.map((p) => polyArea(p))));
-      const d = nearestFreeOffset(pieces, obstaclesNear(pieces, 12, true, own), { maxR: Math.min(6, Math.max(1.5, size * 0.4)), step: 0.5 });
+      const d = nearestFreeOffset(pieces, obstaclesNear(pieces, 12, true, own), { maxR: slideReach(size), step: 0.5 });
       if (d && (d[0] || d[1])) {
         const by: Vec2 = [m.by[0] + d[0], m.by[1] + d[1]];
         const r2 = moveBy(m.id, by);
@@ -344,7 +347,7 @@ export function computePreview(def: PrimitiveDef, final = false): Preview | null
     const withStreets = raw.some((e) => e.kind === "building");
     const obs = obstaclesNear(pieces, 12, withStreets);
     if (blockedAt(pieces, obs)) {
-      const d = nearestFreeOffset(pieces, obs, { maxR: Math.min(6, Math.max(1.5, size * 0.4)), step: 0.5 });
+      const d = nearestFreeOffset(pieces, obs, { maxR: slideReach(size), step: 0.5 });
       if (d && (d[0] || d[1])) {
         const p2 = shifted(place, d);
         const r2 = dryRun(def, p2, params);

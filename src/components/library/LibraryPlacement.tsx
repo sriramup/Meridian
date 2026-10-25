@@ -320,12 +320,14 @@ function previewLayers(pv: Preview | null, defPlacement: string | undefined, nig
       } as never),
     );
   const anchor = s.cursor ?? pv?.place.at;
-  if (pv?.readout && anchor && (pv.ok || !pv.error))
+  // a dragged rectangle's size sits on the rectangle, the rest beside the cursor
+  const readAt = pv?.place.site && defPlacement === "rect" ? pv.place.at : anchor;
+  if (pv?.readout && readAt && (pv.ok || !pv.error))
     layers.push(
       new TextLayer({
         id: "lib-draw-readout",
         ...common,
-        data: [{ p: anchor, t: pv.readout }],
+        data: [{ p: readAt, t: pv.readout }],
         getPosition: (d: { p: Vec2 }) => [d.p[0], d.p[1], 1],
         getText: (d: { t: string }) => d.t,
         getSize: 11.5,
