@@ -1,0 +1,828 @@
+{
+ "_fixture": "recorded live from SerpApi on 2026-10-25 (compacted: metadata, SerpApi links and tokens removed)",
+ "local_results": [
+  {
+   "position": 1,
+   "title": "Taqueria De Diez (D/10)",
+   "place_id": "ChIJDSfb3Dq1RIYR6BUfB7JSNRU",
+   "gps_coordinates": {
+    "latitude": 30.2639708,
+    "longitude": -97.7408126
+   },
+   "rating": 4.8,
+   "reviews": 3339,
+   "type": "Restaurant",
+   "types": [
+    "Restaurant"
+   ],
+   "address": "206 Trinity St Unit 110, Austin, TX 78701",
+   "country": "United States",
+   "open_state": "Open · Closes 1 AM",
+   "hours": "Open · Closes 1 AM",
+   "operating_hours": {
+    "saturday": "11 AM–1 AM",
+    "sunday": "11 AM–10 PM",
+    "monday": "11 AM–10 PM",
+    "tuesday": "11 AM–10 PM",
+    "wednesday": "11 AM–10 PM",
+    "thursday": "11 AM–1 AM",
+    "friday": "11 AM–1 AM"
+   },
+   "phone": "(839) 888-2267",
+   "website": "https://taqueriadediez.com/",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible entrance",
+      "Wheelchair accessible parking lot",
+      "Wheelchair accessible restroom",
+      "Wheelchair accessible seating"
+     ]
+    }
+   ],
+   "order_online": "https://www.google.com/searchviewer/42?cvd=CLw_EicKJeICIjIgEhkiF9LX29IPEQoNL2cvMTF5MjcyNnQ3NBgAOgMI8A0%3D&hl=en-US&gl=us&fo_m=MfohQo559jFvMUOzJVpjPL1YMfZ3bInYwBDuMfaXTPp5KXh-&utm_source=tactile&gei=P4LdarKaNeaGw8cPm6rxwAo&ei=P4LdarKaNeaGw8cPm6rxwAo&fo_s=OA,SOE&opi=79508299&ebb=1&cs=0&foub=mcpp",
+   "thumbnail": "https://lh3.googleusercontent.com/grass-cs/AABkmLdCij7hLIlUPWD5CI6fI3MjF7pqvNnZBHcwibsofPA-MC-2UqpQ70_BvIyvNLTWH4g0URm1pA3hl47kivyHVjD9ad4Sba658X0UkKTgXmegkD_MXZ-ZwM2v5TrZE1DQ_9cS0AKgRUABYjYm=w1000-h1000-c-n"
+  },
+  {
+   "position": 2,
+   "title": "Las Trancas Taco Stand",
+   "place_id": "ChIJjwraDq61RIYRl2V3r3ME2N4",
+   "gps_coordinates": {
+    "latitude": 30.2597778,
+    "longitude": -97.73166619999999
+   },
+   "rating": 4.7,
+   "reviews": 2794,
+   "type": "Mexican restaurant",
+   "types": [
+    "Mexican restaurant",
+    "Taco restaurant"
+   ],
+   "address": "1210 E Cesar Chavez St, Austin, TX 78702",
+   "country": "United States",
+   "open_state": "Closes soon · 12 AM · Opens 11 AM Sun",
+   "hours": "Closes soon · 12 AM · Opens 11 AM Sun",
+   "operating_hours": {
+    "saturday": "11 AM–12 AM",
+    "sunday": "11 AM–12 AM",
+    "monday": "11 AM–12 AM",
+    "tuesday": "11 AM–12 AM",
+    "wednesday": "11 AM–12 AM",
+    "thursday": "11 AM–12 AM",
+    "friday": "11 AM–12 AM"
+   },
+   "phone": "(512) 701-8287",
+   "website": "https://www.facebook.com/Las-Trancas-Taco-Stand-307145385983596/",
+   "description": "Basic stand for Mexican street food. Utilitarian food truck offering Mexican street food, plus a covered terrace & picnic benches.",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible entrance",
+      "Wheelchair accessible parking lot",
+      "Wheelchair accessible restroom",
+      "Wheelchair accessible seating"
+     ]
+    }
+   ],
+   "order_online": "https://www.google.com/searchviewer/42?cvd=CLw_EicKJeICIjIgEhkiF9LX29IPEQoNL2cvMTFiY2RfMnd2YhgAOgMI8A0%3D&hl=en-US&gl=us&fo_m=MfohQo559jFvMUOzJVpjPL1YMfZ3bInYwBDuMfaXTPp5KXh-&utm_source=tactile&gei=P4LdarKaNeaGw8cPm6rxwAo&ei=P4LdarKaNeaGw8cPm6rxwAo&fo_s=OA,SOE&opi=79508299&ebb=1&cs=0&foub=mcpp",
+   "thumbnail": "https://lh3.googleusercontent.com/grass-cs/AABkmLcNRoUN-C7Gc2Tk9N3JkzuZSJIvSqDuP_qXdaDXhExAduBKXCSvVQuyxYeHn7HA8wyoerRAJLciVN2o2YgO2Tp8YhlgU04tDupueC4xhZw-i0TccD7jsbJPDTPkk46FvzUBz4dQ=w1000-h1000-c-n"
+  },
+  {
+   "position": 3,
+   "title": "OUTTA THIS WORLD TACOS",
+   "place_id": "ChIJs1UVZl-1RIYRtTwnspdwG7s",
+   "gps_coordinates": {
+    "latitude": 30.2643037,
+    "longitude": -97.73106159999999
+   },
+   "rating": 4.8,
+   "reviews": 51,
+   "type": "Southern restaurant (US)",
+   "types": [
+    "Southern restaurant (US)"
+   ],
+   "address": "1109 E 6th Street, Austin, TX 78702, Austin, TX 78701",
+   "country": "United States",
+   "open_state": "Open · Closes 2:30 AM",
+   "hours": "Open · Closes 2:30 AM",
+   "operating_hours": {
+    "saturday": "7 PM–2:30 AM",
+    "sunday": "Closed",
+    "monday": "Closed",
+    "tuesday": "7 PM–2:30 AM",
+    "wednesday": "7 PM–2:30 AM",
+    "thursday": "7 PM–2:30 AM",
+    "friday": "12 PM–2:30 AM"
+   },
+   "phone": "(832) 657-2727",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible entrance",
+      "Wheelchair accessible parking lot"
+     ]
+    }
+   ],
+   "order_online": "https://www.google.com/searchviewer/42?cvd=CLw_EicKJeICIjIgEhkiF9LX29IPEQoNL2cvMTFseXZfYmR5dBgAOgMI8A0%3D&hl=en-US&gl=us&fo_m=MfohQo559jFvMUOzJVpjPL1YMfZ3bInYwBDuMfaXTPp5KXh-&utm_source=tactile&gei=P4LdarKaNeaGw8cPm6rxwAo&ei=P4LdarKaNeaGw8cPm6rxwAo&fo_s=OA,SOE&opi=79508299&ebb=1&cs=0&foub=mcpp",
+   "thumbnail": "https://lh3.googleusercontent.com/grass-proxy/AIM7gW2cDkYvNJp-9UNW1yvKvzHM0bRXpIGMG7RRBuuGxDkKlB-8oQzVAMLAPc5T-ila7bPxzE5XTmJjJgfL36tME_C2oMWVZOwD6dJJkw7sAhjEGWjEDBnsIIgeummruSagcCF31VDxuB95MUt6_OlMKKuFWQBoRqS2BWjJ6pvOWjcIXnSt3cnkSWK4=w1000-h1000-c-n"
+  },
+  {
+   "position": 4,
+   "title": "Taco Haus",
+   "place_id": "ChIJj8Vj6Ga1RIYR8cjHWh1TvCc",
+   "gps_coordinates": {
+    "latitude": 30.2665211,
+    "longitude": -97.73998759999999
+   },
+   "rating": 4.7,
+   "reviews": 484,
+   "type": "Taco restaurant",
+   "types": [
+    "Taco restaurant"
+   ],
+   "address": "318 E 5th St., Austin, TX 78701",
+   "country": "United States",
+   "open_state": "Open · Closes 3:30 AM",
+   "hours": "Open · Closes 3:30 AM",
+   "operating_hours": {
+    "saturday": "9 AM–3:30 AM",
+    "sunday": "9 AM–3 AM",
+    "monday": "9 AM–3 AM",
+    "tuesday": "9 AM–3 AM",
+    "wednesday": "9 AM–3 AM",
+    "thursday": "10 AM–3 AM",
+    "friday": "9 AM–3 AM"
+   },
+   "phone": "(812) 625-3652",
+   "website": "http://www.tacohaus.com/",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible entrance",
+      "Wheelchair accessible parking lot"
+     ]
+    }
+   ],
+   "order_online": "https://www.google.com/searchviewer/42?cvd=CLw_EicKJeICIjIgEhkiF9LX29IPEQoNL2cvMTF5NXRmem0xcBgAOgMI8A0%3D&hl=en-US&gl=us&fo_m=MfohQo559jFvMUOzJVpjPL1YMfZ3bInYwBDuMfaXTPp5KXh-&utm_source=tactile&gei=P4LdarKaNeaGw8cPm6rxwAo&ei=P4LdarKaNeaGw8cPm6rxwAo&fo_s=OA,SOE&opi=79508299&ebb=1&cs=0&foub=mcpp",
+   "thumbnail": "https://lh3.googleusercontent.com/grass-cs/AABkmLeDsKdaPyxY98Y9o-WKiFfAWbFDI6tWqXcPAnuST384Q8qdM2kWWTw3PIGP80cry1V7d00WBTmDL6-0GEhHOwfHhwXNjju8lt6F1l1mP2B6bZ8Cs6A3UAxBiXExGsdSMCz3pDFawg=w1000-h1000-c-n"
+  },
+  {
+   "position": 5,
+   "title": "Taqueria premium ATX",
+   "place_id": "ChIJgfPEUwC1RIYR8tzjwrXT0Wg",
+   "gps_coordinates": {
+    "latitude": 30.2578197,
+    "longitude": -97.72588239999999
+   },
+   "rating": 5,
+   "reviews": 15,
+   "type": "Mexican restaurant",
+   "types": [
+    "Mexican restaurant",
+    "Taco restaurant"
+   ],
+   "address": "1710 E Cesar Chavez St, Austin, TX 78702",
+   "country": "United States",
+   "open_state": "Open · Closes 2:30 AM",
+   "hours": "Open · Closes 2:30 AM",
+   "operating_hours": {
+    "saturday": "12 PM–2:30 AM",
+    "sunday": "2–11 PM",
+    "monday": "2–11 PM",
+    "tuesday": "12–11 PM",
+    "wednesday": "12–11 PM",
+    "thursday": "12–11 PM",
+    "friday": "12 PM–1 AM"
+   },
+   "phone": "(737) 202-1269",
+   "order_online": "https://www.google.com/searchviewer/42?cvd=CLw_EicKJeICIjIgEhkiF9LX29IPEQoNL2cvMTFuYl80N2d0YhgAOgMI8A0%3D&hl=en-US&gl=us&fo_m=MfohQo559jFvMUOzJVpjPL1YMfZ3bInYwBDuMfaXTPp5KXh-&utm_source=tactile&gei=P4LdarKaNeaGw8cPm6rxwAo&ei=P4LdarKaNeaGw8cPm6rxwAo&fo_s=OA,SOE&opi=79508299&ebb=1&cs=0&foub=mcpp",
+   "thumbnail": "https://lh3.googleusercontent.com/grass-proxy/AIM7gW0_220PV1qWkJ6EFDu93ujmlDiUWeiDMnf3pIMyNKR9tMORmqBnG3C6fqFnSpspKTCiG68lZjlMjvShIvLQxZvurK3_sJvBXw-qSjMspp7mHY9M0JPksBOlTF73d68m9NtaA8Zk3g1Y7FJMmB4QmDfeG2HDoQ6OThw-rwgGIqTxVndbahQkq_JmEg=w1000-h1000-c-n"
+  },
+  {
+   "position": 6,
+   "title": "Don Vegas tacos atx",
+   "place_id": "ChIJG0x3hxi1RIYRrmw0T1Uegl8",
+   "gps_coordinates": {
+    "latitude": 30.2826439,
+    "longitude": -97.74241289999999
+   },
+   "rating": 4.9,
+   "reviews": 125,
+   "type": "Mexican restaurant",
+   "types": [
+    "Mexican restaurant"
+   ],
+   "address": "1914Guadalupe st, Austin, TX 78705",
+   "country": "United States",
+   "open_state": "Closed · Opens 11 AM Mon",
+   "hours": "Closed · Opens 11 AM Mon",
+   "operating_hours": {
+    "saturday": "11 AM–10 PM",
+    "sunday": "Closed",
+    "monday": "11 AM–9 PM",
+    "tuesday": "11 AM–9 PM",
+    "wednesday": "11 AM–9 PM",
+    "thursday": "11 AM–9 PM",
+    "friday": "11 AM–10 PM"
+   },
+   "phone": "(706) 286-6336",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible entrance",
+      "Wheelchair accessible parking lot",
+      "Wheelchair accessible seating"
+     ]
+    }
+   ],
+   "unsupported_extensions": [
+    {
+     "accessibility": [
+      "Assistive hearing loop",
+      "Wheelchair accessible restroom"
+     ]
+    }
+   ],
+   "order_online": "https://www.google.com/searchviewer/42?cvd=CLw_EicKJeICIjIgEhkiF9LX29IPEQoNL2cvMTF3eDExczNxZxgAOgMI8A0%3D&hl=en-US&gl=us&fo_m=MfohQo559jFvMUOzJVpjPL1YMfZ3bInYwBDuMfaXTPp5KXh-&utm_source=tactile&gei=P4LdarKaNeaGw8cPm6rxwAo&ei=P4LdarKaNeaGw8cPm6rxwAo&fo_s=OA,SOE&opi=79508299&ebb=1&cs=0&foub=mcpp",
+   "thumbnail": "https://lh3.googleusercontent.com/grass-proxy/AIM7gW1feC6Hj7GxwwMSz-zvrkvgJ8jIRTjJNFvFTQfeU6dUnQQhm2630NP86MU2UpOH-U9e3AcUo0QoxEzBbNYD0ymBmJJMTnvPjkiXEmCfCohuo1H_qz0gDSKqdMChbeOMDGJZ8cYK11iRSeVArwKrnSuED4rmpe2dD1QTqjq0WrEmYW1b5eU1WliI=w1000-h1000-c-n"
+  },
+  {
+   "position": 7,
+   "title": "Granny's Tacos",
+   "place_id": "ChIJS7-xibC1RIYRGgREyTJ9B1E",
+   "gps_coordinates": {
+    "latitude": 30.2643885,
+    "longitude": -97.72798039999999
+   },
+   "rating": 4.6,
+   "reviews": 1398,
+   "type": "Mexican restaurant",
+   "types": [
+    "Mexican restaurant"
+   ],
+   "address": "1401 E 7th St, Austin, TX 78702",
+   "country": "United States",
+   "open_state": "Open · Closes 2 AM",
+   "hours": "Open · Closes 2 AM",
+   "operating_hours": {
+    "saturday": "8 AM–2 AM",
+    "sunday": "8:30 AM–10 PM",
+    "monday": "8 AM–10 PM",
+    "tuesday": "8 AM–10 PM",
+    "wednesday": "8 AM–12 AM",
+    "thursday": "8 AM–12 AM",
+    "friday": "8 AM–2 AM"
+   },
+   "phone": "(512) 701-4000",
+   "website": "http://www.grannystacosatx.com/",
+   "description": "No-frills food truck for Mexican eats. Tacos, burritos & other Mexican fare served from a simple food truck that has shaded bench seating.",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible entrance",
+      "Wheelchair accessible parking lot",
+      "Wheelchair accessible restroom"
+     ]
+    }
+   ],
+   "order_online": "https://www.google.com/searchviewer/42?cvd=CLw_EicKJeICIjIgEhkiF9LX29IPEQoNL2cvMTFjNTJiYmM4OBgAOgMI8A0%3D&hl=en-US&gl=us&fo_m=MfohQo559jFvMUOzJVpjPL1YMfZ3bInYwBDuMfaXTPp5KXh-&utm_source=tactile&gei=P4LdarKaNeaGw8cPm6rxwAo&ei=P4LdarKaNeaGw8cPm6rxwAo&fo_s=OA,SOE&opi=79508299&ebb=1&cs=0&foub=mcpp",
+   "thumbnail": "https://lh3.googleusercontent.com/grass-cs/AABkmLcSIeZ5Chjx2R6N_k5uSSXjcRdIHeOsWk_73FdbARE5K8QH0AL3pAIvOCQM1IlTb37BRGQ6lC25Gj0IBUMvQ3ndYgFhNHk8NIGNVelql94mGZJaEE9LCSO7lZUVmPyqLnGx78BK=w1000-h1000-c-n"
+  },
+  {
+   "position": 8,
+   "title": "A Marte Tacos",
+   "place_id": "ChIJHVyokei1RIYR_euqjCw_RGM",
+   "gps_coordinates": {
+    "latitude": 30.2603507,
+    "longitude": -97.75811689999999
+   },
+   "rating": 4.8,
+   "reviews": 50,
+   "type": "Taco restaurant",
+   "types": [
+    "Taco restaurant"
+   ],
+   "address": "1209 Barton Springs Rd, Austin, TX 78704",
+   "country": "United States",
+   "open_state": "Closed · Opens 8 AM Sun",
+   "hours": "Closed · Opens 8 AM Sun",
+   "operating_hours": {
+    "saturday": "7:30 AM–2 PM",
+    "sunday": "8 AM–2 PM",
+    "monday": "6 AM–2 PM",
+    "tuesday": "6 AM–2 PM",
+    "wednesday": "6 AM–2 PM",
+    "thursday": "6 AM–2 PM",
+    "friday": "6 AM–2 PM"
+   },
+   "phone": "(512) 300-0426",
+   "website": "http://amartetacos.com/",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible entrance",
+      "Wheelchair accessible parking lot",
+      "Wheelchair accessible seating"
+     ]
+    }
+   ],
+   "order_online": "https://www.google.com/searchviewer/42?cvd=CLw_EicKJeICIjIgEhkiF9LX29IPEQoNL2cvMTFtbHQ5Nm03axgAOgMI8A0%3D&hl=en-US&gl=us&fo_m=MfohQo559jFvMUOzJVpjPL1YMfZ3bInYwBDuMfaXTPp5KXh-&utm_source=tactile&gei=P4LdarKaNeaGw8cPm6rxwAo&ei=P4LdarKaNeaGw8cPm6rxwAo&fo_s=OA,SOE&opi=79508299&ebb=1&cs=0&foub=mcpp",
+   "thumbnail": "https://lh3.googleusercontent.com/grass-proxy/AIM7gW2K03-tsts8LTKCAFAHbh6Mlmzo6d3rrL_YoBBkziQHgl_E4r9HJRuwuR-YzaHSCT7nIcerrsRRhN-mr0H_sh2M2-y7Z79IyAHR8djYdRzbm9fA7MHrYKWtTS8363ai9aOjIuh7IY_NuABD-Ru6JOCthKQU5EsQrzdc-c4RLIABZyJSf5_004EYqA=w1000-h1000-c-n"
+  },
+  {
+   "position": 9,
+   "title": "Velvet Taco",
+   "place_id": "ChIJIQ4kr4e1RIYRbQ_afrDF1p0",
+   "gps_coordinates": {
+    "latitude": 30.2679585,
+    "longitude": -97.74317239999999
+   },
+   "rating": 4.7,
+   "reviews": 3177,
+   "type": "Mexican restaurant",
+   "types": [
+    "Mexican restaurant",
+    "Taco restaurant"
+   ],
+   "address": "522 Congress Ave Ste 100, Austin, TX 78701",
+   "country": "United States",
+   "open_state": "Open · Closes 4 AM",
+   "hours": "Open · Closes 4 AM",
+   "operating_hours": {
+    "saturday": "10:30 AM–4 AM",
+    "sunday": "10:30 AM–12 AM",
+    "monday": "10:30 AM–12 AM",
+    "tuesday": "10:30 AM–12 AM",
+    "wednesday": "10:30 AM–12 AM",
+    "thursday": "10:30 AM–1 AM",
+    "friday": "10:30 AM–4 AM"
+   },
+   "phone": "(512) 298-5223",
+   "website": "https://www.velvettaco.com/location/6th-congress/",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible entrance",
+      "Wheelchair accessible parking lot",
+      "Wheelchair accessible restroom",
+      "Wheelchair accessible seating"
+     ]
+    }
+   ],
+   "order_online": "https://www.google.com/searchviewer/42?cvd=CLw_EicKJeICIjIgEhkiF9LX29IPEQoNL2cvMTFqN3k3Y2tyORgAOgMI8A0%3D&hl=en-US&gl=us&fo_m=MfohQo559jFvMUOzJVpjPL1YMfZ3bInYwBDuMfaXTPp5KXh-&utm_source=tactile&gei=P4LdarKaNeaGw8cPm6rxwAo&ei=P4LdarKaNeaGw8cPm6rxwAo&fo_s=OA,SOE&opi=79508299&ebb=1&cs=0&foub=mcpp",
+   "thumbnail": "https://lh3.googleusercontent.com/grass-cs/AABkmLexoM3t2e1epse2JJBnKoFNZ6_cUg5-3Z7KEy3PxgFCSkLrh-eIBL7JdN0ariy2cV2V2CauR2Ldlr3eZ3vaYc1GoR1cR97DxfBUOgrjBcoZrE88dZcvKewlD1i_R5gwheSaAFZlWslZRw0I=w1000-h1000-c-n"
+  },
+  {
+   "position": 10,
+   "title": "TacoWey",
+   "place_id": "ChIJz_vcA1m1RIYROe8iQuM9f68",
+   "gps_coordinates": {
+    "latitude": 30.2668662,
+    "longitude": -97.739612
+   },
+   "rating": 4.7,
+   "reviews": 217,
+   "type": "Taco restaurant",
+   "types": [
+    "Taco restaurant"
+   ],
+   "address": "325 E 6th St, Austin, TX 78701",
+   "country": "United States",
+   "open_state": "Open · Closes 2:30 AM",
+   "hours": "Open · Closes 2:30 AM",
+   "operating_hours": {
+    "saturday": "8 PM–2:30 AM",
+    "sunday": "8 PM–2:30 AM",
+    "monday": "8 PM–2:30 AM",
+    "tuesday": "8 PM–2:30 AM",
+    "wednesday": "8 PM–2:30 AM",
+    "thursday": "8 PM–2:30 AM",
+    "friday": "8 PM–2:30 AM"
+   },
+   "phone": "(210) 723-7578",
+   "website": "http://sendmetacowey.com/",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible parking lot"
+     ]
+    }
+   ],
+   "order_online": "https://www.google.com/searchviewer/42?cvd=CLw_EicKJeICIjIgEhkiF9LX29IPEQoNL2cvMTFmNXE4M2x4XxgAOgMI8A0%3D&hl=en-US&gl=us&fo_m=MfohQo559jFvMUOzJVpjPL1YMfZ3bInYwBDuMfaXTPp5KXh-&utm_source=tactile&gei=P4LdarKaNeaGw8cPm6rxwAo&ei=P4LdarKaNeaGw8cPm6rxwAo&fo_s=OA,SOE&opi=79508299&ebb=1&cs=0&foub=mcpp",
+   "thumbnail": "https://lh3.googleusercontent.com/grass-cs/AABkmLeyvmsyYjWMVbdFG8sme69X1EmyUlWuJQN-OvcHjgSnxEe2mgLVMc38_sytEDzrU1M7k2mKsodrsfaXbFg4x_ieSgysh1MsOKLOOVqEDUSDzJhGcZyqDxcntEC1AeZ5Lh1Z72TIXw=w1000-h1000-c-n"
+  },
+  {
+   "position": 11,
+   "title": "Cuantos Tacos",
+   "place_id": "ChIJb87h1NjJRIYRFbvjTq-G0OY",
+   "gps_coordinates": {
+    "latitude": 30.2726586,
+    "longitude": -97.72816379999999
+   },
+   "rating": 4.7,
+   "reviews": 1313,
+   "type": "Taco restaurant",
+   "types": [
+    "Taco restaurant"
+   ],
+   "address": "1108 E 12th St, Austin, TX 78702",
+   "country": "United States",
+   "open_state": "Closed · Opens 10 AM Sun",
+   "hours": "Closed · Opens 10 AM Sun",
+   "operating_hours": {
+    "saturday": "11 AM–10 PM",
+    "sunday": "10 AM–4 PM",
+    "monday": "Closed",
+    "tuesday": "11 AM–10 PM",
+    "wednesday": "11 AM–10 PM",
+    "thursday": "11 AM–10 PM",
+    "friday": "11 AM–10 PM"
+   },
+   "website": "http://www.cuantostacosaustin.com/",
+   "description": "Simple food truck serving Mexican fare. Laid-back eatery offering street food-style tacos & quesadillas from a window, plus outdoor seating.",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible entrance",
+      "Wheelchair accessible parking lot",
+      "Wheelchair accessible seating"
+     ]
+    }
+   ],
+   "thumbnail": "https://lh3.googleusercontent.com/grass-cs/AABkmLfYZrAJa5BbtUykyd6tCzk9_2wGaOjm7gvv6cpQZhV_3dpmT6eif8dkBxA7lryqXAgU9dQtnVvq4P655SDXGQW2-offCyf29y-g4bFHZIqvqoOxPvrzYkOI73BdHnIJwqqDTQaz8w=w1000-h1000-c-n"
+  },
+  {
+   "position": 12,
+   "title": "TAQUERIA JOHNNY TACOS",
+   "place_id": "ChIJueh7CTK1RIYRL8FHNEdEVT0",
+   "gps_coordinates": {
+    "latitude": 30.2569603,
+    "longitude": -97.7233851
+   },
+   "rating": 4.7,
+   "reviews": 211,
+   "type": "Mexican restaurant",
+   "types": [
+    "Mexican restaurant"
+   ],
+   "address": "2000 E Cesar Chavez St, Austin, TX 78702",
+   "country": "United States",
+   "open_state": "Open · Closes 3 AM",
+   "hours": "Open · Closes 3 AM",
+   "operating_hours": {
+    "saturday": "4 PM–3 AM",
+    "sunday": "4 PM–3 AM",
+    "monday": "4 PM–3 AM",
+    "tuesday": "4 PM–3 AM",
+    "wednesday": "4 PM–3 AM",
+    "thursday": "4 PM–3 AM",
+    "friday": "4 PM–3 AM"
+   },
+   "phone": "(512) 596-8778",
+   "website": "https://taqueriajohnnytacostx.com/",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible entrance",
+      "Wheelchair accessible parking lot",
+      "Wheelchair accessible restroom",
+      "Wheelchair accessible seating"
+     ]
+    }
+   ],
+   "order_online": "https://www.google.com/searchviewer/42?cvd=CLw_EicKJeICIjIgEhkiF9LX29IPEQoNL2cvMTFzeDZ2Z2YwahgAOgMI8A0%3D&hl=en-US&gl=us&fo_m=MfohQo559jFvMUOzJVpjPL1YMfZ3bInYwBDuMfaXTPp5KXh-&utm_source=tactile&gei=P4LdarKaNeaGw8cPm6rxwAo&ei=P4LdarKaNeaGw8cPm6rxwAo&fo_s=OA,SOE&opi=79508299&ebb=1&cs=0&foub=mcpp",
+   "thumbnail": "https://lh3.googleusercontent.com/grass-proxy/AIM7gW0tPo-8sAFnhXZiw1PQMqAnbFVwVyVjAutRppSFA1566KwWc4Gcka1-2RD-4FETSFV0B-0uVsF7_KFuWwrSgmbMJuFcg22JxNSUywcwWiiZPDpQyh5UY0GmLsiTuAdHHBLzBRYy6CDOl2z69hcq5yGj4p_CHLrX0aq10t1g6HdMPODvoxM8zYdO=w1000-h1000-c-n"
+  },
+  {
+   "position": 13,
+   "title": "De Nada Cantina",
+   "place_id": "ChIJYzTW7YK1RIYRCW0QG4_Eik4",
+   "gps_coordinates": {
+    "latitude": 30.2514145,
+    "longitude": -97.7022034
+   },
+   "rating": 4.6,
+   "reviews": 3272,
+   "type": "Taco restaurant",
+   "types": [
+    "Taco restaurant"
+   ],
+   "address": "4715 E Cesar Chavez St, Austin, TX 78702",
+   "country": "United States",
+   "open_state": "Closes soon · 12 AM · Opens 11 AM Sun",
+   "hours": "Closes soon · 12 AM · Opens 11 AM Sun",
+   "operating_hours": {
+    "saturday": "11 AM–12 AM",
+    "sunday": "11 AM–10 PM",
+    "monday": "11 AM–12 AM",
+    "tuesday": "11 AM–12 AM",
+    "wednesday": "11 AM–12 AM",
+    "thursday": "11 AM–12 AM",
+    "friday": "11 AM–12 AM"
+   },
+   "phone": "(512) 615-3555",
+   "website": "https://denadacantina.com/east-side?utm_source=google&utm_medium=organic&utm_campaign=gbp",
+   "description": "Warm venue for classic Mexican eats. Cozy locale with outdoor seating, prepping traditional Mexican fare like barbacoa & carnitas.",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible entrance",
+      "Wheelchair accessible parking lot",
+      "Wheelchair accessible restroom",
+      "Wheelchair accessible seating"
+     ]
+    }
+   ],
+   "reserve_a_table": "https://www.google.com/maps/reserve/v/dine/c/zvxJktqN2IE?source=pa&opi=79508299&hl=en-US&gei=P4LdarKaNeaGw8cPm6rxwAo&ahbb=1&sourceurl=https://www.google.com/search?q%3Dtacos%26gl%3Dus%26pb%3D!4m8!1m3!1d19383.96344791296!2d-97.7436!3d30.2645!3m2!1i1920!2i1080!4f13.1!7i20!10b1!12m49!1m5!18b1!30b1!31m1!1b1!34e1!2m4!5m1!6e2!20e3!39b1!6m22!49b1!63m0!66b1!74i150000!85b1!91b1!114b1!149b1!178b1!206b1!209b1!212b1!223b1!232b1!234b1!244b1!246b1!250b1!253b1!258b1!260b1!266b1!10b1!12b1!13b1!14b1!16b1!17m1!3e1!20m3!5e2!6b1!14b1!46m1!1b0!96b1!99b1!19m4!2m3!1i360!2i120!4i8!20m57!2m2!1i203!2i100!3m2!2i4!5b1!6m6!1m2!1i86!2i86!1m2!1i408!2i240!7m33!1m3!1e1!2b0!3e3!1m3!1e2!2b1!3e2!1m3!1e2!2b0!3e3!1m3!1e8!2b0!3e3!1m3!1e10!2b0!3e3!1m3!1e10!2b1!3e2!1m3!1e10!2b0!3e4!1m3!1e9!2b1!3e2!2b1!9b0!15m8!1m7!1m2!1m1!1e2!2m2!1i195!2i195!3i20!22m6!1s7zAPQho2Vttjop-y7h-44IZxKbxDEWg:2!2s1i:0,t:11886,p:7zAPQho2Vttjop-y7h-44IZxKbxDEWg:2!7e81!12e5!17s7zAPQho2Vttjop-y7h-44IZxKbxDEWg:72!18e15!24m107!1m28!13m9!2b1!3b1!4b1!6i1!8b1!9b1!14b1!20b1!25b1!18m17!3b1!4b1!5b1!6b1!13b1!14b1!17b1!21b1!22b1!27m1!1b0!28b0!32b1!33m1!1b1!34b1!36e2!10m1!8e3!11m1!3e1!14m1!3b0!17b1!20m2!1e3!1e6!24b1!25b1!26b1!27b1!29b1!30m1!2b1!36b1!37b1!39m3!2m2!2i1!3i1!43b1!52b1!54m1!1b1!55b1!56m1!1b1!61m2!1m1!1e1!65m5!3m4!1m3!1m2!1i224!2i298!72m22!1m8!2b1!5b1!7b1!12m4!1b1!2b1!4m1!1e1!4b1!8m10!1m6!4m1!1e1!4m1!1e3!4m1!1e4!3sother_user_google_review_posts__and__hotel_and_vr_partner_review_posts!6m1!1e1!9b1!89b1!98m3!1b1!2b1!3b1!103b1!113b1!114m3!1b1!2m1!1b1!117b1!122m1!1b1!126b1!127b1!26m4!2m3!1i80!2i92!4i8!30m28!1m6!1m2!1i0!2i0!2m2!1i530!2i1080!1m6!1m2!1i1870!2i0!2m2!1i1920!2i1080!1m6!1m2!1i0!2i0!2m2!1i1920!2i20!1m6!1m2!1i0!2i1060!2m2!1i1920!2i1080!34m19!2b1!3b1!4b1!6b1!8m6!1b1!3b1!4b1!5b1!6b1!7b1!9b1!12b1!14b1!20b1!23b1!25b1!26b1!31b1!37m1!1e81!42b1!49m10!3b1!6m2!1b1!2b1!7m2!1e3!2b1!8b1!9b1!10e2!50m4!2e2!3m2!1b1!3b1!61b1!67m5!7b1!10b1!14b1!15m1!1b0!69i767!77b1%26hl%3Den%26tbm%3Dmap",
+   "order_online": "https://www.google.com/searchviewer/42?cvd=CLw_EicKJeICIjIgEhkiF9LX29IPEQoNL2cvMTFtdzczNTJsMxgAOgMI8A0%3D&hl=en-US&gl=us&fo_m=MfohQo559jFvMUOzJVpjPL1YMfZ3bInYwBDuMfaXTPp5KXh-&utm_source=tactile&gei=P4LdarKaNeaGw8cPm6rxwAo&ei=P4LdarKaNeaGw8cPm6rxwAo&fo_s=OA,SOE&opi=79508299&ebb=1&cs=0&foub=mcpp",
+   "thumbnail": "https://lh3.googleusercontent.com/grass-cs/AABkmLf2yrln674_Ubxmbj5gw1djTOzknRSfOQM3XeSYq_uZ_ID91i5nxVJtqDBWLOGmxuhbrFKoOWJSXYOsGeMrmdrznQOp9PdO52vWy-Ndam-OXGZlRiDgoygEYywfnRPbNpPZaXlK=w1000-h1000-c-n"
+  },
+  {
+   "position": 14,
+   "title": "Veracruz All Natural",
+   "place_id": "ChIJ5ST765DLRIYRastGozc0GnY",
+   "gps_coordinates": {
+    "latitude": 30.263021799999997,
+    "longitude": -97.74445209999999
+   },
+   "rating": 4.5,
+   "reviews": 3444,
+   "type": "Mexican restaurant",
+   "types": [
+    "Mexican restaurant"
+   ],
+   "address": "111 E Cesar Chavez St, Austin, TX 78701",
+   "country": "United States",
+   "open_state": "Closed · Opens 7 AM Sun",
+   "hours": "Closed · Opens 7 AM Sun",
+   "operating_hours": {
+    "saturday": "7 AM–10 PM",
+    "sunday": "7 AM–10 PM",
+    "monday": "7 AM–10 PM",
+    "tuesday": "7 AM–10 PM",
+    "wednesday": "7 AM–10 PM",
+    "thursday": "7 AM–10 PM",
+    "friday": "7 AM–10 PM"
+   },
+   "phone": "(512) 665-2713",
+   "website": "http://veracruzallnatural.com/",
+   "description": "Health-conscious taco and juice joint. Simple eatery for tacos with spit-grilled meats or vegetarian options, plus juice and coffee.",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible entrance",
+      "Wheelchair accessible parking lot",
+      "Wheelchair accessible restroom",
+      "Wheelchair accessible seating"
+     ]
+    }
+   ],
+   "order_online": "https://www.google.com/searchviewer/42?cvd=CLw_EicKJeICIjIgEhkiF9LX29IPEQoNL2cvMTFnYmtjbGpmbBgAOgMI8A0%3D&hl=en-US&gl=us&fo_m=MfohQo559jFvMUOzJVpjPL1YMfZ3bInYwBDuMfaXTPp5KXh-&utm_source=tactile&gei=P4LdarKaNeaGw8cPm6rxwAo&ei=P4LdarKaNeaGw8cPm6rxwAo&fo_s=OA,SOE&opi=79508299&ebb=1&cs=0&foub=mcpp",
+   "thumbnail": "https://lh3.googleusercontent.com/grass-cs/AABkmLd15XJKp8K7IH1mAz52OCHi-X3TkQJJOyy7EGRehV4ekmnpI2kM3gPDByWXHuRSlA0E6_FH0N9VvjAnPtRlmDz09CvZDqu4dGVfwwVcR889lUYLfoJCUsCYYodGffEqNssBAMEMQw=w1000-h1000-c-n"
+  },
+  {
+   "position": 15,
+   "title": "Taqueria Las Chismosas",
+   "place_id": "ChIJ-f8pFaa1RIYRJSFWZMH5shI",
+   "gps_coordinates": {
+    "latitude": 30.2662864,
+    "longitude": -97.7375002
+   },
+   "rating": 4.7,
+   "reviews": 220,
+   "type": "Mexican restaurant",
+   "types": [
+    "Mexican restaurant"
+   ],
+   "address": "525 E 6th St, Austin, TX 78701",
+   "country": "United States",
+   "open_state": "Open · Closes 3 AM",
+   "hours": "Open · Closes 3 AM",
+   "operating_hours": {
+    "saturday": "6 PM–3 AM",
+    "sunday": "Closed",
+    "monday": "Closed",
+    "tuesday": "Closed",
+    "wednesday": "Closed",
+    "thursday": "6–9 PM",
+    "friday": "6 PM–3 AM"
+   },
+   "phone": "(830) 355-3840",
+   "website": "https://taqueriaaustin.com/",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible parking lot",
+      "Wheelchair accessible restroom",
+      "Wheelchair accessible seating"
+     ]
+    }
+   ],
+   "thumbnail": "https://lh3.googleusercontent.com/grass-cs/AABkmLc3fSZ10kiKl3uBQcOfKiRpit4MIBLQK1f7vchWOMw-CT_ea38fFLTA1At5jsob6jHWuQReXFprBSFDIUAb3SeKqaug2BreyXp4jYBiUXL4K58_Eu-JeJjbJ8vM5kbN0jpmsvRL=w1000-h1000-c-n"
+  },
+  {
+   "position": 16,
+   "title": "Tacos Guerrero",
+   "place_id": "ChIJa79gEjO0RIYRFArTKm9J_s0",
+   "gps_coordinates": {
+    "latitude": 30.2528799,
+    "longitude": -97.71318319999999
+   },
+   "rating": 4.8,
+   "reviews": 390,
+   "unclaimed_listing": true,
+   "type": "Mexican restaurant",
+   "types": [
+    "Mexican restaurant",
+    "Taco restaurant",
+    "Restaurant"
+   ],
+   "address": "96 N Pleasant Valley Rd, Austin, TX 78702",
+   "country": "United States",
+   "open_state": "Closed · Opens 7 AM Sun",
+   "hours": "Closed · Opens 7 AM Sun",
+   "operating_hours": {
+    "saturday": "7 AM–3 PM",
+    "sunday": "7 AM–4 PM",
+    "monday": "7 AM–4 PM",
+    "tuesday": "7 AM–4 PM",
+    "wednesday": "7 AM–4 PM",
+    "thursday": "7 AM–4 PM",
+    "friday": "7 AM–4 PM"
+   },
+   "phone": "(512) 939-2308",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible entrance",
+      "Wheelchair accessible parking lot",
+      "Wheelchair accessible seating"
+     ]
+    }
+   ],
+   "thumbnail": "https://lh3.googleusercontent.com/grass-cs/AABkmLdz79GqVphTpIlOf-UOgD8PcRhUH-5hwMW-RL0rp16NIBILUDcR5q5pdinmXTMWurzbM7B181MWATTg3SkaFh5Q5Ks5qQv1xy1MPE3nbbEnDtIS6vu4HHVRnjXv3U4q3Rgav14y=w1000-h1000-c-n"
+  },
+  {
+   "position": 17,
+   "title": "El compita tacos",
+   "place_id": "ChIJKXRlDAC1RIYR481rapD8eXI",
+   "gps_coordinates": {
+    "latitude": 30.257216399999997,
+    "longitude": -97.7239694
+   },
+   "rating": 4.8,
+   "reviews": 41,
+   "type": "Mexican restaurant",
+   "types": [
+    "Mexican restaurant"
+   ],
+   "address": "1906 E Cesar Chavez St, Austin, TX 78702",
+   "country": "United States",
+   "open_state": "Closed · Opens 9 AM Wed",
+   "hours": "Closed · Opens 9 AM Wed",
+   "operating_hours": {
+    "saturday": "10 AM–10:30 PM",
+    "sunday": "Closed",
+    "monday": "Closed",
+    "tuesday": "Closed",
+    "wednesday": "9 AM–12:30 AM",
+    "thursday": "9 AM–3 PM",
+    "friday": "10 AM–10:30 PM"
+   },
+   "phone": "(512) 738-3984",
+   "website": "https://order.toasttab.com/online/el-compita-tacos-llc-8911-n-capital-of-texas-hwy-suite-4200-1102",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible parking lot"
+     ]
+    }
+   ],
+   "order_online": "https://www.google.com/searchviewer/42?cvd=CLw_EicKJeICIjIgEhkiF9LX29IPEQoNL2cvMTF4cl9nOWN5cBgAOgMI8A0%3D&hl=en-US&gl=us&fo_m=MfohQo559jFvMUOzJVpjPL1YMfZ3bInYwBDuMfaXTPp5KXh-&utm_source=tactile&gei=P4LdarKaNeaGw8cPm6rxwAo&ei=P4LdarKaNeaGw8cPm6rxwAo&fo_s=OA,SOE&opi=79508299&ebb=1&cs=0&foub=mcpp",
+   "thumbnail": "https://lh3.googleusercontent.com/grass-proxy/AIM7gW3q7AjIWWjo_ce4KlwzjaUizlpI45zUFTT3S9bHl2wpzWUfwK72fDntm0FLqjjYlPashVNhl3oIOgrpSTcRCPEGAyQabtyzm4hANKjB11bs8sRkJSl5AQCzffxDLNmJ6Yqg6JIZQT2zajHsuXI-KeJ38uOpFFpajvEz8BZ8NbyNxzFMWBqiruJRNw=w1000-h1000-c-n"
+  },
+  {
+   "position": 18,
+   "title": "El Primo",
+   "place_id": "ChIJv8UBEuS0RIYRAENUeRLOAR4",
+   "gps_coordinates": {
+    "latitude": 30.2446387,
+    "longitude": -97.7572378
+   },
+   "rating": 4.7,
+   "reviews": 562,
+   "type": "Taco restaurant",
+   "types": [
+    "Taco restaurant"
+   ],
+   "address": "2101 S 1st St, Austin, TX 78704",
+   "country": "United States",
+   "open_state": "Closed · Opens 7:30 AM Mon",
+   "hours": "Closed · Opens 7:30 AM Mon",
+   "operating_hours": {
+    "saturday": "7:30 AM–4 PM",
+    "sunday": "Closed",
+    "monday": "7:30 AM–3 PM",
+    "tuesday": "7:30 AM–3 PM",
+    "wednesday": "7:30 AM–3 PM",
+    "thursday": "7:30 AM–3 PM",
+    "friday": "7:30 AM–3 PM"
+   },
+   "phone": "(512) 227-5060",
+   "website": "https://elprimoxburritofactory.com/",
+   "description": "Breakfast tacos in a simple food truck. Straightforward food truck serving generous breakfast tacos, tortas & burritos with eggs.",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible entrance",
+      "Wheelchair accessible parking lot"
+     ]
+    }
+   ],
+   "order_online": "https://www.google.com/searchviewer/42?cvd=CLw_EicKJeICIjIgEhkiF9LX29IPEQoNL2cvMTFiNl9iYzNyNRgAOgMI8A0%3D&hl=en-US&gl=us&fo_m=MfohQo559jFvMUOzJVpjPL1YMfZ3bInYwBDuMfaXTPp5KXh-&utm_source=tactile&gei=P4LdarKaNeaGw8cPm6rxwAo&ei=P4LdarKaNeaGw8cPm6rxwAo&fo_s=OA,SOE&opi=79508299&ebb=1&cs=0&foub=mcpp",
+   "thumbnail": "https://lh3.googleusercontent.com/grass-cs/AABkmLe6ekDOWgy3DM4999_BS2brK2mC2NQ1DYsSa3Ar-yAL6uZIQCl060-sDRUd5kLgX0fr_OL70064yGxN9JMXi6qTBHHCXVu314T9N_uMomOFVX6kO-8bOR-Bj1E1AumI7p1R9p6S=w1000-h1000-c-n"
+  },
+  {
+   "position": 19,
+   "title": "La traila #7 the best street tacos",
+   "place_id": "ChIJ01lv1ZS1RIYRflUVWLAdpKc",
+   "gps_coordinates": {
+    "latitude": 30.2599718,
+    "longitude": -97.75544269999999
+   },
+   "rating": 5,
+   "reviews": 1,
+   "type": "Mexican restaurant",
+   "types": [
+    "Mexican restaurant"
+   ],
+   "address": "1017 Barton Springs Rd, Austin, TX 78704",
+   "country": "United States",
+   "open_state": "Closed · Opens 6 AM Sun",
+   "hours": "Closed · Opens 6 AM Sun",
+   "operating_hours": {
+    "saturday": "6 AM–10 PM",
+    "sunday": "6 AM–3 PM",
+    "monday": "6 AM–3 PM",
+    "tuesday": "6 AM–3 PM",
+    "wednesday": "6 AM–3 PM",
+    "thursday": "6 AM–10 PM",
+    "friday": "6 AM–10 PM"
+   },
+   "phone": "(512) 368-0306",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible entrance",
+      "Wheelchair accessible parking lot",
+      "Wheelchair accessible seating"
+     ]
+    }
+   ],
+   "order_online": "https://www.google.com/searchviewer/42?cvd=CLw_EicKJeICIjIgEhkiF9LX29IPEQoNL2cvMTF6NjBzdDEzahgAOgMI8A0%3D&hl=en-US&gl=us&fo_m=MfohQo559jFvMUOzJVpjPL1YMfZ3bInYwBDuMfaXTPp5KXh-&utm_source=tactile&gei=P4LdarKaNeaGw8cPm6rxwAo&ei=P4LdarKaNeaGw8cPm6rxwAo&fo_s=OA,SOE&opi=79508299&ebb=1&cs=0&foub=mcpp",
+   "thumbnail": "https://lh3.googleusercontent.com/grass-proxy/AIM7gW0t8IKBtRJETPbZRwq7KdmT_7mpBGO9KsNLkYc00cePobQ23oB0pos0AYvF50IO2pjRbHsNhQw4AQFAYD0vpYMrmHJt2SXfM3J_v4dPodsKlx_eAaBBGfAl20ivZ_JDNqEp-WJ1vUlfqIf2qwLouvIerb1BCObNLEowicin7DqObwlrxLovjjlqUw=w1000-h1000-c-n"
+  },
+  {
+   "position": 20,
+   "title": "Veracruz All Natural",
+   "place_id": "ChIJ5TnXj7O1RIYR1QQH8J_paW8",
+   "gps_coordinates": {
+    "latitude": 30.2629831,
+    "longitude": -97.7138705
+   },
+   "rating": 4.6,
+   "reviews": 2184,
+   "type": "Mexican restaurant",
+   "types": [
+    "Mexican restaurant",
+    "Breakfast restaurant",
+    "Taco restaurant"
+   ],
+   "address": "2505 Webberville Rd, Austin, TX 78702",
+   "country": "United States",
+   "open_state": "Closed · Opens 7 AM Sun",
+   "hours": "Closed · Opens 7 AM Sun",
+   "operating_hours": {
+    "saturday": "7 AM–9 PM",
+    "sunday": "7 AM–9 PM",
+    "monday": "7 AM–3 PM",
+    "tuesday": "7 AM–3 PM",
+    "wednesday": "7 AM–3 PM",
+    "thursday": "7 AM–9 PM",
+    "friday": "7 AM–9 PM"
+   },
+   "website": "https://www.veracruzallnatural.com/",
+   "description": "Food trailer known for tacos al pastor. Simple trailer with picnic tables for tacos with spit-grilled meats or veggie options, plus migas.",
+   "extensions": [
+    {
+     "accessibility": [
+      "Wheelchair accessible entrance",
+      "Wheelchair accessible seating"
+     ]
+    }
+   ],
+   "order_online": "https://www.google.com/searchviewer/42?cvd=CLw_EiYKJOICITIfEhgiFtLX29IPEAoML2cvMXEydnpnc2tyGAA6AwjwDQ%3D%3D&hl=en-US&gl=us&fo_m=MfohQo559jFvMUOzJVpjPL1YMfZ3bInYwBDuMfaXTPp5KXh-&utm_source=tactile&gei=P4LdarKaNeaGw8cPm6rxwAo&ei=P4LdarKaNeaGw8cPm6rxwAo&fo_s=OA,SOE&opi=79508299&ebb=1&cs=0&foub=mcpp",
+   "thumbnail": "https://lh3.googleusercontent.com/grass-cs/AABkmLfAIlGMw6Kj0Bbn81eBlh8GLLmzIub12bN0rv3VFtSNRtBoZbjKnI9NkxqtGZeZM3wudGUBIBsUyAzf8OXUMCgtmD2BB-Ue6H7lnJDxi5OfkxfZNlT12K_8KXmeZETCma2upprQ=w1000-h1000-c-n"
+  }
+ ]
+}

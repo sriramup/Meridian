@@ -77,7 +77,7 @@ export const SERP_TOOLS: Record<string, (i: In, ctx: ToolContext) => Promise<Too
         query: q,
         searched: engine === "google" ? "Google" : engine === "google_news" ? "Google News" : "Google Scholar",
         via: "SerpApi",
-        ...(data.answer ? { answer: { text: data.answer.text, cite: data.answer.n } } : {}),
+        ...(data.answer ? { answer: { text: data.answer.text, cite: data.answer.n, ...(data.answer.kind === "ai_overview" ? { from: "Google AI overview: check figures against the cited sources" } : {}), ...(data.answer.points ? { points: data.answer.points.map((p) => (p.n?.length ? `${p.text} ${p.n.map((n) => `[${n}]`).join("")}` : p.text)) } : {}) } } : {}),
         ...(data.entity ? { entity: { name: data.entity.title, type: data.entity.type, description: data.entity.description, facts: Object.fromEntries(data.entity.facts.map((f) => [f.label, f.value])), cite: data.entity.n } } : {}),
         ...(data.questions?.length ? { people_also_ask: data.questions.map((x) => ({ q: x.q, a: x.a, from: x.domain })) } : {}),
         sources: data.sources.map((s) => ({ n: s.n, title: s.title, domain: s.domain, date: s.date, snippet: s.snippet, url: s.url })),

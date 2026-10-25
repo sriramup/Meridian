@@ -59,10 +59,23 @@ export const WebCard = memo(function WebCard({ data, cached }: { data: WebResult
     <Shell icon={<Globe size={13} strokeWidth={1.9} />} title={<>{label} · “{data.query}”</>} meta={cached ? "cached" : undefined}>
       <div className="space-y-2 px-2.5 py-2">
         {data.answer && (
-          <p className="text-[12.5px] leading-snug text-ink">
-            {data.answer.text}
-            <Cite n={data.answer.n} url={data.answer.url} />
-          </p>
+          <div>
+            {data.answer.kind === "ai_overview" && <div className="mb-0.5 text-[10px] font-medium tracking-wide text-ink-4 uppercase">Google AI overview</div>}
+            <p className="text-[12.5px] leading-snug text-ink">
+              {data.answer.text}
+              <Cite n={data.answer.n} url={data.answer.url} />
+            </p>
+            {data.answer.points && (
+              <ul className="mt-1 space-y-0.5 pl-3 text-[11.5px] leading-snug text-ink-2">
+                {data.answer.points.map((p) => (
+                  <li key={p.text} className="list-disc marker:text-ink-4">
+                    {p.text}
+                    {p.n?.map((n) => <Cite key={n} n={n} url={urlOf(n)} />)}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         )}
         {data.entity && (
           <div>
@@ -162,7 +175,7 @@ export function PlaceRow({ p, index, walkMinutes, onClick, active }: { p: LocalP
               {p.reviews !== undefined && <span className="tabular text-ink-4">({p.reviews.toLocaleString("en-US")})</span>}
             </span>
           )}
-          {p.type && <span className="truncate text-ink-4">{p.type}</span>}
+          {(p.type || p.address) && <span className="min-w-0 truncate text-ink-4">{[p.type, p.address?.split(",")[0]].filter(Boolean).join(" · ")}</span>}
         </span>
         <span className="flex flex-wrap items-center gap-x-1.5 text-[11px]">
           <span className={cx("tabular font-medium", within === false ? "text-ink-3" : "text-ink-2")}>

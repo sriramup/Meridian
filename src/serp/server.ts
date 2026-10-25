@@ -9,7 +9,8 @@
 //   directory (no network, no credits) — tests and the mock-LLM end-to-end runs use it.
 //   Files are <engine>__<words>.json; a search uses the file whose words best match its own, else
 //   <engine>__default.json.
-// - Cache: .cache/serpapi/<sha1 of the normalised request>.json holding the normalised answer, kept
+// - Cache: .cache/serpapi/<sha1 of the normalised request>.json holding the compacted raw response
+//   (re-normalised on every read, so improving the normaliser never costs a new search), kept
 //   MERIDIAN_SERP_TTL_DAYS days (default 7). MERIDIAN_SERP_CACHE overrides the directory.
 // - Cap: one credit per live search, recorded in the ledger (./ledger.ts), hard cap MERIDIAN_SERP_CAP.
 // - Recording: MERIDIAN_SERP_RECORD=<dir> also writes each live raw response, compacted and scrubbed,
@@ -113,23 +114,23 @@ export class SerpService {
     return join(this.cacheDir, `${createHash("sha1").update(key).digest("hex")}.json`);
   }
 
-  private readCache(key: string): SerpData | null {
+  private readCache(req: SerpRequest, key: string): SerpData | null {
     try {
-      const c = JSON.parse(readFileSync(this.cacheFile(key), "utf8")) as { at: number; key: string; data: SerpData };
+      const c = JSON.parse(readFileSync(this.cacheFile(key), "utf8")) as { at: number; key: string; raw?: Record<string, unknown>; data?: SerpData };
       if (c.key !== key) return null;
       if (this.now() - c.at > this.ttlDays * 86_400_000) return null;
-      return c.data;
+      return c.raw ? normalize(req.engine, req.q, c.raw) : (c.data ?? null);
     } catch {
       return null;
     }
   }
 
-  private writeCache(key: string, data: SerpData) {
+  private writeCache(key: string, raw: Record<string, unknown>) {
     try {
       mkdirSync(this.cacheDir, { recursive: true });
       const f = this.cacheFile(key);
       const tmp = `${f}.${process.pid}.tmp`;
-      writeFileSync(tmp, JSON.stringify({ at: this.now(), key, data }));
+      writeFileSync(tmp, JSON.stringify({ at: this.now(), key, raw }));
       renameSync(tmp, f);
     } catch (e) {
       console.error("[serpapi] cache write failed:", (e as Error).message);
@@ -176,7 +177,7 @@ export class SerpService {
       if (!raw) return { ok: false, code: "no_fixture", error: `No SerpApi fixture for ${req.engine} “${req.q}” in ${this.fixtures}.`, credits: this.ledger.snapshot() };
       return { ok: true, data: normalize(req.engine, req.q, raw), cached: false, fixture: true, credits: this.ledger.snapshot() };
     }
-    const hit = this.readCache(key);
+    const hit = this.readCache(req, key);
     if (hit) return { ok: true, data: hit, cached: true, credits: this.ledger.snapshot() };
     if (!this.key) return { ok: false, code: "not_configured", error: "SerpApi is not configured: set SERPAPI_API_KEY in .env.local and restart the server." };
     const pending = this.inflight.get(key);
@@ -208,9 +209,10 @@ export class SerpService {
       this.ledger.commit(req.engine, req.q);
       const e = upstreamError(raw);
       if (e) return { ok: false, code: "upstream", error: this.scrub(`SerpApi: ${e}`), credits: this.ledger.snapshot() };
-      if (this.record) this.recordRaw(req, raw);
-      const data = normalize(req.engine, req.q, raw);
-      this.writeCache(key, data);
+      const compact = compactRaw(raw, this.key ?? undefined);
+      if (this.record) this.recordRaw(req, compact);
+      const data = normalize(req.engine, req.q, compact);
+      this.writeCache(key, compact);
       return { ok: true, data, cached: false, credits: this.ledger.snapshot() };
     } catch (err) {
       return { ok: false, code: "upstream", error: this.scrub(`SerpApi could not be reached: ${(err as Error).message}`), credits: this.ledger.snapshot() };
@@ -222,7 +224,7 @@ export class SerpService {
   private recordRaw(req: SerpRequest, raw: Record<string, unknown>) {
     try {
       mkdirSync(this.record!, { recursive: true });
-      writeFileSync(join(this.record!, `${req.engine}__${slug(req.q)}.json`), JSON.stringify(compactRaw(raw, this.key ?? undefined), null, 1));
+      writeFileSync(join(this.record!, `${req.engine}__${slug(req.q)}.json`), JSON.stringify(raw, null, 1));
     } catch (e) {
       console.error("[serpapi] fixture record failed:", (e as Error).message);
     }

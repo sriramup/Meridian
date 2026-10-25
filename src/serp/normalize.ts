@@ -126,6 +126,8 @@ export function normalizeWeb(engine: Exclude<SerpEngine, "google_maps">, query: 
   if (questions.length) out.questions = questions;
   if (!out.answer) delete out.answer;
   if (!out.entity) delete out.entity;
+  // no answer box: Google's AI overview, its paragraphs and key points cited to its references
+  if (!out.answer && raw.ai_overview?.text_blocks) overviewInto(out, raw.ai_overview);
   // the answer and the entity cite a numbered source like everything else (added when not listed)
   for (const x of [out.answer, out.entity]) {
     if (!x?.url) continue;
@@ -137,6 +139,55 @@ export function normalizeWeb(engine: Exclude<SerpEngine, "google_maps">, query: 
     }
   }
   return out;
+}
+
+/** the source number for a link (listed, or added to the sources) */
+function citeOf(out: WebResult, url: string | undefined, title?: string): number | undefined {
+  if (!url) return undefined;
+  const s = out.sources.find((r) => r.url === url);
+  if (s) return s.n;
+  if (out.sources.length >= MAX_SOURCES + 4) return undefined;
+  const n = out.sources.length + 1;
+  out.sources.push({ n, title: title ?? domainOf(url), url, domain: domainOf(url) });
+  return n;
+}
+
+function overviewInto(out: WebResult, ov: J) {
+  const refs: J[] = Array.isArray(ov.references) ? ov.references : [];
+  const cites = (b: J): number[] => {
+    const ns: (number | undefined)[] = [];
+    for (const i of Array.isArray(b.reference_indexes) ? b.reference_indexes : []) {
+      const r = refs.find((x) => x.index === i);
+      if (r) ns.push(citeOf(out, cleanUrl(r.link), str(r.title)));
+    }
+    for (const l of Array.isArray(b.snippet_links) ? b.snippet_links : []) ns.push(citeOf(out, cleanUrl(l.link), str(l.text)));
+    return [...new Set(ns.filter((n: number | undefined): n is number => !!n))].slice(0, 3) as number[];
+  };
+  const blocks: J[] = ov.text_blocks;
+  // a paragraph that asks the reader something is Google's chat, not an answer
+  const paras = blocks.filter((b) => b.type === "paragraph" && str(b.snippet) && !/\?\s*$/.test(b.snippet));
+  if (!paras.length) return;
+  const first = paras[0];
+  const n = cites(first);
+  const points: { text: string; n?: number[] }[] = [];
+  for (const b of blocks) {
+    if (b.type !== "list" || !Array.isArray(b.list)) continue;
+    for (const it of b.list) {
+      if (points.length >= 6) break;
+      const t = str(it.snippet) ?? str(it.title);
+      if (t) {
+        const c = cites(it);
+        points.push(c.length ? { text: cut(t, 200)!, n: c } : { text: cut(t, 200)! });
+      }
+    }
+  }
+  const text = paras
+    .slice(0, 2)
+    .map((b) => str(b.snippet))
+    .join(" ");
+  const url = n.length ? out.sources.find((s) => s.n === n[0])?.url : undefined;
+  out.answer = { text: cut(text, 500)!, title: "AI overview", kind: "ai_overview", url, domain: url ? domainOf(url) : undefined, n: n[0] };
+  if (points.length) out.answer.points = points;
 }
 
 /** google_maps (type=search): local_results, or a single place_results when the query names one place */
@@ -161,7 +212,7 @@ export function normalizePlaces(query: string, raw: J): PlacesResult {
       types: Array.isArray(r.types) ? r.types.filter((x: unknown) => typeof x === "string").slice(0, 4) : undefined,
       address: str(r.address),
       hours: cut(open, 80),
-      open_now: open ? (/^open\b/i.test(open) || /open 24 hours/i.test(open) ? true : /^(closed|temporarily closed|permanently closed)/i.test(open) ? false : undefined) : undefined,
+      open_now: open ? (/^(open\b|closes soon)/i.test(open) || /open 24 hours/i.test(open) ? true : /^(closed|opens soon|temporarily closed|permanently closed)/i.test(open) ? false : undefined) : undefined,
       price: str(r.price),
       website: cleanUrl(r.website),
       phone: str(r.phone),
@@ -192,9 +243,10 @@ export function upstreamError(raw: J): string | null {
  * identify the account removed (the key never appears in a response, but fixtures are scrubbed anyway).
  */
 export function compactRaw(raw: J, secret?: string): J {
-  const drop = /^(search_metadata|search_parameters|search_information|serpapi_.*|pagination|.*_link|inline_images|images_results|immersive_products|ads|shopping_results|related_searches|top_stories_link|filters|knowledge_graph_search_link|data_id|data_cid|reviews_link|photos_link|provider_id|.*_token)$/;
+  const drop = /^(search_metadata|search_parameters|search_information|serpapi_.*|pagination|.*_link|inline_images|images_results|immersive_products|ads|shopping_results|related_searches|top_stories_link|filters|knowledge_graph_search_link|data_id|data_cid|reviews_link|photos_link|provider_id|.*_token|short_videos|perspectives|favicon|icon|source_icon|source_logo)$/;
   const walk = (v: unknown, depth: number): unknown => {
-    if (typeof v === "string") return secret && v.includes(secret) ? v.split(secret).join("REDACTED") : v;
+    // SerpApi-hosted links name the account's archived search: never kept
+    if (typeof v === "string") return /serpapi\.com/i.test(v) ? "" : secret && v.includes(secret) ? v.split(secret).join("REDACTED") : v;
     if (Array.isArray(v)) return v.slice(0, 20).map((x) => walk(x, depth + 1));
     if (v && typeof v === "object") {
       const o: J = {};
