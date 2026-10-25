@@ -27,7 +27,7 @@ import {
 } from "./ui/kit";
 import { Input } from "./ui/kit";
 import { IconButton, Tip, cx } from "./ui";
-import { CommandSearch } from "./CommandSearch";
+import { PlaceSearch } from "./PlaceSearch";
 import { confirmAction } from "./ConfirmDialog";
 import { promptText } from "./projects/PromptDialog";
 
@@ -47,8 +47,7 @@ export function TopBar() {
       </button>
       <span className="mx-1 h-4 w-px bg-line-2" />
       <ProjectName />
-      {/* place search (place-search swaps the component in this slot) */}
-      <CommandSearch />
+      <PlaceSearch />
       <span className="mx-1 h-4 w-px bg-line-2" />
       <ScenarioMenu />
       <Tip label="Undo" kbd="⌘Z">
