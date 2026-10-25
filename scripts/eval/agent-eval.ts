@@ -58,24 +58,24 @@ export const CASES: Case[] = [
   { id: "nav-designed-street", group: "nav", city: "sandbox", prompt: "take me to the school", expect: { tier: "quick", tools: ["go_to"], maxTools: 2, camera: true, maxWords: 40 }, estimate: 0.02 },
 ];
 
-/** what a good planner does for the design case, as direct tool calls (self-play) */
+/**
+ * What a good planner does for the design case, as direct tool calls (self-play): size the site to the
+ * programme (6,000 residents ≈ 2,400 homes at ~30 homes per gross acre ≈ 80 acres ≈ 570 m square),
+ * carry the whole programme in one design_neighborhood call, then check it.
+ */
+const H = 285;
 export const DESIGN_SELF_PLAY: [string, Record<string, unknown>][] = [
-  // 1. street hierarchy: a main street (avenue) E–W, a connector N–S, edge collectors
-  ["create_street", { path: [[-600, 0], [600, 0]], cls: "secondary", name: "Main Street", parking: true, trees: true, bike: "lane" }],
-  ["create_street", { path: [[0, -500], [0, 500]], cls: "tertiary", name: "Central Avenue", trees: true }],
-  ["create_street", { path: [[-600, -500], [600, -500]], cls: "tertiary", name: "South Road" }],
-  ["create_street", { path: [[-600, 500], [600, 500]], cls: "tertiary", name: "North Road" }],
-  ["create_street", { path: [[-600, -500], [-600, 500]], cls: "tertiary", name: "West Road" }],
-  ["create_street", { path: [[600, -500], [600, 500]], cls: "tertiary", name: "East Road" }],
-  // 2. civic sites before the fabric: school with its grounds, two parks within a 5-minute walk of every home
-  ["create_building", { site: [[60, 220], [200, 220], [200, 320], [60, 320]], typology: "courtyard", floors: 2, use: "education", name: "Elementary School" }],
-  ["create_area", { type: "park", area: [[-380, 180], [-220, 180], [-220, 320], [-380, 320]], name: "North Green", shade_trees: true }],
-  ["create_area", { type: "park", area: [[220, -330], [380, -330], [380, -180], [220, -180]], name: "South Park", shade_trees: true }],
-  // 3. fabric: mixed-use main street blocks, mid-rise near the centre, townhouses at the edges
-  ["generate_district", { area: [[-590, 15], [590, 15], [590, 120], [-590, 120]], style: "midrise", use: "mixed", target_units: 900, max_floors: 6, new_streets: true, block_size: 110 }],
-  ["generate_district", { area: [[-590, -120], [590, -120], [590, -15], [-590, -15]], style: "midrise", use: "mixed", target_units: 900, max_floors: 6, new_streets: true, block_size: 110 }],
-  ["generate_district", { area: [[-590, 130], [590, 130], [590, 490], [-590, 490]], style: "european", target_units: 700, max_floors: 4, new_streets: true, block_size: 120, open_space_ratio: 0.08 }],
-  ["generate_district", { area: [[-590, -490], [590, -490], [590, -130], [-590, -130]], style: "grid", target_units: 500, max_floors: 3, new_streets: true, block_size: 120, open_space_ratio: 0.08 }],
+  [
+    "design_neighborhood",
+    {
+      area: [[-H, -H], [H, -H], [H, H], [-H, H]],
+      population: 6000,
+      facilities: [{ kind: "primary_school" }, { kind: "park", count: 3 }, { kind: "cafe", count: 3 }, { kind: "restaurant", count: 2 }, { kind: "grocery" }],
+      mix: { residential: 0.85, retail: 0.1, office: 0.05 },
+      name: "Self-play Neighborhood",
+    },
+  ],
+  ["critique_design", { area: [[-H, -H], [H, -H], [H, H], [-H, H]], show_issues: true }],
 ];
 
 // ------------------------------------------------------------------ args
@@ -126,8 +126,17 @@ async function runCase(page: Page, c: Case) {
       const id = A.createSession({ mode: mode ?? "edit" });
       await A.send(id, prompt);
       const s = A.agents.getState().sessions[id];
-      await new Promise((r) => setTimeout(r, 2600)); // camera flights are animated
-      const cam1 = map ? map.getCenter().toArray() : null;
+      // camera flights are animated (and slow under software WebGL): wait for the camera to settle
+      let cam1 = map ? map.getCenter().toArray() : null;
+      for (let k = 0; k < 20 && map; k++) {
+        await new Promise((r) => setTimeout(r, 500));
+        const c = map.getCenter().toArray();
+        if (!map.isMoving() && (Math.abs(c[0] - cam0[0]) > 1e-5 || Math.abs(c[1] - cam0[1]) > 1e-5)) {
+          cam1 = c;
+          break;
+        }
+        cam1 = c;
+      }
       const calls: { name: string; input: unknown; status: string; title?: string; detail?: string }[] = [];
       let text = "";
       for (const it of s.items)
@@ -228,7 +237,7 @@ async function main() {
       }
       if (!page || city !== c.city) {
         await page?.close();
-        page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+        page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
         await openCity(page, c.city);
         city = c.city;
       }
@@ -239,7 +248,17 @@ async function main() {
         const calls = await selfPlay(page);
         record = { id: c.id, selfPlay: true, calls, ms: Date.now() - t0 };
       } else {
-        const r = await runCase(page, c);
+        let r: Awaited<ReturnType<typeof runCase>>;
+        try {
+          r = await runCase(page, c);
+        } catch (e) {
+          // a crashed tab (software WebGL under memory pressure): record it and start a fresh page
+          console.log(`   ✗ ${(e as Error).message.split("\n")[0]}`);
+          results.push({ id: c.id, error: (e as Error).message.split("\n")[0] });
+          await page.close().catch(() => {});
+          page = null;
+          continue;
+        }
         const g = grade(c, r);
         const after = await spend();
         const cost = after.total_usd - s.total_usd;
@@ -251,16 +270,13 @@ async function main() {
       }
       if (c.area) {
         // critique the site the agent actually designed (its design_neighborhood area), else the case's
-        const designed = ((record.calls as { name: string; input: any }[] | undefined) ?? []).filter((x) => x.name === "design_neighborhood" && Array.isArray(x.input?.area)).pop();
+        const calls = selfPlayCase ? DESIGN_SELF_PLAY.map(([name, input]) => ({ name, input: input as any })) : ((record.calls as { name: string; input: any }[] | undefined) ?? []);
+        const designed = calls.filter((x) => x.name === "design_neighborhood" && Array.isArray(x.input?.area)).pop();
         const ring = designed?.input.area as number[][] | undefined;
         const bb: [number, number, number, number] = ring ? [Math.min(...ring.map((p) => p[0])), Math.min(...ring.map((p) => p[1])), Math.max(...ring.map((p) => p[0])), Math.max(...ring.map((p) => p[1]))] : c.area;
         record.critique = await critique(page, bb);
         console.log(`   critique: ${JSON.stringify(record.critique)}`);
-        await page.evaluate((bb) => {
-          const R = (window as any).__meridian;
-          const proj = R.map && { c: [(bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2] };
-          if (proj) (window as any).__meridianTools.run("go_to", { place: proj.c, zoom: 15.6 });
-        }, bb);
+        // the design tool frames its site; give the flight time to land
         await page.waitForTimeout(3500);
       }
       if (SHOTS) await page.screenshot({ path: path.join(OUT, `${c.id}.png`), timeout: 240_000 }).catch((e) => console.log(`   (screenshot failed: ${(e as Error).message.split("\n")[0]})`));

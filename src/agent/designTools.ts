@@ -3,7 +3,8 @@
 // commit() of tools.ts (so plan mode, zones, approvals and dry runs apply exactly as for every other
 // edit) and attaches the design's critique so the model can iterate before it reports.
 
-import { polyArea } from "@/geometry/polygon";
+import { polyArea, polyBBox } from "@/geometry/polygon";
+import { frame } from "./navTools";
 import { critiqueArea, designNeighborhood, facilitiesFromText, type FacilityRequest, type NeighborhoodSpec, type Scorecard } from "@/design";
 import { rt } from "@/state/runtime";
 import { useApp } from "@/state/store";
@@ -100,6 +101,8 @@ export const DESIGN_TOOLS: Record<string, (i: In, ctx: ToolContext) => Promise<T
     // the generator's area echo is the input polygon: the model already has it
     if (c.data && typeof c.data === "object") delete (c.data as Record<string, unknown>).area;
     if (c.applied) {
+      // show the result: frame the whole site (no separate camera call needed)
+      frame(polyBBox(poly) as [number, number, number, number]);
       try {
         const sc = critiqueArea(rt().world, poly as Polygon, { maxIssues: 8 });
         c.critique = scorecardBrief(sc);

@@ -10,6 +10,7 @@ import { useApp } from "@/state/store";
 import { LocalProjection } from "@/world/projection";
 import type { AreaType, Building, Entity, Place, Polygon, Street, StreetNode, Vec2 } from "@/world/types";
 import { streetBand } from "@/world/ops/validate";
+import { fmtAcres, fmtLen } from "@/lib/units";
 
 export type Loc = Vec2 | string;
 export type AreaRef = Vec2[] | string | { center: Vec2; radius: number };
@@ -401,14 +402,14 @@ export function resolveArea(a: AreaRef | undefined): { poly: Polygon; label: str
     const b = viewBounds();
     const c = viewCenter();
     const r = Math.min(400, Math.max(120, Math.min(b[2] - b[0], b[3] - b[1]) / 3));
-    return { poly: [circle(c, r, 40)], label: `view (r=${Math.round(r)} m)` };
+    return { poly: [circle(c, r, 40)], label: `view (${fmtLen(r)} radius)` };
   }
   if (Array.isArray(a)) {
     const poly = normalizePoly([a.map((p) => [Number(p[0]), Number(p[1])] as Vec2)]);
     if (!isValidPoly(poly)) throw new Error("Polygon is degenerate");
-    return { poly, label: `polygon (${Math.round(polyArea(poly))} m²)` };
+    return { poly, label: `polygon (${fmtAcres(polyArea(poly))})` };
   }
-  if (typeof a === "object") return { poly: [circle(a.center, a.radius, 40)], label: `circle r=${a.radius} m` };
+  if (typeof a === "object") return { poly: [circle(a.center, a.radius, 40)], label: `circle (${fmtLen(a.radius)} radius)` };
   if (HERE.test(a.trim())) return resolveArea(undefined);
   const ids = a.split(/[,\s]+/).filter((x) => /^[a-z]+:/.test(x));
   if (ids.length && ids.every((id) => w.get(id))) {
@@ -434,7 +435,7 @@ export function resolveArea(a: AreaRef | undefined): { poly: Polygon; label: str
     }
     // neighbourhoods mapped only as a label point: an explicit, labelled approximation
     const r = m[0].type === "neighbourhood" ? 400 : 250;
-    return { poly: [circle(m[0].p, r, 40)], label: `${m[0].name} (approximate: ${r} m around its map label — no official boundary in the data)` };
+    return { poly: [circle(m[0].p, r, 40)], label: `${m[0].name} (approximate: ${fmtLen(r)} around its map label — no official boundary in the data)` };
   }
   throw new Error(`Could not resolve area “${a}”`);
 }

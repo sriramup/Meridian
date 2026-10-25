@@ -11,7 +11,7 @@
 //                               navigation: go_to {place: X} → "Here's <name>." (or the suggestions when nothing matches)
 //   "design … neighbourhood / district / town" | "neighbourhood for"
 //                               design flow: design_neighborhood when the server offers it (site sized to the programme
-//                               at ~30 homes per gross acre, facilities = the request's words) → go_to the site → summary
+//                               at ~30 homes per gross acre, facilities = the request's words; it frames itself) → summary
 //                               with homes, residents, jobs, civic uses and the critique score; without that tool:
 //                               streets → school + parks → generate_district ×2 (parallel calls per turn) → summary
 //   "lavaca"                    legacy Austin flow: resolve Lavaca & 4th → vacant parcel → 30-storey tower → PM traffic
@@ -159,9 +159,8 @@ function designFlow(body, r, home) {
     const side = Math.round(Math.sqrt((homes / 30) * 4047) / 10) * 10;
     const h = side / 2;
     phases.push({ say: "Designing the neighborhood: street hierarchy, civic sites, then the building fabric.", calls: [["design_neighborhood", { area: P([[-h, -h], [h, -h], [h, h], [-h, h]]), homes: Math.round(homes), facilities: req, name: "Mock Neighborhood" }]] });
-    phases.push({ say: "", calls: [["go_to", { place: [cx, cy], zoom: 15.6 }]] });
     const done = r.length;
-    if (done < 2) return { delay: 400, turn: [phases[done].calls.flatMap(([n, i], j) => call(n, i, j === 0 && phases[done].say ? phases[done].say : undefined)), "tool_use"] };
+    if (done < 1) return { delay: 400, turn: [phases[done].calls.flatMap(([n, i], j) => call(n, i, j === 0 && phases[done].say ? phases[done].say : undefined)), "tool_use"] };
     const d = r[0].data ?? {};
     if (r[0].error) return { delay: 200, turn: say(`The design failed: ${String(d.error ?? "").slice(0, 200)}`) };
     const c = d.critique ?? {};
