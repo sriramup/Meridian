@@ -191,9 +191,9 @@ export const STARTERS: Starter[] = [
       "Find where people on foot are hottest at 3 PM in July around Republic Square, then plant street trees, add green roofs nearby and a shaded corridor to Waterloo Park, and compare the heat before and after",
   },
   {
-    label: "Tower and transit on a parking lot",
+    label: "Turn parking lots into housing",
     prompt:
-      "Rank the surface parking lots within a 10-minute walk of Republic Square, put a 30-story mixed-use tower on the best one with massing that keeps the square in daylight, and add a bus route linking it to the nearest rail stop",
+      "Replace the largest surface parking lots downtown with mid-rise apartment buildings over ground-floor shops, step the massing down toward neighboring low-rise blocks, add green roofs, and check how much shade the new buildings cast on nearby streets at noon",
   },
 ];
 

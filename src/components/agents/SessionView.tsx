@@ -115,10 +115,10 @@ function Welcome({ starters, onPick }: { starters: boolean; onPick: (t: string) 
             <button
               key={x.label}
               onClick={() => onPick(x.prompt)}
-              className="w-full rounded-[8px] border border-line px-3 py-2.5 text-left outline-none transition-colors hover:border-rose/40 hover:bg-paper-3/60 focus-visible:ring-2 focus-visible:ring-rose/35"
+              title={x.prompt}
+              className="w-full rounded-[8px] border border-line px-3 py-2.5 text-left text-[13px] font-medium text-ink outline-none transition-colors hover:border-rose/40 hover:bg-paper-3/60 focus-visible:ring-2 focus-visible:ring-rose/35"
             >
-              <span className="block text-[13px] font-medium text-ink">{x.label}</span>
-              <span className="mt-0.5 line-clamp-2 text-[12px] leading-[1.45] text-ink-3">{x.prompt}</span>
+              {x.label}
             </button>
           ))}
         </div>

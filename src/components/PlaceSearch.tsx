@@ -336,10 +336,10 @@ export function PlaceSearch() {
   // a fixed slot (narrower beside the agent, an icon on a small map); while typing the field
   // widens over its neighbours instead of pushing them
   return (
-    <div className={cx("relative h-7 shrink-0", agentOpen ? "w-[150px]" : "w-[220px]", "@max-[900px]:w-[130px] @max-[740px]:w-7")}>
+    <div className={cx("relative h-7 shrink-0", agentOpen ? "w-[220px]" : "w-[320px]", "@max-[900px]:w-[170px] @max-[740px]:w-7")}>
       <PlaceHighlight />
       <Command shouldFilter={false} value={sel} onValueChange={setSel} loop={false} label="Search places" className="size-auto overflow-visible">
-        <label className="absolute inset-y-0 left-0 z-10 flex w-full items-center gap-1.5 rounded-full border border-line-2 bg-paper/80 px-2.5 transition-[width] focus-within:w-[300px] focus-within:border-rose/50 focus-within:bg-paper @max-[740px]:px-[7px]">
+        <label className="absolute inset-y-0 left-0 z-10 flex w-full items-center gap-1.5 rounded-full border border-line-2 bg-paper/80 px-2.5 transition-[width] focus-within:w-[400px] focus-within:border-rose/50 focus-within:bg-paper @max-[740px]:px-[7px]">
           <Search size={13} className="shrink-0 text-ink-3" />
           <Cmdk.Input
             ref={input}
@@ -364,7 +364,7 @@ export function PlaceSearch() {
           />
           {!q && <kbd className="rounded-[3px] border border-line-2 px-1 font-mono text-[10px] text-ink-4 @max-[900px]:hidden">/</kbd>}
         </label>
-        <div className={cx("kit-surface absolute top-9 left-0 z-50 w-[min(340px,calc(100cqw-120px))]", !listOpen && "hidden")} onMouseDown={(e) => e.preventDefault()}>
+        <div className={cx("kit-surface absolute top-9 left-0 z-50 w-[min(400px,calc(100cqw-120px))]", !listOpen && "hidden")} onMouseDown={(e) => e.preventDefault()}>
           <CommandList className="max-h-none p-1">{body}</CommandList>
         </div>
       </Command>
