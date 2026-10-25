@@ -452,6 +452,12 @@ export async function initProjects(opts: { backend?: ProjectBackend } = {}): Pro
   setList(list);
   useProjects.setState({ loaded: true });
   if (typeof window === "undefined") return;
+  // agent sessions are kept per project: stop the old project's agents before its world goes
+  void import("@/agent/sessions").then((m) => {
+    m.setProjectKeyProvider(currentProjectId);
+    onProjectLeave(() => m.stopAll());
+    onProjectChange(() => m.ensureCity());
+  });
   const q = new URLSearchParams(window.location.search);
   const pick = pickInitial(list, { project: q.get("project"), city: cityFromUrl(), last: await b.kvGet<string>("lastProject") });
   if ("open" in pick) await openProject(pick.open, { history: "replace" });
