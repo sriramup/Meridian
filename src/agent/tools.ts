@@ -75,6 +75,8 @@ export interface ToolContext {
   onCommit?: (cs: Changeset) => void;
   /** set_zone tool: resolve and store the session zone; returns the tool result */
   setZone?: (input: { zone?: unknown; clear?: boolean }) => ToolOutput;
+  /** the user's message that started this run (tools that read intent, e.g. a design brief, fall back to it) */
+  request?: string;
   /** set by executeTool while an edit holds the world lock: lets commit() release it while waiting for an approval */
   lock?: { release(): void; reacquire(): Promise<void> };
 }

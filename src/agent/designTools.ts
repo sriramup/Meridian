@@ -74,7 +74,8 @@ export const DESIGN_TOOLS: Record<string, (i: In, ctx: ToolContext) => Promise<T
       replaceExisting: i.replace_existing,
       palette: i.palette,
       // the brief's words carry its character (urban / suburban, density, shops)
-      brief: [i.brief, typeof i.facilities === "string" ? i.facilities : undefined].filter(Boolean).join(". ") || undefined,
+      // (the user's own request when the model passed no brief, so "high-density" or "walkable" is never lost)
+      brief: [i.brief ?? ctx.request, typeof i.facilities === "string" ? i.facilities : undefined].filter(Boolean).join(". ") || undefined,
       fill: i.fill,
     };
     let res: OpResult;
