@@ -57,7 +57,12 @@ export function navigationTarget(text: string): string | null {
 const SMALLTALK = /^(hi|hello|hey|thanks|thank you|ok|okay|cool|great|nice|yes|no|sure|got it|perfect)\b[\s!.,]*$/i;
 
 /** classify one request (plan mode never uses the quick tier for edit-like requests, since those are proposals) */
-export function routeRequest(text: string, opts: { mode?: "plan" | "edit"; hasSelection?: boolean; /** the composer's Search toggle */ search?: boolean } = {}): Route {
+export function routeRequest(text: string, opts: { mode?: "plan" | "edit"; hasSelection?: boolean; /** the composer's Search toggle */ search?: boolean; hasImage?: boolean } = {}): Route {
+  // an attached sketch / photo is read and built: never the quick tier, whatever the words
+  if (opts.hasImage) {
+    const r = routeRequest(text, { ...opts, hasImage: false });
+    return r.tier === "quick" ? { tier: "standard", reason: "image attached" } : r;
+  }
   const t = text.trim();
   const words = t.split(/\s+/).filter(Boolean).length;
   if (!t) return { tier: "quick", reason: "empty" };
