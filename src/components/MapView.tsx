@@ -190,11 +190,12 @@ export function MapView() {
     // no hover picking (a GPU read-back) while the camera moves; clicks after it settles still pick
     map.on("movestart", () => {
       moving = loader.moving = true;
-      overlay.setProps({ _pickable: false } as never);
+      // straight to deck.gl: the overlay's setProps would re-send every prop (views, layers…)
+      deck?.setProps({ _pickable: false });
     });
     map.on("moveend", () => {
       moving = loader.moving = false;
-      overlay.setProps({ _pickable: true } as never);
+      deck?.setProps({ _pickable: true });
     });
     // tilt opens up as the camera comes down: from 60° over the whole city to 85° near the street,
     // so a zoomed-out view can't be tipped into a horizon of sky and grazing roofs. Fly-throughs
@@ -415,6 +416,7 @@ function bandsOf(o: { ground: Layer[]; top: Layer[] }, slots: ReturnType<typeof 
 interface DeckInternals {
   _onPointerMove: (ev: { type?: string }) => void;
   redraw: (reason?: string) => void;
+  setProps: (p: { _pickable: boolean }) => void;
   device?: { statsManager?: { getStats: (n: string) => { get: (n: string) => { count: number } | undefined } | undefined } };
 }
 
