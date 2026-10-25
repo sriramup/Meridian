@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, CircleDot, Combine, Layers3, Leaf, Minus, Plus, Route, Trash2, X, Bike, BusFront, Footprints, ArrowLeftRight, MousePointer2, TramFront } from "lucide-react";
+import { AlertTriangle, Building2, ChevronDown, CircleDot, Combine, Layers3, Leaf, Minus, Plus, Route, Trash2, X, Bike, BusFront, Footprints, ArrowLeftRight, MousePointer2, TramFront } from "lucide-react";
 import { useMemo, useState } from "react";
 import { carriagewayWidth, DEFAULT_WIDTH, hasSidewalk, laneCount, sectionWidth } from "@/geometry/crossSection";
 import { TYPOLOGIES, type Typology } from "@/geometry/massing";
@@ -21,7 +21,7 @@ import type { SectionEdit } from "@/world/ops/sectionEdit";
 import { checkBuilding } from "@/world/ops/validate";
 import type { Area, AreaType, Building, Entity, Parcel, Street, StreetNode, Strip, StripType, TransitRoute, Tree } from "@/world/types";
 import { NumberField, Segmented, SelectField, Slider, Switch } from "@/components/ui/kit";
-import { Button, IconButton, Provenance, Stat, cx } from "./ui";
+import { Button, IconButton, Provenance, ProvenanceDot, Stat, cx } from "./ui";
 import { LibraryInspector, hasLib } from "./library/LibraryInspector";
 
 const user = { author: "user" as const };
@@ -34,9 +34,9 @@ export function Inspector() {
   if (!ents.length) return null;
   const close = () => useApp.getState().setSelection([]);
   return (
-    <div className="pointer-events-auto flex max-h-full w-[320px] flex-col overflow-hidden chrome">
+    <div className="panel-in-right pointer-events-auto flex max-h-full w-[320px] flex-col overflow-hidden chrome">
       {ents.length === 1 ? (
-        <Single e={ents[0]} onClose={close} />
+        <Single key={ents[0].id} e={ents[0]} onClose={close} />
       ) : (
         <Multi ents={ents} onClose={close} />
       )}
@@ -52,10 +52,13 @@ function Header({ icon, kind, title, onClose, badge, onRename }: { icon: React.R
     if (onRename && draft.trim() !== title) onRename(draft);
   };
   return (
-    <div className="flex items-start gap-2 border-b border-line px-3 py-2.5">
-      <span className="mt-0.5 text-ink-3">{icon}</span>
+    <div className="flex items-center gap-3 border-b border-line px-4 py-3">
+      <span className="grid size-8 shrink-0 place-items-center rounded-[8px] border border-line bg-paper-2 text-ink-2">{icon}</span>
       <div className="min-w-0 flex-1">
-        <div className="font-legend text-[12.5px] leading-none text-ink-3">{kind}</div>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className="truncate font-legend text-[11px] leading-4 text-ink-4 first-letter:uppercase">{kind}</span>
+          {badge}
+        </div>
         {editing ? (
           <input
             autoFocus
@@ -66,12 +69,12 @@ function Header({ icon, kind, title, onClose, badge, onRename }: { icon: React.R
               if (e.key === "Enter") commit();
               else if (e.key === "Escape") setEditing(false);
             }}
-            className="font-display h-6 w-full rounded-[4px] border border-line-2 bg-paper px-1 text-[16px] leading-tight font-semibold text-ink outline-none"
+            className="font-display -ml-1 h-6 w-full rounded-[5px] border border-line-2 bg-field px-1 text-[15px] leading-tight font-semibold text-ink outline-none focus:border-rose/60"
           />
         ) : (
           <div
-            className={cx("font-display truncate text-[17px] leading-tight font-semibold text-ink", onRename && "cursor-text rounded-[4px] hover:bg-paper-3")}
-            title={onRename ? "Rename" : undefined}
+            className={cx("font-display -ml-1 truncate rounded-[5px] px-1 text-[15px] leading-6 font-semibold text-ink", onRename && "cursor-text hover:bg-paper-3")}
+            title={onRename ? "Click to rename" : undefined}
             onClick={() => {
               if (!onRename) return;
               setDraft(title.startsWith("Unnamed") ? "" : title);
@@ -82,10 +85,77 @@ function Header({ icon, kind, title, onClose, badge, onRename }: { icon: React.R
           </div>
         )}
       </div>
-      {badge}
-      <IconButton size="sm" onClick={onClose} className="-mr-1">
+      <IconButton size="sm" onClick={onClose} aria-label="Close" className="-mr-1.5 self-start">
         <X size={14} />
       </IconButton>
+    </div>
+  );
+}
+
+/** headline figures in a ruled grid; a trailing unit ("73 ft") is set smaller */
+function Stats({ items, cols = 3 }: { items: { label: string; value: React.ReactNode }[]; cols?: number }) {
+  return (
+    <div className="mx-4 mt-3.5 grid gap-px overflow-hidden rounded-[8px] border border-line bg-line" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+      {items.map((x) => {
+        const m = typeof x.value === "string" ? /^([−+\-]?[\d.,]+k?)\s+(.+)$/.exec(x.value) : null;
+        return (
+          <div key={x.label} className="min-w-0 bg-paper-2 px-2.5 py-2">
+            <div className="truncate text-[10.5px] leading-4 text-ink-4">{x.label}</div>
+            <div className="tabular mt-0.5 truncate text-[14px] leading-5 font-semibold text-ink">
+              {m ? (
+                <>
+                  {m[1]}
+                  <span className="ml-0.5 text-[11px] font-medium text-ink-3">{m[2]}</span>
+                </>
+              ) : (
+                x.value
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** a titled block of the panel, ruled off from the one above */
+function Section({ title, right, children, className }: { title?: string; right?: React.ReactNode; children: React.ReactNode; className?: string }) {
+  return (
+    <div className={cx("border-t border-line px-4 py-3", className)}>
+      {(title || right) && (
+        <div className="mb-2 flex items-center justify-between gap-2">
+          {title && <span className="font-legend text-[11px] leading-4 font-medium text-ink-3">{title}</span>}
+          {right}
+        </div>
+      )}
+      {children}
+    </div>
+  );
+}
+
+/** checks that failed, folded to a count when there are several */
+function Issues({ issues }: { issues: { message: string; severity: string }[] }) {
+  const [open, setOpen] = useState(issues.length <= 1);
+  if (!issues.length) return null;
+  const errors = issues.some((i) => i.severity === "error");
+  return (
+    <div className={cx("mx-4 mt-3 overflow-hidden rounded-[8px] border", errors ? "border-bad/30 bg-bad-2/50" : "border-warn/30 bg-warn-2/50")}>
+      <button onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 px-2.5 py-2 text-left">
+        <AlertTriangle size={13} className={errors ? "text-bad" : "text-warn"} />
+        <span className={cx("flex-1 text-[11.5px] font-medium", errors ? "text-bad" : "text-warn")}>
+          {issues.length} {issues.length === 1 ? "issue" : "issues"} to resolve
+        </span>
+        <ChevronDown size={13} className={cx("text-ink-4 transition-transform duration-200", open && "rotate-180")} />
+      </button>
+      {open && (
+        <ul className="space-y-1.5 px-2.5 pb-2.5 pl-[30px]">
+          {issues.map((i, k) => (
+            <li key={k} className="list-disc text-[11.5px] leading-snug text-ink-2 marker:text-ink-4">
+              {i.message}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -120,14 +190,17 @@ function Single({ e, onClose }: { e: Entity; onClose: () => void }) {
   }
 }
 
-function Row({ k, v, prov }: { k: string; v: React.ReactNode; prov?: string }) {
+function Row({ k, v, prov, hint }: { k: string; v: React.ReactNode; prov?: string; hint?: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-3 py-[3px] text-[12px]">
-      <span className="text-ink-3">{k}</span>
-      <span className="flex items-center gap-1.5 tabular text-right text-ink">
-        {v}
-        {prov && <Provenance kind={prov} />}
-      </span>
+    <div className="border-b border-line/70 py-[7px] last:border-b-0">
+      <div className="flex items-center justify-between gap-4 text-[12px] leading-4">
+        <span className="shrink-0 text-ink-3">{k}</span>
+        <span className="flex min-w-0 items-center gap-1.5 text-right text-ink">
+          <span className="tabular truncate">{v}</span>
+          {prov && <ProvenanceDot kind={prov} />}
+        </span>
+      </div>
+      {hint && <div className="mt-1 text-right text-[10.5px] leading-snug text-ink-4">{hint}</div>}
     </div>
   );
 }
@@ -143,66 +216,54 @@ function BuildingPanel({ b, onClose }: { b: Building; onClose: () => void }) {
   const par = b.parcelId ? R.world.get<Parcel>(b.parcelId) : undefined;
   return (
     <>
-      <Header icon={<Building2 size={15} />} kind={`${b.use} building`} title={b.name ?? b.address ?? "Unnamed building"} onClose={onClose} onRename={rename([b.id])} badge={b.createdBy ? <Provenance kind="proposed" /> : b.historic ? <span className="rounded-[4px] bg-paper-3 px-1.5 py-0.5 text-[10.5px] font-medium text-ink-2">Historic</span> : undefined} />
+      <Header icon={<Building2 size={15} />} kind={`${b.use} building`} title={b.name ?? b.address ?? "Unnamed building"} onClose={onClose} onRename={rename([b.id])} badge={b.createdBy ? <Provenance kind="proposed" /> : b.historic ? <span className="inline-flex h-[17px] items-center rounded-full bg-paper-3 px-1.5 text-[10px] font-medium text-ink-2">Historic</span> : undefined} />
       <div className="scroll-thin overflow-y-auto">
-        <div className="grid grid-cols-3 gap-3 px-3 pt-3">
-          <Stat label="Height" value={fmtFt(b.height, 0)} />
-          <Stat label="Floors" value={b.floors} />
-          <Stat label="Floor area" value={`${fmtNum(toSqFt(p.gfa) / 1000, toSqFt(p.gfa) >= 1e5 ? 0 : 1)}k sq ft`} />
-          <Stat label="Homes" value={p.units >= 1 ? fmt.int(p.units) : "—"} />
-          <Stat label="Residents" value={p.residents >= 1 ? fmt.int(p.residents) : "—"} />
-          <Stat label="Jobs" value={p.jobs >= 1 ? fmt.int(p.jobs) : "—"} />
-        </div>
-        <div className="px-3 pt-3 pb-1">
+        <Stats
+          items={[
+            { label: "Height", value: fmtFt(b.height, 0) },
+            { label: "Floors", value: String(b.floors) },
+            { label: "Floor area", value: `${fmtNum(toSqFt(p.gfa) / 1000, toSqFt(p.gfa) >= 1e5 ? 0 : 1)}k sq ft` },
+            { label: "Homes", value: p.units >= 1 ? fmt.int(p.units) : "—" },
+            { label: "Residents", value: p.residents >= 1 ? fmt.int(p.residents) : "—" },
+            { label: "Jobs", value: p.jobs >= 1 ? fmt.int(p.jobs) : "—" },
+          ]}
+        />
+        <Issues issues={issues} />
+        <Section title="Details" className="mt-3.5">
           <Row k="Height source" v={b.heightSource === "measured" ? "LiDAR 2023" : b.heightSource} prov={b.heightSource} />
           <Row k="Use" v={Object.entries(b.program).map(([u, s]) => `${u} ${Math.round((s ?? 0) * 100)}%`).join(", ")} prov={b.useSource} />
           {b.existing && <Row k="Occupancy" v="Census / LODES" prov="estimated" />}
           <Row k="Footprint" v={fmtSqFt(polyArea(b.footprint))} />
           <Row k="Volumes" v={b.masses.map((m) => m.role).filter((r, i, a) => a.indexOf(r) === i).join(" · ")} />
           {par && <Row k="Zoning" v={par.zoning} />}
-          <Row k="Height limit" v={hl.limit != null ? fmtFt(hl.limit, 0) : "none (FAR-governed)"} />
-          {hl.source.length > 0 && <div className="pb-1 text-right text-[10.5px] text-ink-4">{hl.source[hl.source.length - 1]}</div>}
-        </div>
-        {issues.length > 0 && (
-          <div className="mx-3 mb-2 space-y-1 rounded-[6px] bg-warn-2/70 px-2.5 py-2">
-            {issues.map((i, k) => (
-              <div key={k} className={cx("text-[11.5px] leading-snug", i.severity === "error" ? "text-bad" : "text-ink-2")}>
-                {i.message}
-              </div>
-            ))}
-          </div>
-        )}
-        <div className="border-t border-line px-3 py-3">
-          <div className="mb-2 font-legend text-[12.5px] leading-none text-ink-3">Edit</div>
-          <div className="flex items-center gap-2">
-            <span className="w-14 text-[12px] text-ink-3">Floors</span>
-            <div className="w-28">
-              <NumberField value={floors} onChange={setFloors} min={1} max={150} step={1} unit="floors" aria-label="Floors" />
-            </div>
-            <Button size="sm" className="ml-auto" disabled={floors === b.floors} onClick={() => applyOp(modifyBuildings(R.world, { ids: [b.id], floors }, user))}>
+          <Row k="Height limit" v={hl.limit != null ? fmtFt(hl.limit, 0) : "None (FAR-governed)"} hint={hl.source.length > 0 ? hl.source[hl.source.length - 1] : undefined} />
+        </Section>
+        <Section title="Edit">
+          <div className="grid grid-cols-[64px_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-2">
+            <span className="text-[12px] text-ink-3">Floors</span>
+            <NumberField value={floors} onChange={setFloors} min={1} max={150} step={1} unit="floors" aria-label="Floors" />
+            <Button size="sm" className="w-[76px] justify-center" disabled={floors === b.floors} onClick={() => applyOp(modifyBuildings(R.world, { ids: [b.id], floors }, user))}>
               Apply
             </Button>
-          </div>
-          <div className="mt-2 flex items-center gap-2">
-            <span className="w-14 text-[12px] text-ink-3">Massing</span>
-            <SelectField value={typo} onValueChange={(v) => setTypo(v as Typology)} options={TYPOLOGIES.map((t) => ({ value: t, label: t.replace(/_/g, " ") }))} aria-label="Massing" className="min-w-0 flex-1" />
-            <Button size="sm" onClick={() => applyOp(modifyBuildings(R.world, { ids: [b.id], massing: { typology: typo, keepGFA: true } }, user))} title="Regenerate the form on this footprint, holding floor area">
+            <span className="text-[12px] text-ink-3">Massing</span>
+            <SelectField value={typo} onValueChange={(v) => setTypo(v as Typology)} options={TYPOLOGIES.map((t) => ({ value: t, label: (t.charAt(0).toUpperCase() + t.slice(1)).replace(/_/g, " ") }))} aria-label="Massing" className="min-w-0" />
+            <Button size="sm" className="w-[76px] justify-center" onClick={() => applyOp(modifyBuildings(R.world, { ids: [b.id], massing: { typology: typo, keepGFA: true } }, user))} title="Regenerate the form on this footprint, holding floor area">
               Reshape
             </Button>
           </div>
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            <Button size="sm" onClick={() => applyOp(modifyBuildings(R.world, { ids: [b.id], setbacks: { aboveFloor: Math.max(3, Math.round(b.floors * 0.4)), depth: 3 } }, user))}>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <Button size="sm" className="justify-center" onClick={() => applyOp(modifyBuildings(R.world, { ids: [b.id], setbacks: { aboveFloor: Math.max(3, Math.round(b.floors * 0.4)), depth: 3 } }, user))}>
               <Layers3 size={13} /> Upper setbacks
             </Button>
-            <Button size="sm" onClick={() => applyOp(modifyBuildings(R.world, { ids: [b.id], greenRoof: !b.greenRoof }, user))}>
-              <Leaf size={13} /> {b.greenRoof ? "Remove green roof" : "Green roof"}
-            </Button>
-            <Button size="sm" tone="danger" onClick={() => applyOp(removeBuildings(R.world, [b.id], user))}>
-              <Trash2 size={13} /> Demolish
+            <Button size="sm" className="justify-center" active={!!b.greenRoof} onClick={() => applyOp(modifyBuildings(R.world, { ids: [b.id], greenRoof: !b.greenRoof }, user))}>
+              <Leaf size={13} /> Green roof
             </Button>
           </div>
-        </div>
-        <div className="border-t border-line px-3 py-2 text-[10.5px] leading-snug text-ink-4">{b.source}</div>
+          <Button size="sm" tone="ghost" className="mt-2 w-full justify-center text-bad hover:bg-bad-2 hover:text-bad" onClick={() => applyOp(removeBuildings(R.world, [b.id], user))}>
+            <Trash2 size={13} /> Demolish building
+          </Button>
+        </Section>
+        <div className="border-t border-line px-4 py-2.5 text-[10.5px] leading-snug text-ink-4">{b.source}</div>
       </div>
     </>
   );
@@ -240,18 +301,21 @@ function StreetPanel({ s, onClose }: { s: Street; onClose: () => void }) {
     <>
       <Header icon={<Route size={15} />} kind={`${s.cls} street${s.oneway ? " · one-way" : ""}`} title={s.name ?? "Unnamed street"} onClose={onClose} onRename={rename(sameStreet.map((x) => x.id))} badge={s.createdBy ? <Provenance kind="proposed" /> : undefined} />
       <div className="scroll-thin overflow-y-auto">
-        <div className="grid grid-cols-4 gap-2 px-3 pt-3">
-          <Stat label="ROW" value={fmtFt(W0, 0)} />
-          <Stat label="Curb–curb" value={fmtFt(carriagewayWidth(s.section), 0)} />
-          <Stat label="Lanes" value={`${laneCount(s.section, 1)}${s.oneway ? "" : `+${laneCount(s.section, -1)}`}`} />
-          <Stat label="Length" value={fmtLen(polyLength(s.path))} />
-        </div>
-        <div className="flex items-center justify-between px-3 pt-3">
-          <span className="font-legend text-[12.5px] leading-none text-ink-3">Cross-section</span>
+        <Stats
+          cols={4}
+          items={[
+            { label: "ROW", value: fmtFt(W0, 0) },
+            { label: "Curb–curb", value: fmtFt(carriagewayWidth(s.section), 0) },
+            { label: "Lanes", value: `${laneCount(s.section, 1)}${s.oneway ? "" : `+${laneCount(s.section, -1)}`}` },
+            { label: "Length", value: fmtLen(polyLength(s.path)) },
+          ]}
+        />
+        <div className="flex items-center justify-between px-4 pt-4">
+          <span className="font-legend text-[11px] leading-4 font-medium text-ink-3">Cross-section</span>
           <Provenance kind={s.sectionSource} />
         </div>
         {/* section diagram */}
-        <div className="px-3 pt-2">
+        <div className="px-4 pt-2">
           <div className="flex h-12 w-full overflow-hidden rounded-[5px] ring-1 ring-line">
             {strips.map((x, i) => (
               <button
@@ -274,14 +338,14 @@ function StreetPanel({ s, onClose }: { s: Street; onClose: () => void }) {
           </div>
         </div>
         {s.sidewalks && (
-          <div className="px-3 pt-2">
+          <div className="px-4 pt-2">
             {(["left", "right"] as const).map((side) => (
               <Row key={side} k={`Sidewalk ${side}`} v={sidewalkLabel(s, side)} prov={s.sidewalks?.[side] ? "measured" : undefined} />
             ))}
           </div>
         )}
         {sel !== null && strips[sel] && (
-          <div className="mx-3 mt-2 flex items-center gap-1.5 rounded-[6px] bg-paper-2 p-2">
+          <div className="mx-4 mt-2 flex items-center gap-1.5 rounded-[8px] border border-line bg-paper-2 p-1.5">
             <SelectField value={strips[sel].type} onValueChange={(v) => setStrips(strips.map((x, k) => (k === sel ? { ...x, type: v as StripType, width: DEFAULT_WIDTH[v as StripType] } : x)))} options={(Object.keys(STRIP_LABEL) as StripType[]).map((t) => ({ value: t, label: STRIP_LABEL[t] }))} aria-label="Strip type" className="min-w-0 flex-1" />
             <IconButton size="sm" onClick={() => setW(sel, strips[sel].width - M_PER_FT / 2)}>
               <Minus size={12} />
@@ -316,7 +380,7 @@ function StreetPanel({ s, onClose }: { s: Street; onClose: () => void }) {
             </IconButton>
           </div>
         )}
-        <div className="flex items-center justify-between gap-2 px-3 pt-2.5">
+        <div className="flex items-center justify-between gap-2 px-4 pt-3">
           <Segmented
             size="xs"
             value={scope}
@@ -330,7 +394,7 @@ function StreetPanel({ s, onClose }: { s: Street; onClose: () => void }) {
             <Switch size="sm" checked={keepRow} onCheckedChange={setKeepRow} aria-label="Hold right-of-way" /> Hold ROW
           </label>
         </div>
-        <div className="flex gap-1.5 px-3 pt-2">
+        <div className="flex gap-1.5 px-4 pt-2">
           <Button size="sm" tone="primary" disabled={!dirty} onClick={() => apply([{ op: "replace", strips }])}>
             Apply section
           </Button>
@@ -338,9 +402,9 @@ function StreetPanel({ s, onClose }: { s: Street; onClose: () => void }) {
             Reset
           </Button>
         </div>
-        <div className="border-t border-line px-3 py-3 mt-3">
-          <div className="mb-2 font-legend text-[12.5px] leading-none text-ink-3">Quick changes</div>
-          <div className="flex flex-wrap gap-1.5">
+        <div className="mt-3.5 border-t border-line px-4 py-3">
+          <div className="mb-2 font-legend text-[11px] leading-4 font-medium text-ink-3">Quick changes</div>
+          <div className="grid grid-cols-2 gap-1.5 [&>button]:justify-start">
             <Button size="sm" onClick={() => apply([{ op: "add_lanes", count: 1 }])}>
               <Plus size={12} /> Lane each way
             </Button>
@@ -360,7 +424,7 @@ function StreetPanel({ s, onClose }: { s: Street; onClose: () => void }) {
               <Footprints size={12} /> {s.closed ? "Reopen" : "Pedestrianise"}
             </Button>
           </div>
-          <Button size="sm" tone="danger" className="mt-2" onClick={() => applyOp(removeStreets(R.world, ids, { reclaim: "none" }, user)) && useApp.getState().setSelection([])}>
+          <Button size="sm" tone="ghost" className="mt-2 w-full justify-center text-bad hover:bg-bad-2 hover:text-bad" onClick={() => applyOp(removeStreets(R.world, ids, { reclaim: "none" }, user)) && useApp.getState().setSelection([])}>
             <Trash2 size={13} /> {ids.length > 1 ? `Remove ${ids.length} segments` : "Remove segment"}
           </Button>
           <div className="mt-2.5 text-[10.5px] leading-snug text-ink-4">ROW {s.rowSource === "measured" ? "from ASMP (measured)" : "estimated from class defaults"} · {s.source}</div>
@@ -376,7 +440,7 @@ function NodePanel({ n, onClose }: { n: StreetNode; onClose: () => void }) {
   return (
     <>
       <Header icon={<CircleDot size={15} />} kind="Junction" title={entityName(n)} onClose={onClose} />
-      <div className="p-3">
+      <div className="px-4 py-3">
         <Row k="Approaches" v={inc.length} />
         <Row k="Control" v={n.plaza ? "pedestrian plaza" : n.control} />
         {n.roundabout && <Row k="Roundabout" v={`radius ${fmtFt(n.roundabout.radius, 0)} · ${n.roundabout.lanes} lane`} />}
@@ -416,14 +480,14 @@ function AreaPanel({ a, onClose }: { a: Area; onClose: () => void }) {
   return (
     <>
       <Header icon={<Combine size={15} />} kind={a.type} title={a.name ?? a.type} onClose={onClose} onRename={rename([a.id])} badge={<Provenance kind={a.provenance} />} />
-      <div className="p-3">
+      <div className="px-4 py-3">
         <Row k="Area" v={fmtArea(polyArea(a.poly))} />
         {a.type === "parking" && <Row k="Spaces (est.)" v={`≈${fmt.int(polyArea(a.poly) / 30)}`} prov="estimated" />}
         <div className="mt-3 flex items-center gap-2">
           <span className="text-[12px] text-ink-3">Convert to</span>
           <SelectField value={undefined} placeholder="choose…" onValueChange={(v) => applyOp(convertAreas(R.world, [a.id], v as AreaType, user))} options={AREA_TYPES.filter((t) => t !== a.type).map((t) => ({ value: t, label: t }))} aria-label="Convert to" className="flex-1" />
         </div>
-        <Button size="sm" tone="danger" className="mt-3" onClick={() => applyOp(removeEntities(R.world, [a.id], user))}>
+        <Button size="sm" tone="ghost" className="mt-3 w-full justify-center text-bad hover:bg-bad-2 hover:text-bad" onClick={() => applyOp(removeEntities(R.world, [a.id], user))}>
           <Trash2 size={13} /> Remove
         </Button>
         <div className="mt-3 text-[10.5px] text-ink-4">{a.source}</div>
@@ -436,7 +500,7 @@ function ParcelPanel({ p, onClose }: { p: Parcel; onClose: () => void }) {
   return (
     <>
       <Header icon={<Combine size={15} />} kind="Parcel" title={p.id} onClose={onClose} />
-      <div className="p-3">
+      <div className="px-4 py-3">
         <Row k="Zoning" v={p.zoning} prov="measured" />
         <Row k="Lot area" v={fmtArea(p.area)} />
         <Row k="Land use" v={p.landUse} />
@@ -458,12 +522,12 @@ function RoutePanel({ r, onClose }: { r: TransitRoute; onClose: () => void }) {
   return (
     <>
       <Header icon={<TramFront size={15} />} kind={`${r.mode === "brt" ? "rapid bus" : r.mode} line`} title={r.name || r.ref || "Transit line"} onClose={onClose} onRename={rename([r.id])} badge={<Provenance kind={r.provenance} />} />
-      <div className="p-3">
+      <div className="px-4 py-3">
         <Row k="Length" v={fmtLen(polyLength(r.path))} />
         <Row k="Stops" v={r.stops.length} />
         <Row k="Every" v={`${r.headway} min`} />
         <Row k="Streets" v={r.streets.length} />
-        <Button size="sm" tone="danger" className="mt-3" onClick={() => applyOp(removeEntities(R.world, [r.id, ...r.stops.filter((s) => R.world.get(s))], user)) && useApp.getState().setSelection([])}>
+        <Button size="sm" tone="ghost" className="mt-3 w-full justify-center text-bad hover:bg-bad-2 hover:text-bad" onClick={() => applyOp(removeEntities(R.world, [r.id, ...r.stops.filter((s) => R.world.get(s))], user)) && useApp.getState().setSelection([])}>
           <Trash2 size={13} /> Remove line
         </Button>
         <div className="mt-3 text-[10.5px] text-ink-4">{r.source}</div>
@@ -478,7 +542,7 @@ function TreePanel({ t, onClose }: { t: Tree; onClose: () => void }) {
   return (
     <>
       <Header icon={<Leaf size={15} />} kind={sp ? sp.name : "Tree"} title={t.createdBy ? `Proposed ${sp ? sp.name.toLowerCase() : "tree"}` : "Mapped tree"} onClose={onClose} badge={<Provenance kind={t.provenance} />} />
-      <div className="p-3">
+      <div className="px-4 py-3">
         <Row k="Crown" v={`${fmtFt(t.r * 2, 0)} across`} />
         <Row k="Height" v={fmtFt(t.h, 0)} />
         <Row k="Shade footprint" v={fmtSqFt(Math.PI * t.r * t.r)} />
@@ -495,7 +559,7 @@ function TreePanel({ t, onClose }: { t: Tree; onClose: () => void }) {
           </>
         )}
         {sp && <p className="mt-2 text-[11px] leading-snug text-ink-3">{sp.note}. Shade and cooling are modelled at mature size.</p>}
-        <Button size="sm" tone="danger" className="mt-3" onClick={() => applyOp(removeEntities(R.world, [t.id], user))}>
+        <Button size="sm" tone="ghost" className="mt-3 w-full justify-center text-bad hover:bg-bad-2 hover:text-bad" onClick={() => applyOp(removeEntities(R.world, [t.id], user))}>
           <Trash2 size={13} /> Remove
         </Button>
       </div>
@@ -512,7 +576,7 @@ function Multi({ ents, onClose }: { ents: Entity[]; onClose: () => void }) {
   return (
     <>
       <Header icon={<MousePointer2 size={15} />} kind="Selection" title={Object.entries(counts).map(([k, v]) => `${v} ${k}${v > 1 ? "s" : ""}`).join(", ")} onClose={onClose} />
-      <div className="p-3">
+      <div className="px-4 py-3">
         {blds.length > 0 && <Row k="Total floor area" v={fmt.m2(gfa)} />}
         <div className="mt-2 flex flex-wrap gap-1.5">
           {blds.length >= 2 && (
