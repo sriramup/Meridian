@@ -115,6 +115,16 @@ export function importedPoi(world: World, place: Pick<LocalPlace, "place_id" | "
   return undefined;
 }
 
+const normName = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/** a mapped POI (the city's own data) that already stands for this place: same category and name within 40 m */
+export function mappedPoi(world: World, pl: Pick<LocalPlace, "title" | "p" | "category">): Poi | undefined {
+  return (world.query([pl.p[0] - 40, pl.p[1] - 40, pl.p[0] + 40, pl.p[1] + 40], ["poi"]) as Poi[]).find((e) => e.source !== SERP_POI_SOURCE && e.category === pl.category && !!e.name && normName(e.name) === normName(pl.title));
+}
+
+/** already a walk-access destination: imported, or mapped in the city's data */
+export const counted = (world: World, pl: LocalPlace) => !!(importedPoi(world, pl) ?? mappedPoi(world, pl));
+
 /**
  * Discovered places as walk-access destinations: one changeset adding a Poi per place (undo removes
  * them all). Skips places outside the study area, already imported, or already mapped (an existing
@@ -134,9 +144,7 @@ export function importPlaces(world: World, places: LocalPlace[], author: "user" 
       skipped.push(`${pl.title} (already imported)`);
       continue;
     }
-    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
-    const mapped = (world.query([pl.p[0] - 40, pl.p[1] - 40, pl.p[0] + 40, pl.p[1] + 40], ["poi"]) as Poi[]).find((e) => e.category === pl.category && e.name && norm(e.name) === norm(pl.title));
-    if (mapped) {
+    if (mappedPoi(world, pl)) {
       skipped.push(`${pl.title} (already mapped)`);
       continue;
     }
