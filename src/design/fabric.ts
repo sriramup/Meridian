@@ -18,7 +18,7 @@ import type { ParamValues } from "@/library";
 import type { Polygon, Street, Vec2 } from "@/world/types";
 import type { DensityClass, Programme } from "./programme";
 import type { StreetRole } from "./streets";
-import { OFFICE, OFFICE_TOWER, PALETTES, PERIMETER, PERIMETER_FROM, edgeDepth, pickFacade, typologyFor, type Typology } from "./typologies";
+import { CORNER_STORE, OFFICE, OFFICE_TOWER, PALETTES, PERIMETER, PERIMETER_FROM, edgeDepth, pickFacade, typologyFor, type Typology } from "./typologies";
 import type { PaletteName } from "./programme";
 import { type EdgeFrame, type Rng, clamp, cleanRing, clip, edgeFrame, efExtent, efPt, efRect, headingFacing, makeRng, minWidth, minus, smooth, splitLength } from "./util";
 
@@ -125,6 +125,8 @@ export interface Reservation {
 
 export interface FabricPlan {
   lots: Lot[];
+  /** share of floor area in retail at grade */
+  retailShare: number;
   cores: { block: string; poly: Polygon; garage: boolean; family: "yard" | "perimeter" }[];
   greens: Polygon[];
   homes: number;
@@ -145,6 +147,10 @@ export interface FabricOptions {
   reservations: Reservation[];
   /** jobs still to place in offices (after civic / retail) */
   officeJobs: number;
+  /** the brief asks for shops: main streets get shopfronts even in a low-density programme */
+  shops?: boolean;
+  /** share of floor area to put in retail at grade (mix.retail) */
+  retailShare?: number;
 }
 
 const ROLE_BONUS: Record<StreetRole | "none", number> = { boulevard: 1.3, avenue: 1.0, main: 1.1, collector: 0.5, local: -0.35, none: -0.5 };
@@ -179,7 +185,7 @@ export function planFabric(blocks: Block[], o: FabricOptions): FabricPlan {
     for (const { e, s } of order) {
       blockScore = Math.max(blockScore, s);
       // main streets are continuous shopfront frontage wherever the programme is urban
-      const fam = o.prog.density !== "low" && (s >= PERIMETER_FROM || e.role === "main") ? "perimeter" : "yard";
+      const fam = (o.prog.density !== "low" && s >= PERIMETER_FROM) || (e.role === "main" && (o.prog.density !== "low" || o.shops)) ? "perimeter" : "yard";
       let d = edgeDepth(fam, s, e.across / 2);
       if (fam === "perimeter" && e.across < 2 * d + 12) d = Math.max(12, e.across / 2);
       if (fam === "yard") d = Math.min(d, Math.max(18, e.across / 2));
@@ -257,9 +263,56 @@ export function planFabric(blocks: Block[], o: FabricOptions): FabricPlan {
       need -= l.jobs;
     }
   }
-  return { lots, cores, greens, homes: lots.reduce((s, l) => s + l.homes, 0), jobs: lots.reduce((s, l) => s + l.jobs, 0), gfa: lots.reduce((s, l) => s + l.gfa, 0) };
+  const gfaAll = lots.reduce((t, l) => t + l.gfa, 0);
+  const rg = lots.reduce((t, l) => t + (l.retail && l.site ? polyArea(l.site) : 0), 0);
+  return { lots, cores, greens, retailShare: gfaAll > 0 ? rg / gfaAll : 0, homes: lots.reduce((s, l) => s + l.homes, 0), jobs: lots.reduce((s, l) => s + l.jobs, 0), gfa: lots.reduce((s, l) => s + l.gfa, 0) };
 }
 
+/** retail at grade up to the programme's share (run once on the solved plan) */
+export function applyRetail(plan: FabricPlan, o: FabricOptions): void {
+  const lots = plan.lots;
+  // retail at grade up to the programme's share: corners first, then the busier streets, nearest the centre
+  const gfaAll = lots.reduce((t, l) => t + l.gfa, 0);
+  const retailGfa = () => lots.reduce((t, l) => t + (l.retail && l.site ? polyArea(l.site) : 0), 0);
+  let rg = retailGfa();
+  if ((o.retailShare ?? 0) > 0 && rg < (o.retailShare ?? 0) * gfaAll) {
+    const cands = lots
+      .filter((l) => !l.retail && l.site && l.t.family === "perimeter" && l.t.use !== "office" && l.t.key !== "urban_townhouse")
+      .sort((p, q) => Number(q.corner) - Number(p.corner) || roleRank(q.edge.role) - roleRank(p.edge.role) || dist(polyCentroid(p.site!), o.centre) - dist(polyCentroid(q.site!), o.centre));
+    for (const l of cands) {
+      if (rg >= (o.retailShare ?? 0) * gfaAll) break;
+      const fp = polyArea(l.site!);
+      l.retail = true;
+      l.homes = Math.max(0, l.homes - (fp * 0.82) / 78);
+      l.jobs += fp / 45;
+      rg += fp;
+    }
+    // still short: corner stores on residential corners, spread so shops are near every home
+    const shopsAt = lots.filter((l) => l.retail).map((l) => polyCentroid(l.poly));
+    const corners = lots.filter((l) => !l.retail && l.corner && l.t.family === "yard" && l.s1 - l.s0 >= 10 && l.depth >= 20);
+    const rng = makeRng(o.seed ^ 0xc0e5);
+    while (rg < (o.retailShare ?? 0) * gfaAll && corners.length) {
+      corners.sort((p, q) => nearestD(polyCentroid(q.poly), shopsAt) - nearestD(polyCentroid(p.poly), shopsAt));
+      const l = corners.shift()!;
+      if (nearestD(polyCentroid(l.poly), shopsAt) < 150) break;
+      const e = l.edge;
+      const depth = rng.range(CORNER_STORE.depth[0], CORNER_STORE.depth[1]);
+      const front = rng.range(CORNER_STORE.front[0], CORNER_STORE.front[1]);
+      const site = clip(l.poly, efRect(e.f, l.s0 + 1, l.s1 - 1, front, front + depth), 4).sort((x, y) => polyArea(y) - polyArea(x))[0];
+      if (!site || polyArea(site) < 60) continue;
+      const fp = polyArea(site);
+      const floors = rng.int(CORNER_STORE.floors[0], CORNER_STORE.floors[1]);
+      Object.assign(l, { t: CORNER_STORE, site, at: undefined, data: undefined, yard: minus(l.poly, [site], 6), floors, retail: true, gfa: fp * floors, homes: (fp * (floors - 1) * 0.82) / 78, jobs: fp / 45, facade: pickFacade(PALETTES[o.palette], "shop", rng) });
+      shopsAt.push(polyCentroid(l.poly));
+      rg += fp;
+    }
+  }
+  plan.retailShare = gfaAll > 0 ? rg / gfaAll : 0;
+  plan.homes = lots.reduce((t, l) => t + l.homes, 0);
+  plan.jobs = lots.reduce((t, l) => t + l.jobs, 0);
+}
+
+const nearestD = (p: Vec2, ps: Vec2[]) => ps.reduce((m, q) => Math.min(m, dist(p, q)), Infinity);
 const roleRank = (r: StreetRole | "none") => ({ boulevard: 5, avenue: 4, main: 3.5, collector: 3, local: 2, none: 0 })[r];
 const hashKey = (s: string) => {
   let h = 2166136261;
@@ -339,19 +392,20 @@ function makeLot(blk: Block, e: BlockEdge, lp: Polygon, s0: number, s1: number, 
 // ---------------------------------------------------------------- building params per lot
 
 /** the library placement for a lot */
-export function lotPlacement(l: Lot, rng: Rng, palette: PaletteName): { def: string; params: ParamValues; site?: Polygon; at?: Vec2; rotation: number } | null {
+export function lotPlacement(l: Lot, rng: Rng, palette: PaletteName, suburban = true): { def: string; params: ParamValues; site?: Polygon; at?: Vec2; rotation: number } | null {
   const pal = PALETTES[palette];
   const t = l.t;
   const flatRoof = () => (rng.chance(0.18) ? { roofType: "flat", greenRoof: true } : rng.chance(0.15) ? { roofType: "flat", solar: true, roofMaterial: "white_membrane" } : { roofType: "flat", roofMaterial: rng.pick(["gravel", "white_membrane", "gravel"]) });
   const name = l.name ? { name: l.name } : {};
   if (t.place === "point") {
     const d = l.data as { width: number; depth: number; front: number; rear: number; sideSetback: number; lotW: number };
-    const garage = d.lotW - d.width > 8.5 && t.key === "house" ? "attached" : "none";
+    // urban fabric parks on the street (or rear lanes): no front driveways / garages
+    const garage = suburban && d.lotW - d.width > 8.5 && t.key === "house" ? "attached" : "none";
     return {
       def: t.def,
       at: l.at,
       rotation: l.heading,
-      params: { width: garage === "attached" ? Math.min(d.width, d.lotW - 8.5) : t.def === "housing.ranch_house" ? Math.min(d.lotW - 2 * 1.5, 18) : d.width, depth: d.depth, floors: t.def === "housing.ranch_house" || t.def === "housing.cottage" ? 1 : l.floors, facade: l.facade, roofMaterial: rng.pick(pal.pitched), roofType: rng.pick(["gable", "hip", "gable"]), yard: true, frontSetback: d.front, rearSetback: Math.max(1, d.rear), sideSetback: d.sideSetback, driveway: true, garage, garageCars: 2, porch: rng.chance(0.6), chimney: rng.chance(0.25), fitToSite: false, ...name },
+      params: { width: garage === "attached" ? Math.min(d.width, d.lotW - 8.5) : t.def === "housing.ranch_house" ? Math.min(d.lotW - 2 * 1.5, 18) : d.width, depth: d.depth, floors: t.def === "housing.ranch_house" || t.def === "housing.cottage" ? 1 : l.floors, facade: l.facade, roofMaterial: rng.pick(pal.pitched), roofType: rng.pick(["gable", "hip", "gable"]), yard: true, frontSetback: d.front, rearSetback: Math.max(1, d.rear), sideSetback: d.sideSetback, driveway: suburban, garage, garageCars: 2, porch: rng.chance(0.6), chimney: rng.chance(0.25), fitToSite: false, ...name },
     };
   }
   if (!l.site || !isValidPoly(l.site)) return null;
@@ -383,6 +437,8 @@ export function lotPlacement(l: Lot, rng: Rng, palette: PaletteName): { def: str
       const podium = rng.int(3, 5);
       return { def: t.def, site: l.site, rotation: l.heading, params: { ...base, ...flatRoof(), podiumFloors: podium, towerCoverage: clamp(Math.round((Math.min(950, polyArea(l.site) * 0.6) / polyArea(l.site)) * 100), 30, 70), towerOffsetY: -rng.range(0, 3), groundUse: l.retail ? "retail" : "same", balconies: balc(0.7), topScale: rng.chance(0.2) ? 85 : 100, setbackEvery: rng.chance(0.25) ? 8 : 0, setbackDepth: 1.5, penthouse: true } };
     }
+    case "corner_store":
+      return { def: t.def, site: l.site, rotation: l.heading, params: { ...base, ...flatRoof(), use: "residential", groundUse: "retail", awning: true, awningColor: rng.pick(["#b65a3c", "#2a5a3c", "#3c6ca8", "#7a4a2a"]), parapetHeight: rng.range(0.9, 1.6) } };
     case "office":
       return { def: t.def, site: l.site, rotation: l.heading, params: { ...base, ...flatRoof(), groundUse: "retail", penthouse: true, setbackEvery: rng.chance(0.3) ? Math.max(4, l.floors - 3) : 0, setbackDepth: 3 } };
     case "office_tower":

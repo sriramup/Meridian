@@ -48,6 +48,7 @@ describe("facilitiesFromText", () => {
     expect(k("fire")).toBe(1);
     expect(k("restaurant")).toBe(2);
     expect(k("park")).toBe(3);
+    expect(facilitiesFromText("a main street with shops").some((f) => f.kind === "shops")).toBe(true);
   });
 });
 
@@ -131,6 +132,42 @@ describe("designNeighborhood", () => {
     const houses = bs.filter((b) => /housing\.(single_family_home|cottage|l_shaped_house|ranch_house|duplex|triplex|townhouse_row)/.test(b.lib?.def ?? ""));
     expect(houses.length / bs.length).toBeGreaterThan(0.7);
     expect(Math.max(...bs.filter((b) => b.use === "residential").map((b) => b.floors))).toBeLessThanOrEqual(3);
+  }, 120_000);
+});
+
+describe("briefs are honoured", () => {
+  const SITE: Polygon = [[[-450, -450], [450, -450], [450, 450], [-450, 450]]];
+  const BRIEF = "a walkable high-density mixed-use neighborhood with a main street with shops, two cafés and three parks";
+
+  it("keeps an urban character on a large site and reports the extra capacity", () => {
+    const { w, res } = build({ area: SITE, population: 4000, brief: BRIEF, facilities: facilitiesFromText(BRIEF), seed: 2 });
+    const d = res.data!;
+    expect(d.density).toBe("high");
+    expect((d.advisories as string[]).some((a) => /Built at high density/.test(a))).toBe(true);
+    // no surface lots, shops on the main street, cafés with distinct names, the three parks asked for
+    expect(w.all("area").filter((a) => a.type === "parking" && polyArea(a.poly) >= 120).length).toBeLessThan(5);
+    expect(w.all("building").filter((b) => (b.program.retail ?? 0) > 0.02).length).toBeGreaterThan(20);
+    const cafes = (d.facilities as { kind: string; name: string }[]).filter((f) => f.kind === "cafe").map((f) => f.name);
+    expect(cafes.length).toBe(2);
+    expect(new Set(cafes).size).toBe(2);
+    expect((d.civic as { kind: string }[]).filter((c) => c.kind === "park").length).toBeGreaterThanOrEqual(3);
+    const sc = critiqueArea(w, SITE, { brief: d.brief as never });
+    expect(sc.overall).toBeGreaterThanOrEqual(85);
+  }, 120_000);
+
+  it("grades a suburban result poorly against a high-density brief", () => {
+    const { w, res } = build({ area: SITE, population: 4000, brief: BRIEF, fill: "programme", seed: 2 });
+    expect((res.data!.advisories as string[]).some((a) => /Kept the/.test(a))).toBe(true);
+    const sc = critiqueArea(w, SITE, { brief: res.data!.brief as never });
+    expect(sc.overall).toBeLessThan(65);
+    expect(sc.issues.some((i) => i.metric === "brief")).toBe(true);
+  }, 120_000);
+
+  it("honours a retail mix or says why not", () => {
+    const { res } = build({ area: AREA, density: "medium", mix: { retail: 0.1 }, seed: 4 });
+    const share = res.data!.retail_share as number;
+    expect(share >= 0.08 || (res.data!.advisories as string[]).some((a) => /Retail at grade/.test(a))).toBe(true);
+    expect(share).toBeGreaterThan(0.03);
   }, 120_000);
 });
 

@@ -8,7 +8,7 @@ const area = {
   description: "The site: polygon ring [[x,y],...] in local metres, a place / park / district name, a feature id, 'zone' (the session zone) or {center:[x,y], radius:m}.",
   anyOf: [{ type: "array", items: point, minItems: 3 }, { type: "string" }, { type: "object", properties: { center: point, radius: { type: "number" } }, required: ["center", "radius"] }],
 };
-const FACILITIES = ["university", "high_school", "middle_school", "primary_school", "daycare", "police", "fire", "restaurant", "cafe", "grocery", "library", "clinic", "community_center", "hotel", "park", "plaza"];
+const FACILITIES = ["university", "high_school", "middle_school", "primary_school", "daycare", "police", "fire", "restaurant", "cafe", "grocery", "library", "clinic", "community_center", "hotel", "park", "plaza", "shops"];
 
 export const DESIGN_TOOL_DEFS: ToolDef[] = [
   {
@@ -30,6 +30,8 @@ export const DESIGN_TOOL_DEFS: ToolDef[] = [
         },
         mix: { type: "object", description: "share of floor area by use, e.g. {residential:0.8, retail:0.1, office:0.1}", properties: { residential: { type: "number" }, office: { type: "number" }, retail: { type: "number" } } },
         open_space: { type: "number", description: "share of block land kept as public parks / plazas (0–0.4)" },
+        brief: { type: "string", description: "the user's request in their words ('a walkable high-density mixed-use neighborhood with shops…'): its character and density words are honoured even when the targets alone would read suburban" },
+        fill: { type: "string", enum: ["site", "programme"], description: "urban brief on a site too big for the homes asked: 'site' (default) builds the whole site at the brief's density and reports the capacity; 'programme' keeps the homes target" },
         max_floors: { type: "number" },
         min_floors: { type: "number" },
         centre: { description: "the activity centre (main-street crossing): [x,y] or a place name; default the site centre", anyOf: [point, { type: "string" }] },

@@ -28,6 +28,6 @@
 //     parks") for spec.facilities.
 
 export { designNeighborhood } from "./neighborhood";
-export { critiqueArea, type Scorecard, type Metric, type DesignIssue, type CritiqueOptions } from "./critique";
-export { facilitiesFromText, resolveProgramme, type NeighborhoodSpec, type FacilityRequest, type FacilityKind, type DensityClass, type PaletteName } from "./programme";
+export { critiqueArea, type Scorecard, type Metric, type DesignIssue, type CritiqueOptions, type DesignBrief } from "./critique";
+export { facilitiesFromText, readBrief, resolveProgramme, type NeighborhoodSpec, type FacilityRequest, type FacilityKind, type DensityClass, type PaletteName } from "./programme";
 export { planStreetGrid, sectionFor, type GridPlan, type StreetRole } from "./streets";

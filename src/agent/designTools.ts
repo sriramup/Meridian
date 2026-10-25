@@ -5,7 +5,7 @@
 
 import { polyArea, polyBBox } from "@/geometry/polygon";
 import { frame } from "./navTools";
-import { critiqueArea, designNeighborhood, facilitiesFromText, type FacilityRequest, type NeighborhoodSpec, type Scorecard } from "@/design";
+import { critiqueArea, designNeighborhood, facilitiesFromText, type DesignBrief, type FacilityRequest, type NeighborhoodSpec, type Scorecard } from "@/design";
 import { rt } from "@/state/runtime";
 import { useApp } from "@/state/store";
 import type { OpResult } from "@/world/ops/core";
@@ -73,6 +73,9 @@ export const DESIGN_TOOLS: Record<string, (i: In, ctx: ToolContext) => Promise<T
       streets: i.block_length || i.block_depth || i.arterials !== undefined ? { blockLength: i.block_length, blockDepth: i.block_depth, arterials: i.arterials } : undefined,
       replaceExisting: i.replace_existing,
       palette: i.palette,
+      // the brief's words carry its character (urban / suburban, density, shops)
+      brief: [i.brief, typeof i.facilities === "string" ? i.facilities : undefined].filter(Boolean).join(". ") || undefined,
+      fill: i.fill,
     };
     let res: OpResult;
     try {
@@ -104,7 +107,7 @@ export const DESIGN_TOOLS: Record<string, (i: In, ctx: ToolContext) => Promise<T
       // show the result: frame the whole site (no separate camera call needed)
       frame(polyBBox(poly) as [number, number, number, number]);
       try {
-        const sc = critiqueArea(rt().world, poly as Polygon, { maxIssues: 8 });
+        const sc = critiqueArea(rt().world, poly as Polygon, { maxIssues: 8, brief: (c.data as { brief?: DesignBrief } | undefined)?.brief });
         c.critique = scorecardBrief(sc);
         out.display.metrics = [
           { label: "Design score", value: `${sc.overall} (${sc.grade})`, tone: sc.overall >= 75 ? "good" : sc.overall >= 55 ? "neutral" : "bad" },

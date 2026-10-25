@@ -55,6 +55,9 @@ export const PERIMETER: Typology[] = [
   { key: "tower", label: "Residential tower", family: "perimeter", def: "housing.highrise_residential", frontage: [36, 52], floors: [16, 32], depth: [26, 34], front: [0.5, 1], side: 0, use: "residential", place: "site", facades: "tower" },
 ];
 
+/** neighbourhood shop with flats above on a residential street corner (the "corner store") */
+export const CORNER_STORE: Typology = { key: "corner_store", label: "Corner store", family: "yard", def: "commercial.corner_store", frontage: [10, 20], floors: [2, 3], depth: [12, 15], front: [0.5, 1.2], side: 1, use: "residential", place: "site", facades: "shop" };
+
 export const OFFICE: Typology = { key: "office", label: "Office building", family: "perimeter", def: "commercial.office_building", frontage: [36, 60], floors: [6, 12], depth: [22, 30], front: [0.5, 2], side: 0, use: "office", place: "site", facades: "office" };
 export const OFFICE_TOWER: Typology = { key: "office_tower", label: "Office tower", family: "perimeter", def: "commercial.office_tower", frontage: [44, 60], floors: [20, 40], depth: [28, 34], front: [0.5, 2], side: 0, use: "office", place: "site", facades: "office" };
 

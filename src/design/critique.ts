@@ -76,6 +76,9 @@ export interface Scorecard {
     avg_block_perimeter_ft: number;
     intersections_per_sqmi: number;
     dead_ends: number;
+    jobs_per_home: number;
+    shops_access: number;
+    surface_parking_share: number;
   };
 }
 
@@ -88,7 +91,23 @@ const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 /** linear score: 100 at `good`, 0 at `bad` (either direction) */
 const lin = (x: number, good: number, bad: number) => Math.round(100 * clamp01((x - bad) / (good - bad)));
 
+/** what the area was meant to be (designNeighborhood returns it as result.data.brief) */
+export interface DesignBrief {
+  density?: "low" | "medium" | "high" | "very_high";
+  character?: "urban" | "suburban";
+  /** shops / retail at grade were asked for */
+  shops?: boolean;
+  /** retail share of floor area asked for */
+  retailShare?: number;
+  homes?: number;
+}
+
+/** net homes per acre of block land each density class is built at (programme.ts NET_DENSITY) */
+const NET_PER_ACRE: Record<NonNullable<DesignBrief["density"]>, [number, number]> = { low: [4, 14], medium: [14, 50], high: [45, 130], very_high: [110, 400] };
+
 export interface CritiqueOptions {
+  /** the intent to judge against: density and character mismatches, missing shops */
+  brief?: DesignBrief;
   /** sample spacing (m) for the land-use raster; default adapts to the area */
   cell?: number;
   /** max issues returned */
@@ -349,6 +368,37 @@ export function critiqueArea(world: World, area: Polygon, o: CritiqueOptions = {
   }
   const gradient = gradN ? (gradOk / gradN) * (1 - Math.min(0.5, jumps / Math.max(1, N))) : 1;
 
+  // ---- mixed use: jobs per home, shops within walking distance of homes, surface parking
+  const brief = o.brief ?? {};
+  const urbanIntent = brief.character === "urban" || (brief.character !== "suburban" && (urban || (brief.density !== undefined && brief.density !== "low")));
+  const shopsAt = buildings.filter((b) => (b.program.retail ?? 0) > 0.02 || b.use === "retail" || /restaurant|cafe|supermarket|food|pub/.test(b.lib?.def ?? "")).map((b) => polyCentroid(b.footprint));
+  const shopReach = urbanIntent ? 402 : 805;
+  let homesShop = 0;
+  for (const b of buildings) {
+    const u = progs.get(b.id)!.units;
+    if (u <= 0) continue;
+    const c = polyCentroid(b.footprint);
+    if (shopsAt.some((p) => dist(p, c) * WALK <= shopReach)) homesShop += u;
+  }
+  const shopsAccess = homes > 0 ? homesShop / homes : 1;
+  const jph = homes > 0 ? jobs / homes : 0;
+  const parkingShare = blockLand > 0 ? (counts[6] * cellA) / blockLand : 0;
+  if (homes > 300 && shopsAccess < (urbanIntent ? 0.8 : 0.5)) issues.push({ severity: shopsAt.length ? "medium" : "high", metric: "mixed_use", message: shopsAt.length ? `${Math.round((1 - shopsAccess) * 100)}% of homes are beyond a ${urbanIntent ? "¼" : "½"}-mile walk of shops` : "No shops or restaurants: a residential-only area", at: polyCentroid(area) });
+  if (urbanIntent && parkingShare > 0.05) issues.push({ severity: parkingShare > 0.12 ? "high" : "medium", metric: "parking", message: `Surface parking covers ${Math.round(parkingShare * 100)}% of block land (urban target ≤ 5%)`, at: polyCentroid(area) });
+  // density / character against the brief
+  const netPerAcre = homes / Math.max(1e-6, toAcres(blockLand));
+  let briefScore = 100;
+  if (brief.density) {
+    const [lo, hi] = NET_PER_ACRE[brief.density];
+    briefScore = netPerAcre < lo ? lin(netPerAcre, lo, lo * 0.3) : netPerAcre > hi * 1.5 ? lin(netPerAcre, hi * 1.5, hi * 4) : 100;
+    if (briefScore < 70) issues.unshift({ severity: briefScore < 40 ? "high" : "medium", metric: "brief", message: `${fmtNum(netPerAcre, 0)} homes per net acre for a ${brief.density.replace("_", " ")}-density brief (expects ${lo}–${hi})`, at: polyCentroid(area) });
+  }
+  if (brief.character === "urban" && far < 0.6) {
+    briefScore = Math.min(briefScore, lin(far, 0.6, 0.15));
+    issues.unshift({ severity: "high", metric: "brief", message: `FAR ${far.toFixed(2)} reads suburban for an urban, walkable brief`, at: polyCentroid(area) });
+  }
+  if (brief.shops && !shopsAt.length) briefScore = Math.min(briefScore, 20);
+
   // ---- metrics
   const covGood = urban ? [0.35, 0.7] : [0.12, 0.45];
   const covScore = coverage >= covGood[0] && coverage <= covGood[1] ? 100 : coverage < covGood[0] ? lin(coverage, covGood[0], 0) : lin(coverage, covGood[1], 0.95);
@@ -363,10 +413,17 @@ export function critiqueArea(world: World, area: Polygon, o: CritiqueOptions = {
     { key: "blocks", label: "Average block perimeter", value: fmtFt(avgPerim), raw: avgPerim, score: lin(avgPerim, 457, 900), target: "≤ 1,500 ft" },
     { key: "connectivity", label: "Intersections per sq mi", value: fmtNum(iDensity), raw: iDensity, score: lin(iDensity, 160, 40), target: "≥ 140" },
     { key: "streets", label: "Street standards", value: `${Math.round(streetStd * 100)}% of segments`, raw: streetStd, score: Math.round(streetStd * 100), target: "sidewalks, bikes on collectors, trees on arterials" },
+    { key: "mixed_use", label: urbanIntent ? "Shops within ¼ mi" : "Shops within ½ mi", value: `${Math.round(shopsAccess * 100)}% of homes, ${jph.toFixed(2)} jobs per home`, raw: shopsAccess, score: homes > 300 ? Math.round(0.7 * lin(shopsAccess, urbanIntent ? 0.9 : 0.6, 0.1) + 0.3 * lin(jph, urbanIntent ? 0.4 : 0.15, 0)) : 100, target: urbanIntent ? "≥ 90% of homes; ≥ 0.4 jobs per home" : "≥ 60% of homes" },
+    { key: "parking", label: "Surface parking", value: `${(parkingShare * 100).toFixed(1)}% of block land`, raw: parkingShare, score: urbanIntent ? lin(parkingShare, 0.03, 0.2) : lin(parkingShare, 0.1, 0.35), target: urbanIntent ? "≤ 3–5% (structured parking)" : "≤ 10%" },
+    { key: "brief", label: "Matches the brief", value: brief.density ? `${fmtNum(netPerAcre, 0)} homes / net acre (${brief.density.replace("_", " ")})` : "no brief given", raw: briefScore / 100, score: briefScore, target: brief.density ? `${NET_PER_ACRE[brief.density][0]}–${NET_PER_ACRE[brief.density][1]} homes / net acre` : "n/a" },
     { key: "height_gradient", label: "Height gradient", value: `${badTowers} misplaced towers, ${jumps} abrupt jumps`, raw: gradient, score: Math.round(gradient * 100), target: "towers on arterials / centre" },
   ];
-  const W: Record<string, number> = { bare_land: 15, coverage: 7, far: 3, diversity: 15, street_wall: 10, park_access: 12, school_access: 6, blocks: 10, connectivity: 8, streets: 7, height_gradient: 7 };
-  const overall = Math.round(metrics.reduce((s, m) => s + m.score * W[m.key], 0) / metrics.reduce((s, m) => s + W[m.key], 0));
+  const W: Record<string, number> = { mixed_use: 10, parking: 6, brief: o.brief?.density || o.brief?.character ? 18 : 0, bare_land: 15, coverage: 7, far: 3, diversity: 15, street_wall: 10, park_access: 12, school_access: 6, blocks: 10, connectivity: 8, streets: 7, height_gradient: 7 };
+  let overall = Math.round(metrics.reduce((s, m) => s + m.score * W[m.key], 0) / metrics.reduce((s, m) => s + W[m.key], 0));
+  // a design that misses its brief, or an urban area without shops, cannot grade well on finish alone
+  if (o.brief?.density || o.brief?.character) overall = Math.min(overall, Math.round(55 + 0.45 * briefScore));
+  const mu = metrics.find((m) => m.key === "mixed_use")!.score;
+  if (urbanIntent && homes > 300) overall = Math.min(overall, Math.round(60 + 0.4 * mu));
   const sev = { high: 0, medium: 1, low: 2 };
   issues.sort((a, b) => sev[a.severity] - sev[b.severity]);
   const acres = toAcres(A);
@@ -397,6 +454,9 @@ export function critiqueArea(world: World, area: Polygon, o: CritiqueOptions = {
       avg_block_perimeter_ft: Math.round(avgPerim / 0.3048),
       intersections_per_sqmi: Math.round(iDensity),
       dead_ends: deadEnds.length,
+      jobs_per_home: Math.round(jph * 100) / 100,
+      shops_access: Math.round(shopsAccess * 1000) / 1000,
+      surface_parking_share: Math.round(parkingShare * 1000) / 1000,
     },
   };
 }
@@ -435,7 +495,8 @@ function classify(world: World, p: Vec2, bands: { band: Polygon; bb: [number, nu
     if (e.kind === "area") {
       const a = e as Area;
       if (!pointInPoly(p, a.poly)) continue;
-      const k = PUBLIC_OPEN.has(a.type) ? 3 : a.type === "campus" ? 5 : LANDSCAPED.has(a.type) ? 4 : a.type === "parking" ? 6 : a.type === "construction" ? 0 : 4;
+      // a parking area under ~1,300 sq ft is a driveway / lay-by, not a surface lot
+      const k = PUBLIC_OPEN.has(a.type) ? 3 : a.type === "campus" ? 5 : LANDSCAPED.has(a.type) ? 4 : a.type === "parking" ? (polyArea(a.poly) >= 120 ? 6 : 4) : a.type === "construction" ? 0 : 4;
       if (k === 3) return 3;
       if (best === 0 || k === 5) best = k;
     } else if (e.kind === "prop" && !best) {
