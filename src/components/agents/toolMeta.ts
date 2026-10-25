@@ -173,21 +173,45 @@ export const TOOL_VERB: Record<string, string> = {
   go_to: "Flying there",
 };
 
-/** a fresh agent's few starting points: a short chip that fills the composer with the full prompt */
+/** a fresh agent's few starting points: a card that fills the composer with the full prompt */
 export interface Starter {
   label: string;
   prompt: string;
 }
 
 export const STARTERS: Starter[] = [
-  { label: "Fix the evening peak", prompt: "Find the five most congested intersections at 5 PM and fix them with the smallest changes that help" },
-  { label: "Shade Republic Square", prompt: "Create a shaded green corridor from Republic Square to Waterloo Park with rain gardens along the way" },
-  { label: "Tower on a parking lot", prompt: "Build a 30-story mixed-use tower on the largest surface parking lot near Republic Square" },
+  {
+    label: "Untangle the 5 PM rush",
+    prompt:
+      "Simulate the 5 PM peak downtown, find the five worst bottlenecks, try a junction redesign for each in its own scenario, and recommend the combination that cuts average delay the most",
+  },
+  {
+    label: "Cool down Republic Square",
+    prompt:
+      "Find where people on foot are hottest at 3 PM in July around Republic Square, then plant street trees, add green roofs nearby and a shaded corridor to Waterloo Park, and compare the heat before and after",
+  },
+  {
+    label: "Tower and transit on a parking lot",
+    prompt:
+      "Rank the surface parking lots within a 10-minute walk of Republic Square, put a 30-story mixed-use tower on the best one with massing that keeps the square in daylight, and add a bus route linking it to the nearest rail stop",
+  },
 ];
 
 /** on the blank canvas: build from scratch, then test it */
 export const SANDBOX_STARTERS: Starter[] = [
-  { label: "Walkable neighborhood", prompt: "Lay out a walkable neighborhood for 5,000 people around a central square, with a boulevard to the east edge of the site" },
-  { label: "Hottest walks at 3 PM", prompt: "Where will people on foot be hottest at 3 PM in July, and where would trees help most?" },
-  { label: "Fix the evening peak", prompt: "Run traffic for the evening peak and fix any junction that fails" },
+  {
+    label: "Masterplan a walkable district",
+    prompt:
+      "Masterplan a district for 8,000 people with a central square, a tree-lined boulevard, mixed-use blocks and a park within five minutes of every home, then estimate its housing and jobs",
+  },
+  {
+    label: "Run a rapid bus line through it",
+    prompt:
+      "Lay out a bus rapid transit line across the site, place stops so every block is within a 400 m walk, and compare transit and driving times for the evening commute",
+  },
+  {
+    label: "Stress-test emergency access",
+    prompt:
+      "Run the evening peak and emergency-response models together, then fix every street or junction that delays a fire truck by more than two minutes",
+  },
 ];

@@ -104,8 +104,8 @@ export function SessionList({ sessions, onNew, onClose }: { sessions: AgentSessi
         ) : (
           groups.map((g) => (
             <section key={g.id} aria-label={GROUP_LABEL[g.id]} className="pt-2">
-              <div className="flex items-center gap-1.5 px-2 pt-1.5 pb-1">
-                <span className="font-legend text-[12px] leading-none text-ink-3">{GROUP_LABEL[g.id]}</span>
+              <div className="flex items-center gap-1.5 px-2 pt-1 pb-1">
+                <span className="text-[11.5px] font-medium leading-none text-ink-3">{GROUP_LABEL[g.id]}</span>
                 <span className="tabular text-[11px] leading-none text-ink-4">{g.sessions.length}</span>
               </div>
               <ul>
@@ -127,46 +127,39 @@ function Row({ session: s, now, query, renaming, setRenaming }: { session: Agent
   const edits = editCount(s);
   const excerpt = query ? matchExcerpt(s, query) : null;
   const [menu, setMenu] = useState(false);
-  const meta = [statusText(s), edits ? `${edits} edit${edits > 1 ? "s" : ""}` : null].filter(Boolean) as string[];
+  // only states that need a look get words; the icon already says new, running or done
+  const flag = s.status === "needs_input" ? "Needs input" : s.status === "error" ? statusText(s) : null;
   if (renaming) return <RenameRow session={s} done={() => setRenaming(false)} />;
   return (
     <div className="group relative">
       <button
         data-row
         onClick={() => agents.view(s.id)}
-        className="flex w-full flex-col gap-[3px] rounded-[6px] px-2 py-[7px] text-left outline-none hover:bg-paper-3/60 focus-visible:bg-paper-3/60 focus-visible:ring-2 focus-visible:ring-rose/35"
+        className="flex w-full flex-col rounded-[6px] px-2 py-[6px] text-left outline-none hover:bg-paper-3/60 focus-visible:bg-paper-3/60 focus-visible:ring-2 focus-visible:ring-rose/35"
       >
         <span className="flex w-full items-center gap-2">
           <StatusIcon session={s} />
-          <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">{s.title}</span>
-          <span className={cx("tabular shrink-0 text-[11px] text-ink-4 group-focus-within:invisible group-hover:invisible", menu && "invisible")}>{relTime(s.updatedAt, now)}</span>
-        </span>
-        <span className="flex w-full min-w-0 items-center gap-1.5 pl-[22px] text-[11.5px] text-ink-3">
-          {excerpt ? (
-            <span className="truncate text-ink-3">
-              <Highlight text={excerpt} term={query} />
-            </span>
-          ) : (
-            <>
-              <span className={cx("shrink-0", s.status === "needs_input" && "text-warn", s.status === "error" && "text-bad")}>{meta[0]}</span>
-              {s.zone && (
-                <>
-                  <span aria-hidden className="text-ink-4">·</span>
-                  <span className="size-2 shrink-0 rounded-[2px] border border-dashed" style={{ borderColor: rgb(sessionColor(s.id)), background: rgb(sessionColor(s.id), 0.2) }} />
-                  <span className="min-w-0 truncate">{s.zone.label}</span>
-                </>
-              )}
-              {meta.slice(1).map((m) => (
-                <span key={m} className="flex shrink-0 items-center gap-1.5">
-                  <span aria-hidden className="text-ink-4">·</span>
-                  {m}
-                </span>
-              ))}
-            </>
+          <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{s.title}</span>
+          {s.zone && (
+            <span
+              title={s.zone.label}
+              className="size-2 shrink-0 rounded-[2px] border border-dashed"
+              style={{ borderColor: rgb(sessionColor(s.id)), background: rgb(sessionColor(s.id), 0.2) }}
+            />
           )}
+          {flag && <span className={cx("shrink-0 text-[11px]", s.status === "needs_input" ? "text-warn" : "text-bad")}>{flag}</span>}
+          <span className={cx("tabular shrink-0 text-[11px] text-ink-4 group-focus-within:invisible group-hover:invisible", menu && "invisible")}>
+            {edits ? `${edits} edit${edits > 1 ? "s" : ""} · ` : ""}
+            {relTime(s.updatedAt, now)}
+          </span>
         </span>
+        {excerpt && (
+          <span className="mt-0.5 truncate pl-[22px] text-[11.5px] text-ink-3">
+            <Highlight text={excerpt} term={query} />
+          </span>
+        )}
       </button>
-      <div className={cx("absolute top-[5px] right-1.5 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100", menu && "opacity-100")}>
+      <div className={cx("absolute top-1 right-1.5 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100", menu && "opacity-100")}>
         <SessionMenu session={s} open={menu} onOpenChange={setMenu} onRename={() => setRenaming(true)}>
           <Button variant="ghost" size="icon-xs" aria-label={`Actions for ${s.title}`} className="hover:bg-paper-3">
             <Ellipsis />

@@ -70,11 +70,13 @@ export const SessionView = forwardRef<ComposerHandle, { session: AgentSession; o
         }}
         className="scroll-thin min-h-0 flex-1 animate-[kit-fade-in_140ms_ease-out] overflow-y-auto"
       >
-        {!fresh && <Transcript sessionId={s.id} items={s.items} running={running} />}
+        {fresh ? (
+          <Welcome starters={!typed && configured !== false} onPick={(t) => composer.current?.setText(t)} />
+        ) : (
+          <Transcript sessionId={s.id} items={s.items} running={running} />
+        )}
         {s.status === "error" && s.error && !s.items.some((i) => i.kind === "notice" && i.text === s.error) && <div className="px-4 pb-4 text-[12px] text-bad">{s.error}</div>}
       </div>
-
-      {fresh && !typed && configured !== false && <Starters onPick={(t) => composer.current?.setText(t)} />}
 
       <Composer
         ref={composer}
@@ -101,21 +103,26 @@ function sendFirst(s: AgentSession, text: string, sketch?: SketchAttachment) {
   void agents.send(s.id, text, sketch ? { sketch } : undefined);
 }
 
-/** a fresh agent's few starting points, as chips just above the composer; they fill it, they don't send */
-function Starters({ onPick }: { onPick: (t: string) => void }) {
+/** a fresh agent: one question in the middle and a few starting points under it; they fill the composer, they don't send */
+function Welcome({ starters, onPick }: { starters: boolean; onPick: (t: string) => void }) {
   const list = rtMaybe()?.meta.sandbox ? SANDBOX_STARTERS : STARTERS;
   return (
-    <div className="flex shrink-0 flex-wrap gap-1.5 px-3 pb-0.5">
-      {list.map((x) => (
-        <button
-          key={x.label}
-          onClick={() => onPick(x.prompt)}
-          title={x.prompt}
-          className="h-7 rounded-full border border-line-2 px-2.5 text-[12px] text-ink-2 outline-none transition-colors hover:border-rose/40 hover:bg-paper-3/60 hover:text-ink focus-visible:ring-2 focus-visible:ring-rose/35"
-        >
-          {x.label}
-        </button>
-      ))}
+    <div className="flex min-h-full flex-col items-center justify-center px-5 py-8">
+      <h3 className="text-center font-display text-[22px] leading-tight text-ink">What are we building today?</h3>
+      {starters && (
+        <div className="mt-5 flex w-full max-w-[380px] flex-col gap-2">
+          {list.map((x) => (
+            <button
+              key={x.label}
+              onClick={() => onPick(x.prompt)}
+              className="w-full rounded-[8px] border border-line px-3 py-2.5 text-left outline-none transition-colors hover:border-rose/40 hover:bg-paper-3/60 focus-visible:ring-2 focus-visible:ring-rose/35"
+            >
+              <span className="block text-[13px] font-medium text-ink">{x.label}</span>
+              <span className="mt-0.5 line-clamp-2 text-[12px] leading-[1.45] text-ink-3">{x.prompt}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
