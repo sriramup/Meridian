@@ -1,14 +1,15 @@
 "use client";
 
 import * as DM from "@radix-ui/react-dropdown-menu";
-import { Bike, Car, Check, ChevronLeft, ChevronRight, ChevronUp, CloudRain, Droplets, Ellipsis, Footprints, LayoutGrid, LoaderCircle, Pause, Play, RefreshCw, Sun, Thermometer, TramFront, TreeDeciduous, TrendingUp, Users, GitCompare } from "lucide-react";
+import { Bike, Car, Check, ChevronUp, CloudRain, Droplets, Ellipsis, Footprints, LayoutGrid, LoaderCircle, Pause, Play, RefreshCw, Sun, Thermometer, TramFront, TrendingUp, Users } from "lucide-react";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { runSim, useSims, type SimRecord } from "@/sim/client";
 import { DIVERGE, cssGradient } from "@/render/palettes";
 import { growthSnapshot, legendFor, overlayState } from "@/render/overlays";
 import { rt } from "@/state/runtime";
 import { monthDate, useApp, type OverlayId } from "@/state/store";
-import { fmtF } from "@/lib/units";
+import { fmtArea, fmtDepth, fmtF, fmtLen, fmtMi, fmtNum, fmtRain, fmtSpeed, fmtSqFt, fmtVol } from "@/lib/units";
+import { trafficAtCached } from "@/sim/trafficHourly";
 import type { SimKind } from "@/sim/engine";
 import { areaKpi, tilesIn, type Scope } from "@/sim/heatKpi";
 import { stateKey } from "@/sim/heatCache";
@@ -22,15 +23,14 @@ export const CHIPS: { id: OverlayId; label: string; icon: typeof Car; sim?: SimK
   { id: "heat", label: "Heat", icon: Thermometer, sim: "heat", hint: "Surface temperature, hour by hour" },
   { id: "sun", label: "Shade", icon: Sun, sim: "sun", hint: "Hours of direct sun per spot (fewer = more shade)" },
   { id: "runoff", label: "Stormwater", icon: CloudRain, sim: "runoff", hint: "Design-storm runoff from hard surfaces" },
-  { id: "traffic", label: "Traffic", icon: Car, sim: "traffic", hint: "Peak-hour assignment", more: true },
-  { id: "density", label: "Density", icon: Users, hint: "Residents / jobs per ha", more: true },
+  { id: "traffic", label: "Traffic", icon: Car, sim: "traffic", hint: "Volumes and congestion, hour by hour", more: true },
+  { id: "density", label: "Density", icon: Users, hint: "Residents / jobs per acre", more: true },
   { id: "access", label: "Access", icon: Footprints, sim: "access", hint: "Walk times", more: true },
   { id: "bike", label: "Bike", icon: Bike, sim: "bike", hint: "Bicycle level of traffic stress", more: true },
   { id: "zoning", label: "Capacity", icon: LayoutGrid, sim: "capacity", hint: "Zoned development capacity", more: true },
   { id: "growth", label: "Growth", icon: TrendingUp, sim: "growth", hint: "Where residential growth could go", more: true },
-  { id: "transit", label: "Transit", icon: TramFront, hint: "Routes & 400 m catchments", more: true },
+  { id: "transit", label: "Transit", icon: TramFront, hint: "Routes & ¼-mile catchments", more: true },
   { id: "flood", label: "Flood", icon: Droplets, sim: "flood", hint: "Inundation screening", more: true },
-  { id: "change", label: "Changes", icon: GitCompare, hint: "What your plan adds and removes", more: true },
 ];
 
 /** models fast enough (≈ 1 s) to re-run on every edit while their overlay is open */
@@ -50,7 +50,7 @@ function currentRecord(kind: SimKind | undefined, records: SimRecord[], shown: P
 
 export function AnalysisDock() {
   const overlay = useApp((s) => s.overlay);
-  // the clock is read by the small components that show it (HourSlider, KpiBlock), so playback
+  // the clock is read by the small components that show it (TimeControl, the KPI blocks), so playback
   // re-renders those, not the whole dock
   const setHour = useApp((s) => s.setHour);
   const playing = useApp((s) => s.playing);
@@ -125,7 +125,7 @@ export function AnalysisDock() {
   const legend = legendFor(overlay);
   const scenarios = [...R.scenarios.scenarios.values()];
   const cmpRec = chip?.sim ? records.find((r) => r.id === compare[chip.sim!]) : undefined;
-  const kpisStatic = useMemo(() => (rec?.status === "done" && rec.kind !== "heat" ? kpiFor(rec) : []), [rec]);
+  const kpisStatic = useMemo(() => (rec?.status === "done" && rec.kind !== "heat" && rec.kind !== "traffic" ? kpiFor(rec) : []), [rec]);
 
   return (
     <div className="pointer-events-none flex w-full flex-col items-center gap-2 px-3">
@@ -204,35 +204,16 @@ export function AnalysisDock() {
                 )}
               </div>
             </div>
-            {(overlay === "traffic" || overlay === "heat") && (
-              <div className="flex items-center gap-2">
-                <button onClick={() => setPlaying(!playing)} className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-accent text-on-accent hover:brightness-110" title={playing ? "Pause" : "Play the day"}>
-                  {playing ? <Pause size={11} fill="currentColor" /> : <Play size={11} fill="currentColor" className="ml-px" />}
-                </button>
-                <HourSlider />
-                {overlay === "traffic" && (
-                  <Segmented
-                    size="xs"
-                    value={(rec?.params?.period as string) ?? "pm"}
-                    onChange={(v) => {
-                      setHour(v === "am" ? 8 : 17);
-                      run("traffic", { period: v });
-                    }}
-                    options={[
-                      { value: "am", label: "AM" },
-                      { value: "pm", label: "PM" },
-                    ]}
-                  />
-                )}
-              </div>
-            )}
           </div>
           {/* KPIs */}
-          {rec?.kind === "heat" ? <HeatKpiBlock rec={rec.status === "done" ? rec : undefined} /> : <KpiGrid kpis={kpisStatic} />}
+          {rec?.kind === "heat" ? <HeatKpiBlock rec={rec.status === "done" ? rec : undefined} /> : rec?.kind === "traffic" ? <TrafficKpiBlock rec={rec.status === "done" ? rec : undefined} /> : <KpiGrid kpis={kpisStatic} />}
         </div>
       )}
       <PlanImpactSync />
-      <ChipBar overlay={overlay} busy={records.filter((r) => r.status === "running" && !r.background).map((r) => r.kind).sort().join(",")} />
+      <div className="flex max-w-full items-center gap-2">
+        <TimeControl timed={overlay === "heat" || overlay === "traffic"} />
+        <ChipBar overlay={overlay} busy={records.filter((r) => r.status === "running" && !r.background).map((r) => r.kind).sort().join(",")} />
+      </div>
     </div>
   );
 }
@@ -253,7 +234,8 @@ function Chip({ c, on, busy, onClick }: { c: (typeof CHIPS)[number]; on: boolean
 const HEAT_HOURS = [0, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
 
 export function defaultParams(kind: SimKind): Record<string, unknown> {
-  if (kind === "traffic") return { period: useApp.getState().hour < 12 ? "am" : "pm" };
+  // both peaks, so volumes, speeds and delay can follow the clock through the day
+  if (kind === "traffic") return { period: "pm", day: true };
   if (kind === "heat") return { deltaT: 0, date: useApp.getState().date, hours: HEAT_HOURS };
   if (kind === "flood") return { rise: 4 };
   if (kind === "runoff") return { storm: "25yr" };
@@ -325,50 +307,44 @@ function OverlayMode({ overlay, onChange }: { overlay: OverlayId | null; onChang
   return null;
 }
 
-function kpiFor(rec: SimRecord): { label: string; value: string }[] {
+function kpiFor(rec: SimRecord): { label: string; value: string; hint?: string }[] {
   const r = rec.result;
-  const f = (x: number, d = 0) => x.toLocaleString(undefined, { maximumFractionDigits: d });
+  const f = (x: number, d = 0) => fmtNum(x, d);
+  const KM = 1000;
   switch (rec.kind) {
-    case "traffic":
-      return [
-        { label: "Delay veh·h", value: f(r.kpi.delayHours) },
-        { label: "Avg speed", value: `${f(r.kpi.avgSpeedKmh, 1)} km/h` },
-        { label: "Congested", value: `${f(r.kpi.congestedKm, 1)} km` },
-        { label: "Veh trips", value: f(r.kpi.vehTrips) },
-      ];
     case "bike":
       return [
-        { label: "Low-stress km", value: `${f(r.kmByLts[1] + r.kmByLts[2], 1)}` },
-        { label: "LTS 4 km", value: `${f(r.kmByLts[4], 1)}` },
-        { label: "Grocery, low-stress", value: `${f((r.coverage.grocery?.lowStress ?? 0) * 100)}%` },
-        { label: "Largest island", value: `${f(r.islands[0]?.residents ?? 0)}` },
+        { label: "Low-stress streets", value: fmtMi((r.kmByLts[1] + r.kmByLts[2]) * KM), hint: "Street length at LTS 1–2, comfortable for most adults" },
+        { label: "High-stress (LTS 4)", value: fmtMi(r.kmByLts[4] * KM) },
+        { label: "Grocery, low-stress", value: `${f((r.coverage.grocery?.lowStress ?? 0) * 100)}%`, hint: "Residents who can reach a grocery on low-stress streets" },
+        { label: "Largest island", value: `${f(r.islands[0]?.residents ?? 0)} residents`, hint: "Residents in the largest connected low-stress area" },
       ];
     case "access":
       return [
-        { label: "Frequent transit", value: `${f(r.coverage.frequent_transit * 100)}%` },
-        { label: "Any stop 400 m", value: `${f(r.coverage.transit * 100)}%` },
+        { label: "Frequent transit", value: `${f(r.coverage.frequent_transit * 100)}%`, hint: "Residents within a 5-minute walk of a stop with service every 15 minutes or better" },
+        { label: "Any stop ¼ mi", value: `${f(r.coverage.transit * 100)}%` },
         { label: "Grocery 15 min", value: `${f(r.coverage.grocery * 100)}%` },
         { label: "Park 15 min", value: `${f(r.coverage.park * 100)}%` },
       ];
     case "flood":
       return [
-        { label: "Water level", value: `+${f(r.rise, 1)} m` },
-        { label: "Flooded area", value: `${f(r.floodedM2 / 10000, 1)} ha` },
+        { label: "Water level", value: `+${fmtDepth(r.rise)}` },
+        { label: "Flooded area", value: fmtArea(r.floodedM2) },
         { label: "Buildings", value: f(r.buildings.length) },
         { label: "Residents", value: f(r.residents) },
       ];
     case "runoff":
       return [
-        { label: "Runoff", value: `${f(r.volumeM3 / 1000)}k m³` },
-        { label: "Mean depth", value: `${f(r.depthMm)} mm` },
+        { label: "Runoff", value: fmtVol(r.volumeM3) },
+        { label: "Mean depth", value: fmtRain(r.depthMm) },
         { label: "Impervious", value: `${f(r.imperviousFraction * 100)}%` },
-        { label: "Storage", value: `${f(r.storageM3)} m³` },
+        { label: "Storage", value: fmtVol(r.storageM3) },
       ];
     case "capacity": {
       const ps = r.parcels as { addedUnits: number; addedGfa: number }[];
       return [
-        { label: "Added units", value: f(ps.reduce((s, p) => s + p.addedUnits, 0)) },
-        { label: "Added GFA", value: `${f(ps.reduce((s, p) => s + p.addedGfa, 0) / 1e6, 2)}M m²` },
+        { label: "Added homes", value: f(ps.reduce((s, p) => s + p.addedUnits, 0)) },
+        { label: "Added floor area", value: fmtSqFt(ps.reduce((s, p) => s + p.addedGfa, 0)) },
       ];
     }
     case "growth": {
@@ -381,7 +357,7 @@ function kpiFor(rec: SimRecord): { label: string; value: string }[] {
       ];
     }
     case "sun":
-      return r.stats ? [{ label: "Mean sun", value: `${f(r.stats.meanHours, 1)} h` }] : [{ label: "Date", value: String(r.date) }];
+      return r.stats ? [{ label: "Mean direct sun", value: `${f(r.stats.meanHours, 1)} h` }] : [];
     default:
       return [];
   }
@@ -467,11 +443,12 @@ function useHeatKpis(rec: SimRecord | undefined, hour: number): { label: string;
   const k = areaKpi(rec.result, sel, hour);
   const pct = (x: number, d = 0) => `${(x * 100).toFixed(d)}%`;
   const none = "—";
+  // every figure is for the hour shown (interpolated between modelled hours, like the map)
   return [
-    { label: "Feels like on foot", value: k.feels === null ? none : fmtF(k.feels), hint: "Mean feels-like temperature on sidewalks, plazas and streets in view" },
-    { label: "Above 104 °F", value: k.hot === null ? none : pct(k.hot), hint: "Share of the ground in view whose surface is hotter than 104 °F" },
-    { label: "Canopy", value: k.cells ? pct(k.canopy, 1) : none, hint: "Tree canopy cover of the area in view" },
-    { label: "Shaded paths", value: k.feels === null ? none : k.shaded === null ? "Night" : pct(k.shaded), hint: "Share of walkable ground in view out of direct sun" },
+    { label: "Feels like on foot", value: k.feels === null ? none : fmtF(k.feels), hint: "Mean feels-like temperature on the sidewalks, plazas and streets in view (air, sun and the heat the ground gives off)" },
+    { label: "Ground surface", value: k.surface === null ? none : fmtF(k.surface), hint: "Mean surface temperature of the ground in view: what the map colours show" },
+    { label: "Air", value: k.air === null ? none : fmtF(k.air), hint: "Air temperature at this hour on the modelled day" },
+    { label: "Shaded paths", value: k.feels === null ? none : k.shaded === null ? "Night" : pct(k.shaded), hint: `Share of walkable ground in view out of direct sun · tree canopy covers ${k.cells ? pct(k.canopy, 1) : none} of the view` },
   ];
 }
 
@@ -494,16 +471,60 @@ function HeatKpiBlock({ rec }: { rec: SimRecord | undefined }) {
   return <KpiGrid kpis={useHeatKpis(rec, hour)} title="For the area in view, at the time shown" />;
 }
 
-function HourSlider() {
-  const hour = useApp((s) => s.hour);
-  const setHour = useApp((s) => s.setHour);
+/**
+ * Traffic for the hour shown: both peak assignments scaled by the weekday hourly profile, with
+ * link times re-evaluated at the scaled volumes (sim/trafficHourly), so every figure follows the clock.
+ */
+function TrafficKpiBlock({ rec }: { rec: SimRecord | undefined }) {
+  // tenth-of-an-hour steps: playback re-renders this block, not the dock
+  const hour = useApp((s) => Math.round(s.hour * 10) / 10);
+  if (!rec) return null;
+  const k = trafficAtCached(rec.result, hour).kpi;
   return (
-    <>
-      <Slider size="sm" min={0} max={24} step={1 / 12} value={[hour]} onValueChange={([v]) => setHour(v % 24)} thumbLabels={["Time of day"]} className="min-w-0 flex-1" />
-      <span className="tabular w-[66px] shrink-0 text-right text-[12px] font-medium text-ink">{clock(hour)}</span>
-    </>
+    <KpiGrid
+      title="Across the network, for the hour shown"
+      kpis={[
+        { label: "Trips this hour", value: fmtNum(k.vehTrips, 0), hint: "Vehicle trips starting in this hour" },
+        { label: "Avg speed", value: fmtSpeed(k.avgSpeed), hint: "Distance-weighted mean speed of traffic on the network" },
+        { label: "Congested", value: k.congestedM < 1 ? "None" : fmtLen(k.congestedM), hint: "Street length running above 90% of capacity" },
+        { label: "Delay", value: `${fmtNum(k.delayHours, 0)} veh·h`, hint: "Vehicle-hours lost to congestion in this hour, against free flow" },
+      ]}
+    />
   );
 }
+
+/**
+ * The time of day, always available: play/pause and the clock; the clock opens the day slider (open
+ * by default while an hour-by-hour analysis is shown). Drives useApp().hour, which the lighting, the
+ * heat and traffic overlays and their figures all follow.
+ */
+const TimeControl = memo(function TimeControl({ timed }: { timed: boolean }) {
+  const hour = useApp((s) => s.hour);
+  const setHour = useApp((s) => s.setHour);
+  const playing = useApp((s) => s.playing);
+  const setPlaying = useApp((s) => s.setPlaying);
+  const [open, setOpen] = useState<boolean | null>(null);
+  const expanded = open ?? timed;
+  // an analysis being opened or closed resets the user's choice to its default
+  useEffect(() => setOpen(null), [timed]);
+  return (
+    <div className="chrome pointer-events-auto flex h-10 shrink-0 items-center gap-1.5 px-1.5" role="group" aria-label="Time of day">
+      <Tip label={playing ? "Pause" : "Play the day"} side="top">
+        <button onClick={() => setPlaying(!playing)} aria-label={playing ? "Pause" : "Play the day"} className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-accent text-on-accent hover:brightness-110">
+          {playing ? <Pause size={11} fill="currentColor" /> : <Play size={11} fill="currentColor" className="ml-px" />}
+        </button>
+      </Tip>
+      <div className={cx("flex items-center overflow-hidden transition-[width] duration-200 ease-out", expanded ? "w-[clamp(120px,22cqw,240px)]" : "w-0")}>
+        {expanded && <Slider size="sm" min={0} max={24} step={1 / 12} value={[hour]} onValueChange={([v]) => setHour(v % 24)} thumbLabels={["Time of day"]} className="mx-1.5 min-w-0 flex-1" />}
+      </div>
+      <Tip label={expanded ? "Hide the day slider" : "Change the time of day"} side="top">
+        <button onClick={() => setOpen(!expanded)} aria-expanded={expanded} className="tabular h-7 w-[68px] shrink-0 rounded-[5px] px-1 text-right text-[12px] font-medium text-ink hover:bg-paper-3">
+          {clock(hour)}
+        </button>
+      </Tip>
+    </div>
+  );
+});
 
 /** keeps the plan-impact pins current (it follows the clock, so it lives outside the dock's render) */
 function PlanImpactSync() {
