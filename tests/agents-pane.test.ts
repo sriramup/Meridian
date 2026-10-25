@@ -51,12 +51,12 @@ describe("agents pane model", () => {
     expect(relTime(now - 2 * 86400_000, now)).toBe("2d");
   });
 
-  it("zone labels in hectares", () => {
-    expect(formatArea(32_000)).toBe("3.2 ha");
-    expect(formatArea(4_200)).toBe("0.42 ha");
-    expect(formatArea(480_000)).toBe("48 ha");
-    expect(formatArea(2_500_000)).toBe("2.50 km²");
-    expect(drawnZoneLabel([[[0, 0], [200, 0], [200, 160], [0, 160]]])).toBe("Drawn area · 3.2 ha");
+  it("zone labels in acres", () => {
+    expect(formatArea(32_000)).toBe("7.9 acres");
+    expect(formatArea(1_500)).toBe("16,146 sq ft");
+    expect(formatArea(480_000)).toBe("119 acres");
+    expect(formatArea(2_500_000)).toBe("618 acres");
+    expect(drawnZoneLabel([[[0, 0], [200, 0], [200, 160], [0, 160]]])).toBe("Drawn area · 7.9 acres");
   });
 
   it("edit count from changesets or committed edit calls", () => {

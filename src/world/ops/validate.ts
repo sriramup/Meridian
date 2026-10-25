@@ -2,7 +2,7 @@
 // validate tool: right-of-way encroachment, building overlap, height limits
 // (zoning + Capitol View Corridors), buried utilities, floodplain, heritage.
 
-import { fmtArea } from "@/lib/units";
+import { fmtArea, fmtFt } from "@/lib/units";
 import { rowBand } from "@/geometry/streetGeometry";
 import { intersection, overlapArea, pointInPoly, polyArea, polyBBox, polyCentroid, polyDistance } from "@/geometry/polygon";
 import { closestOnPath } from "@/geometry/polyline";
@@ -113,7 +113,7 @@ export function checkBuilding(world: World, b: Building, exclude: Set<string> = 
   const hl = heightLimit(world, b.footprint, b.ground);
   if (hl.limit != null && b.height > hl.limit + 0.5) {
     const cvc = hl.source.some((s) => s.startsWith("Capitol"));
-    issues.push({ severity: cvc ? "error" : "warning", kind: cvc ? "cvc" : "height", message: `Height ${b.height.toFixed(0)} m exceeds the ${hl.limit.toFixed(0)} m limit (${hl.source[hl.source.length - 1]})${cvc ? "" : " — would require a variance or density bonus"}`, ids: [] });
+    issues.push({ severity: cvc ? "error" : "warning", kind: cvc ? "cvc" : "height", message: `Height ${fmtFt(b.height)} exceeds the ${fmtFt(hl.limit)} limit (${hl.source[hl.source.length - 1]})${cvc ? "" : " — would require a variance or density bonus"}`, ids: [] });
   }
   const utils = utilitiesUnder(world, b.footprint);
   const pipes = utils.filter((u) => u.type === "storm_pipe");

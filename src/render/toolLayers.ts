@@ -1,3 +1,4 @@
+import { fmtFt, fmtMi, toFt } from "@/lib/units";
 import { COORDINATE_SYSTEM, type Layer, type Position } from "@deck.gl/core";
 import { PathLayer, ScatterplotLayer, SolidPolygonLayer, TextLayer } from "@deck.gl/layers";
 import { pointInPoly, polyBBox } from "@/geometry/polygon";
@@ -186,7 +187,7 @@ export function toolLayers(): { ground: Layer[]; top: Layer[] } {
   else if (message && !draw.pending) layers.push(label(pts[pts.length - 1] as Vec2, message));
   if (tool === "measure" && pts.length >= 2) {
     const L = polyLength(pts as [number, number][]);
-    layers.push(label(pts[pts.length - 1] as Vec2, L >= 1000 ? `${(L / 1000).toFixed(2)} km` : `${L.toFixed(1)} m`, "ok"));
+    layers.push(label(pts[pts.length - 1] as Vec2, toFt(L) < 1000 ? fmtFt(L, toFt(L) < 10 ? 1 : 0) : fmtMi(L, 2), "ok"));
   }
   return { ground: [], top: layers };
 }

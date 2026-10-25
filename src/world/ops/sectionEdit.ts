@@ -1,5 +1,6 @@
 // Declarative cross-section edits (pure functions over a CrossSection).
 
+import { fmtFt } from "@/lib/units";
 import { cloneSection, DEFAULT_WIDTH, fitToRow, laneCount, MIN_WIDTH, PED_REALM, sectionWidth } from "@/geometry/crossSection";
 import type { CrossSection, Strip, StripType } from "../types";
 
@@ -110,7 +111,7 @@ export function applySectionEdits(section0: CrossSection, oneway0: boolean, clos
       }
       case "set_lane_width": {
         for (const s of S) if (s.type === "travel" || s.type === "turn") s.width = Math.max(MIN_WIDTH.travel, e.width);
-        notes.push(`lanes set to ${e.width.toFixed(1)} m`);
+        notes.push(`lanes set to ${fmtFt(e.width)}`);
         break;
       }
       case "set_sidewalk":
@@ -126,7 +127,7 @@ export function applySectionEdits(section0: CrossSection, oneway0: boolean, clos
           const s = S[idx[0]];
           s.width = Math.max(MIN_WIDTH.sidewalk, e.op === "set_sidewalk" ? e.width : s.width + e.by);
         }
-        notes.push(e.op === "set_sidewalk" ? `sidewalks ${e.width.toFixed(1)} m` : `sidewalks ${e.by >= 0 ? "+" : ""}${e.by.toFixed(1)} m`);
+        notes.push(e.op === "set_sidewalk" ? `sidewalks ${fmtFt(e.width)}` : `sidewalks ${e.by >= 0 ? "+" : ""}${fmtFt(e.by)}`);
         break;
       }
       case "add_bike_lanes": {
@@ -136,7 +137,7 @@ export function applySectionEdits(section0: CrossSection, oneway0: boolean, clos
           const at = kerbInsert(S, sd);
           const strips: Strip[] = [{ type: "cycletrack", dir: 0, width: e.width ?? 3.6 }, { type: "buffer", dir: 0, width: 0.9 }];
           S.splice(at, 0, ...(sd === "right" ? strips.reverse() : strips));
-          notes.push(`two-way protected cycle track (${(e.width ?? 3.6).toFixed(1)} m + 0.9 m buffer) on the ${sd} side`);
+          notes.push(`two-way protected cycle track (${fmtFt(e.width ?? 3.6)} + 3 ft buffer) on the ${sd} side`);
         } else {
           for (const sd of sides(oneway && !e.side ? "right" : e.side)) {
             const at = kerbInsert(S, sd);
@@ -190,7 +191,7 @@ export function applySectionEdits(section0: CrossSection, oneway0: boolean, clos
           const f = S.findIndex((s) => s.type === "travel" && s.dir === 1);
           if (f >= 0 && !oneway) S.splice(f, 0, { type: "median", dir: 0, width: e.width ?? 3 });
         }
-        notes.push(`planted median ${(e.width ?? 3).toFixed(1)} m`);
+        notes.push(`planted median ${fmtFt(e.width ?? 3)}`);
         break;
       }
       case "remove_median": {
@@ -208,7 +209,7 @@ export function applySectionEdits(section0: CrossSection, oneway0: boolean, clos
             S.splice(at, 0, { type: "planting", dir: 0, width: e.width ?? 2, trees: true });
           }
         }
-        notes.push(`planting strips ${(e.width ?? 2).toFixed(1)} m`);
+        notes.push(`planting strips ${fmtFt(e.width ?? 2)}`);
         break;
       }
       case "add_raingardens": {
@@ -229,7 +230,7 @@ export function applySectionEdits(section0: CrossSection, oneway0: boolean, clos
             inParking++;
           } else if (!e.only_parking) S.splice(kerbInsert(S, sd), 0, { type: "planting", dir: 0, width: e.width ?? 1.8, trees: true, bio: true });
         }
-        notes.push(`rain gardens (bioretention) ${(e.width ?? 1.8).toFixed(1)} m${inParking ? `; ${inParking} parking lane${inParking > 1 ? "s" : ""} converted to curb-extension bioswales` : ""}`);
+        notes.push(`rain gardens (bioretention) ${fmtFt(e.width ?? 1.8)}${inParking ? `; ${inParking} parking lane${inParking > 1 ? "s" : ""} converted to curb-extension bioswales` : ""}`);
         break;
       }
       case "bus_lanes": {
@@ -309,7 +310,7 @@ export function applySectionEdits(section0: CrossSection, oneway0: boolean, clos
         const right = S.filter((s, i) => PED_REALM.has(s.type) && i > S.length - 1 - S.slice().reverse().findIndex((x) => !PED_REALM.has(x.type)));
         S.splice(0, S.length, ...left, { type: "plaza", dir: 0, width: Math.max(3, kerbW) }, ...right);
         closed = true;
-        notes.push(`carriageway (${kerbW.toFixed(1)} m) converted to a pedestrian street`);
+        notes.push(`carriageway (${fmtFt(kerbW)}) converted to a pedestrian street`);
         break;
       }
       case "reopen": {
@@ -336,7 +337,7 @@ export function applySectionEdits(section0: CrossSection, oneway0: boolean, clos
     const before = sectionWidth(section);
     fitToRow(section, W0);
     const left = sectionWidth(section) - W0;
-    if (left > 0.1) notes.push(`right-of-way could not be fully held: +${left.toFixed(1)} m beyond the existing ${W0.toFixed(1)} m (every strip at its minimum width)`);
+    if (left > 0.1) notes.push(`right-of-way could not be fully held: +${fmtFt(left)} beyond the existing ${fmtFt(W0)} (every strip at its minimum width)`);
     else if (Math.abs(before - W0) > 0.2) notes.push(`right-of-way width held (${before > W0 ? "planting / sidewalks narrowed to fit" : "surplus given to sidewalks"})`);
   }
   for (const s of S) s.width = Math.round(s.width * 100) / 100;
