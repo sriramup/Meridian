@@ -116,6 +116,9 @@ const KIND_BASE: Record<PlaceKind, number> = {
   geocoded: 0.04,
 };
 
+/** an unnamed placed thing, found by its library type ("Pocket park"), ranks below anything named */
+const UNNAMED = 0.05;
+
 /**
  * How notable a place is beyond its name: size on a log scale (a 300 m² pavilion adds nothing, a
  * 30 ha campus the most), and a historic or civic building more than an ordinary one. This is the
@@ -518,7 +521,7 @@ export class PlaceIndex {
           ids: [e.id],
           point,
           bbox,
-          base: KIND_BASE[kind] + prominence,
+          base: KIND_BASE[kind] + prominence - (design ? UNNAMED : 0),
           what: kind === "address" ? "Address" : design ? "Placed" : USE_WHAT[e.use] ?? "Building",
           extra: name && addr ? abbreviateAddress(addr) : undefined,
         });
@@ -529,14 +532,17 @@ export class PlaceIndex {
         if (!name) return;
         const [what, icon] = AREA_WHAT[e.type] ?? ["Area", "Square"];
         const design = !!e.createdBy && !e.name;
-        this.put({ key: e.id, kind: design ? "design" : "area", icon: design ? "PencilRuler" : icon, label: name, aliases: [{ toks: nameToks(name) }], ids: [e.id], point: polyCentroid(e.poly), bbox: polyBBox(e.poly), base: KIND_BASE[design ? "design" : "area"] + (design ? 0 : notability(Math.abs(polyArea(e.poly)))), what: design ? "Placed" : what });
+        // "park" finds every park, below the ones named so (Heritage Green as well as Commons Park)
+        const aliases: Alias[] = [{ toks: nameToks(name) }];
+        if (!design && what) aliases.push({ toks: tokenize(what), penalty: 0.22 });
+        this.put({ key: e.id, kind: design ? "design" : "area", icon: design ? "PencilRuler" : icon, label: name, aliases, ids: [e.id], point: polyCentroid(e.poly), bbox: polyBBox(e.poly), base: design ? KIND_BASE.design - UNNAMED : KIND_BASE.area + notability(Math.abs(polyArea(e.poly))), what: design ? "Placed" : what });
         return;
       }
       case "prop": {
         const name = e.name ?? this.libName(e);
         if (!name) return;
         const r = Math.max(4, e.height);
-        this.put({ key: e.id, kind: "design", icon: "PencilRuler", label: name, aliases: [{ toks: nameToks(name) }], ids: [e.id], point: e.p, bbox: e.footprint ? polyBBox(e.footprint) : ptBox(e.p, r), base: KIND_BASE.design - (e.name ? 0 : 0.03), what: e.name ? "Placed" : "Placed" });
+        this.put({ key: e.id, kind: "design", icon: "PencilRuler", label: name, aliases: [{ toks: nameToks(name) }], ids: [e.id], point: e.p, bbox: e.footprint ? polyBBox(e.footprint) : ptBox(e.p, r), base: KIND_BASE.design - (e.name ? 0 : UNNAMED), what: "Placed" });
         return;
       }
       case "stop": {
@@ -683,7 +689,9 @@ export class PlaceIndex {
           }
         }
         if (best < 0.55) continue;
-        const known = Math.min(3, (this.labelCount.get(e.lk!) ?? 1) - 1) * 0.025;
+        // a name the data repeats (a park as place, area and point of interest) is a known place;
+        // many unnamed copies of one library type are not
+        const known = e.kind === "design" ? 0 : Math.min(3, (this.labelCount.get(e.lk!) ?? 1) - 1) * 0.025;
         hits.push({ e, score: best + e.base + known, alias: alias?.label });
       }
       // secondary lines only for the few that can be shown
@@ -1010,6 +1018,8 @@ function dedupe(rs: PlaceResult[]): PlaceResult[] {
       if (normKey(o.label) === k && (d < 300 || inBox(r.point, o.bbox, 100) || inBox(o.point, r.bbox, 100))) return true;
       // a campus in several parts, a street broken by a park: one place
       if (normKey(o.label) === k && o.kind === r.kind && SPREAD.has(r.kind) && d < 2000) return true;
+      // unnamed copies of one placed type: one row (name them to tell them apart)
+      if (normKey(o.label) === k && o.kind === "design" && r.kind === "design") return true;
       if (r.kind === "stop" && d < 120) return true;
       // the same junction found two ways
       return o.kind === "intersection" && r.kind === "intersection" && d < JUNCTION_CLUSTER;

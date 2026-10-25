@@ -28,4 +28,16 @@ describe("place search on a blank canvas", () => {
     // the whole street, though crossings split it into segments
     expect(searchPlaces("maple avenue")[0].ids.length).toBeGreaterThanOrEqual(3);
   }, 120_000);
+
+  it("on a designed neighborhood, named places lead and unnamed copies are one row", async () => {
+    await run("design_neighborhood", { area: [[-500, 400], [500, 400], [500, 1200], [-500, 1200]], homes: 2500, facilities: "a primary school, two parks and a few cafés" });
+    const parks = searchPlaces("park");
+    const named = (await import("@/state/runtime")).rt().world.all("area").filter((a) => a.type === "park" && a.name).map((a) => a.name!);
+    expect(named.length).toBeGreaterThanOrEqual(2);
+    // every named park is offered, the first one first
+    expect(named.every((n) => parks.some((p) => p.label === n))).toBe(true);
+    expect(named).toContain(parks[0].label);
+    // unnamed pocket parks are one row however many there are
+    expect(new Set(parks.map((p) => p.label)).size).toBe(parks.length);
+  }, 120_000);
 });
