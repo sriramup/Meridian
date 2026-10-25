@@ -122,7 +122,8 @@ export function Shell() {
             <HelpDialog />
           </div>
         </div>
-        <SlidePanel side="right" open={agentOpen} width={width} className="z-20">
+        {/* a floating card over the map, inset like the top bar and the dock */}
+        <SlidePanel side="right" open={agentOpen} width={width} className="z-20 py-3 pr-3">
           <div className="absolute top-0 bottom-0 -left-1 z-10 w-2 cursor-col-resize" onPointerDown={() => (drag.current = true)} />
           <AgentsPane onClose={() => useApp.getState().setAgentOpen(false)} />
         </SlidePanel>
