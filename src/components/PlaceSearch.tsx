@@ -249,7 +249,14 @@ export function PlaceSearch() {
 
   // real cities: a last row searches Google Maps (SerpApi) around the view — spent only when chosen
   const offerMaps = !!q.trim() && !sandbox && q.trim().length >= 2;
+  // armed only by a deliberate choice (arrow keys, or the pointer on the row): cmdk may highlight the
+  // row on its own when it is the only one, and a plain Enter on a typed query must not spend a search
+  const mapsArmed = useRef(false);
+  useEffect(() => {
+    mapsArmed.current = false;
+  }, [q]);
   const mapsSearch = () => {
+    if (!mapsArmed.current) return;
     const text = q.trim();
     leave();
     void searchGoogleMaps(text);
@@ -308,7 +315,7 @@ export function PlaceSearch() {
           </CommandItem>
         )}
         {offerMaps && (
-          <CommandItem value="serp-maps" onSelect={mapsSearch} className="gap-2.5 py-1.5" data-serp-row>
+          <CommandItem value="serp-maps" onSelect={mapsSearch} onPointerDown={() => (mapsArmed.current = true)} onPointerMove={() => (mapsArmed.current = true)} className="gap-2.5 py-1.5" data-serp-row>
             <span className="flex size-6 shrink-0 items-center justify-center">
               <Globe size={13} strokeWidth={1.7} className="text-rose" />
             </span>
@@ -344,6 +351,7 @@ export function PlaceSearch() {
             onFocus={() => setOpen(true)}
             onBlur={() => setTimeout(() => setOpen(false), 120)}
             onKeyDown={(e) => {
+              if (e.key === "ArrowDown" || e.key === "ArrowUp") mapsArmed.current = true;
               if (e.key === "Escape") {
                 e.preventDefault();
                 if (q) setQ("");

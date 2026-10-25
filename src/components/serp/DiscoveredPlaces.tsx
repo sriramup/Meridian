@@ -10,6 +10,7 @@ import { ChevronDown, ChevronUp, ExternalLink, MapPin, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { fmtLen } from "@/lib/units";
 import { useLayerSlot } from "@/render/layerSlots";
+import { useViewInsets } from "@/state/panels";
 import { rtMaybe } from "@/state/runtime";
 import { clearShown, focusPlace, useSerp, type LocalPlace, type PlaceSet } from "@/serp/store";
 import { LocalProjection } from "@/world/projection";
@@ -98,6 +99,7 @@ export function DiscoveredPlaces() {
   const [hover, setHover] = useState<string | null>(null);
   const [open, setOpen] = useState(true);
   useEffect(() => setOpen(set?.by === "search"), [set?.id, set?.by]);
+  const ins = useViewInsets();
   useGroundLayers(set, focus ?? hover);
   useCameraTick(!!set);
   const R = rtMaybe();
@@ -132,9 +134,9 @@ export function DiscoveredPlaces() {
             </button>
           );
         })}
-        {active && <Callout p={active} index={set.places.indexOf(active) + 1} pt={at(active.p)} onClose={() => focusPlace(null)} />}
+        {active && <Callout p={active} index={set.places.indexOf(active) + 1} pt={at(active.p)} clamp={[ins.left + 128, W - ins.right - 128]} onClose={() => focusPlace(null)} />}
       </div>
-      <div className="pointer-events-auto absolute top-16 left-[60px] z-[11] w-[300px] max-w-[calc(100%-80px)]" data-serp-panel>
+      <div className="pointer-events-auto absolute top-16 z-[11] w-[300px]" style={{ left: ins.left + 60, maxWidth: `calc(100% - ${ins.left + ins.right + 80}px)` }} data-serp-panel>
         <div className="chrome overflow-hidden">
           <div className="flex items-center gap-1.5 px-2.5 py-1.5">
             <MapPin size={13} className="shrink-0 text-rose" />
@@ -160,9 +162,11 @@ export function DiscoveredPlaces() {
   );
 }
 
-function Callout({ p, index, pt, onClose }: { p: LocalPlace; index: number; pt: { x: number; y: number }; onClose: () => void }) {
+function Callout({ p, index, pt, clamp, onClose }: { p: LocalPlace; index: number; pt: { x: number; y: number }; clamp: [number, number]; onClose: () => void }) {
+  // kept clear of the side panels that cover the map's edges
+  const x = clamp[0] < clamp[1] ? Math.max(clamp[0], Math.min(clamp[1], pt.x)) : pt.x;
   return (
-    <div className="pointer-events-auto absolute z-30 w-[240px] -translate-x-1/2 -translate-y-full" style={{ left: pt.x, top: pt.y - 40 }} data-serp-callout>
+    <div className="pointer-events-auto absolute z-30 w-[240px] -translate-x-1/2 -translate-y-full" style={{ left: x, top: pt.y - 40 }} data-serp-callout>
       <div className="rounded-[8px] border border-line-2 bg-paper/97 px-2.5 py-2 shadow-lg">
         <div className="flex items-start gap-1.5">
           <span className="tabular mt-px grid size-4 shrink-0 place-items-center rounded-full bg-rose text-[9.5px] font-semibold text-paper">{index}</span>
