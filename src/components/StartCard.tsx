@@ -1,11 +1,12 @@
 "use client";
 
-import { LayoutGrid, MessageSquare, Search, Spline } from "lucide-react";
+import { LayoutGrid, MessageSquare, Search, Spline, X } from "lucide-react";
 import { useMemo } from "react";
 import { Kbd } from "@/components/ui/kit";
 import { ensureLibrary, listPrimitives, type Category } from "@/library";
 import { resetDraw } from "@/state/drawing";
-import { switchCity } from "@/state/cities";
+import { newProject } from "./projects/ProjectsSidebar";
+import { setStartClosed, useProjects } from "@/state/projects";
 import { rt } from "@/state/runtime";
 import { useApp, type Tool } from "@/state/store";
 import { CATEGORY } from "./library/icons";
@@ -25,6 +26,7 @@ export function StartCard() {
   useApp((s) => s.worldVersion);
   const tool = useApp((s) => s.tool);
   const agentOpen = useApp((s) => s.agentOpen);
+  const closed = useProjects((s) => !!s.list.find((p) => p.id === s.currentId)?.startClosed);
   const counts = useMemo(() => {
     ensureLibrary();
     const m = new Map<Category, number>();
@@ -32,7 +34,7 @@ export function StartCard() {
     return m;
   }, []);
   const R = rt();
-  if (!R.meta.sandbox || R.world.entities.size > 0 || tool !== "select") return null;
+  if (!R.meta.sandbox || R.world.entities.size > 0 || tool !== "select" || closed) return null;
   const pick = (t: Tool) => {
     resetDraw();
     useApp.getState().setTool(t);
@@ -40,8 +42,16 @@ export function StartCard() {
   const cats = START.filter((c) => counts.has(c)).slice(0, 8);
   const total = [...counts.values()].reduce((a, b) => a + b, 0);
   return (
-    <div className="pointer-events-auto chrome w-[440px] max-w-[calc(100vw-32px)] p-4">
-      <div className="font-display text-[20px] leading-none font-semibold text-ink">Start a city</div>
+    <div data-testid="start-card" className="pointer-events-auto chrome relative w-[440px] max-w-[calc(100vw-32px)] p-4">
+      <button
+        onClick={() => void setStartClosed(true)}
+        aria-label="Close"
+        title="Close"
+        className="absolute top-2.5 right-2.5 grid size-7 place-items-center rounded-[6px] text-ink-3 transition-colors outline-none hover:bg-paper-3 hover:text-ink focus-visible:ring-2 focus-visible:ring-rose/25"
+      >
+        <X size={15} strokeWidth={1.8} />
+      </button>
+      <div className="pr-8 font-display text-[20px] leading-none font-semibold text-ink">Start a city</div>
       <p className="mt-1.5 text-[12px] leading-snug text-ink-3">An empty 1.9 × 1.9 mi site (strong grid lines every 100 ft). Place buildings, parks, streets and furniture from the library and set every dimension; everything runs through the heat, shade, stormwater, traffic and access models.</p>
       <button onClick={() => openLibrary(null)} className="mt-3 flex h-9 w-full items-center gap-2 rounded-[6px] border border-line-2 bg-paper px-2.5 text-left text-[12.5px] text-ink-4 transition-colors hover:border-gold">
         <Search size={14} className="text-ink-3" />
@@ -82,8 +92,8 @@ export function StartCard() {
         ) : (
           <span />
         )}
-        <button onClick={() => switchCity("austin")} className="text-ink-3 hover:text-ink">
-          Or open Austin →
+        <button onClick={() => void newProject("austin")} className="text-ink-3 hover:text-ink">
+          Or start from Austin →
         </button>
       </div>
     </div>

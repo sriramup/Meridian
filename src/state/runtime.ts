@@ -44,6 +44,8 @@ export interface Runtime {
   dem: Uint16Array;
   map: maplibregl.Map | null;
   overlay: MapboxOverlay | null;
+  /** camera to open on (the project's last view); MapView prefers it to meta.initialView */
+  startView?: { center: [number, number]; zoom: number; pitch: number; bearing: number };
 }
 
 let RT: Runtime | null = null;
@@ -56,6 +58,40 @@ export const rtMaybe = () => RT;
 export const setRuntime = (r: Runtime) => {
   RT = r;
 };
+
+const disposers = new Set<(r: Runtime) => void>();
+/**
+ * Run `fn` whenever a runtime is torn down (switching project or city without a page load): drop
+ * caches, timers and listeners that belong to that world. Returns an unsubscribe.
+ */
+export function onRuntimeDispose(fn: (r: Runtime) => void): () => void {
+  disposers.add(fn);
+  return () => disposers.delete(fn);
+}
+
+/**
+ * Tear the current runtime down. The map and deck overlay belong to MapView and go with it when the
+ * Shell unmounts (call this after that); the sim worker is stopped by the caller (sim/client).
+ */
+export function disposeRuntime() {
+  const R = RT;
+  if (!R) return;
+  for (const fn of [...disposers]) {
+    try {
+      fn(R);
+    } catch (e) {
+      console.error("runtime dispose", e);
+    }
+  }
+  // MapView normally removed these already; never leave a WebGL context behind
+  try {
+    R.map?.remove();
+  } catch {}
+  R.map = null;
+  R.overlay = null;
+  RT = null;
+  if (typeof window !== "undefined") delete (window as unknown as { __meridian?: Runtime }).__meridian;
+}
 
 async function fetchWithProgress(url: string, onBytes: (n: number) => void): Promise<ArrayBuffer> {
   const res = await fetch(url);
@@ -100,13 +136,24 @@ const SANDBOX_HOUSEHOLD = 2.5;
  * weather come from the climate city's pack so the environmental models still run.
  */
 export async function loadSandbox(climateId: string, onProgress: (p: number, label: string) => void): Promise<Runtime> {
+  return installRuntime(await buildSandbox(climateId, onProgress));
+}
+
+/** build (not install) a sandbox runtime: the current one keeps running until installRuntime */
+export async function buildSandbox(climateId: string, onProgress: (p: number, label: string) => void): Promise<Runtime> {
   onProgress(0.2, "Preparing blank canvas");
   const res = await fetch(`/data/${climateId}/meta.json`);
   if (!res.ok) throw new Error(`climate ${climateId}: HTTP ${res.status}`);
-  RT = sandboxRuntime(climateId, (await res.json()) as CityMeta);
-  if (typeof window !== "undefined") (window as unknown as { __meridian: Runtime }).__meridian = RT;
+  const R = sandboxRuntime(climateId, (await res.json()) as CityMeta);
   onProgress(1, "Ready");
-  return RT;
+  return R;
+}
+
+/** make `R` the current runtime (after disposeRuntime of the previous one) */
+export function installRuntime(R: Runtime): Runtime {
+  RT = R;
+  if (typeof window !== "undefined") (window as unknown as { __meridian: Runtime }).__meridian = R;
+  return R;
 }
 
 /** the sandbox runtime for a climate city's meta (no I/O; also used by the headless harness) */
@@ -155,6 +202,11 @@ export function sandboxRuntime(climateId: string, climate: CityMeta): Runtime {
 }
 
 export async function loadCity(cityId: string, onProgress: (p: number, label: string) => void): Promise<Runtime> {
+  return installRuntime(await buildCity(cityId, onProgress));
+}
+
+/** build (not install) a measured city's runtime from its pack */
+export async function buildCity(cityId: string, onProgress: (p: number, label: string) => void): Promise<Runtime> {
   const base = `/data/${cityId}`;
   const files = ["meta.json", "world.json", "utilities.json", "reference.json", "context.json", "landcover.bin", "dem.bin"];
   const approx: Record<string, number> = { "meta.json": 1e4, "world.json": 1.6e7, "utilities.json": 2.3e6, "reference.json": 1.3e6, "context.json": 4.4e6, "landcover.bin": 1.1e6, "dem.bin": 2.2e6 };
@@ -220,7 +272,7 @@ export async function loadCity(cityId: string, onProgress: (p: number, label: st
       })
       .filter((x) => x.fade > 0.02),
   };
-  RT = {
+  const R: Runtime = {
     cityId,
     climateId: cityId,
     meta,
@@ -240,7 +292,6 @@ export async function loadCity(cityId: string, onProgress: (p: number, label: st
     map: null,
     overlay: null,
   };
-  if (typeof window !== "undefined") (window as unknown as { __meridian: Runtime }).__meridian = RT;
   onProgress(1, "Ready");
-  return RT;
+  return R;
 }

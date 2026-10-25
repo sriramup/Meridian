@@ -8,6 +8,7 @@ import { toggleNight, togglePedestrian } from "@/state/view";
 import { applyOp } from "@/state/actions";
 import { rt } from "@/state/runtime";
 import { useApp, type Tool, type OverlayId } from "@/state/store";
+import { useProjects } from "@/state/projects";
 import { LocalProjection } from "@/world/projection";
 import { removeBuildings } from "@/world/ops/buildings";
 import { plantTreesAt, removeEntities } from "@/world/ops/landscape";
@@ -20,7 +21,6 @@ import { AgentsPane, useAgentShortcuts } from "./agents/AgentsPane";
 import { ZoneDrawSurface } from "./agents/ZoneDrawSurface";
 import { ZoneLayers } from "./agents/ZoneLayers";
 import { AnalysisDock } from "./AnalysisDock";
-import { ConfirmDialog } from "./ConfirmDialog";
 import { HelpDialog } from "./Help";
 import { ExitStreetView } from "./pedestrian/ExitStreetView";
 import { Inspector } from "./Inspector";
@@ -34,6 +34,7 @@ import { TopBar, ViewControls } from "./TopBar";
 
 export function Shell() {
   const agentOpen = useApp((s) => s.agentOpen);
+  const sidebarOpen = useProjects((s) => s.sidebarOpen);
   // side panels stop above the analysis dock, whose height follows the open overlay and the width
   const dock = useRef<HTMLDivElement>(null);
   const [dockH, setDockH] = useState(52);
@@ -78,7 +79,7 @@ export function Shell() {
   useEffect(() => {
     const t = setTimeout(() => rt().map?.resize(), 0);
     return () => clearTimeout(t);
-  }, [agentOpen, width]);
+  }, [agentOpen, width, sidebarOpen]);
 
   return (
     <TooltipPrimitive.Provider>
@@ -117,7 +118,6 @@ export function Shell() {
             </div>
             <Attribution />
             <HelpDialog />
-            <ConfirmDialog />
           </div>
         </div>
         {agentOpen && (

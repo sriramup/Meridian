@@ -53,7 +53,7 @@ export function MapView() {
   useEffect(() => {
     const R = rt();
     const proj = new LocalProjection(R.meta.origin.lon, R.meta.origin.lat);
-    const iv = R.meta.initialView;
+    const iv = R.startView ?? R.meta.initialView;
     const map = new maplibregl.Map({
       container: el.current!,
       style: basemapStyle(useApp.getState().theme, !!R.meta.sandbox),

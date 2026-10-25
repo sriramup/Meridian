@@ -1,7 +1,7 @@
 "use client";
 
 import * as DM from "@radix-ui/react-dropdown-menu";
-import { Check, ChevronDown, CircleHelp, Download, FileJson, FilePlus2, FileSpreadsheet, GitCompare, LoaderCircle, Footprints, GitBranch, Layers, Moon, Redo2, Sparkles, Sun, Undo2, Upload, Trash2 } from "lucide-react";
+import { Check, ChevronDown, CircleHelp, Download, FileJson, FileSpreadsheet, GitCompare, LoaderCircle, Footprints, GitBranch, Layers, Moon, PanelLeftClose, PanelLeftOpen, Pencil, Plus, Redo2, Sparkles, Sun, Undo2, Upload, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { rt, rtMaybe } from "@/state/runtime";
 import { useApp } from "@/state/store";
@@ -11,8 +11,7 @@ import { defaultParams } from "./AnalysisDock";
 import { faceNorth, orbitDrag, overview } from "@/render/camera";
 import { toggleNight, togglePedestrian } from "@/state/view";
 import { Wordmark } from "./LoadingScreen";
-import { CITY_PRESETS, switchCity } from "@/state/cities";
-import { clearDesign, hasDesign } from "@/state/persist";
+import { renameProject, toggleSidebar, useProjects } from "@/state/projects";
 import { exportableScenarios } from "@/state/proposalIO";
 import { openProposalFile, saveProposal } from "@/state/proposalActions";
 import {
@@ -26,9 +25,11 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "./ui/kit";
+import { Input } from "./ui/kit";
 import { IconButton, Tip, cx } from "./ui";
 import { CommandSearch } from "./CommandSearch";
 import { confirmAction } from "./ConfirmDialog";
+import { promptText } from "./projects/PromptDialog";
 
 export function TopBar() {
   useApp((s) => s.scenarioVersion);
@@ -39,12 +40,14 @@ export function TopBar() {
     useApp.getState().bumpScenarios();
   };
   return (
-    <div className="pointer-events-auto flex h-10 min-w-0 items-center gap-1 chrome scroll-ends pr-1.5 pl-3">
-      <button onClick={overview} className="mr-1 flex h-full shrink-0 items-center text-ink" title="Overview">
+    <div className="pointer-events-auto flex h-10 min-w-0 items-center gap-1 chrome scroll-ends pr-1.5 pl-1.5">
+      <SidebarToggle />
+      <button onClick={overview} className="mr-1 ml-0.5 flex h-full shrink-0 items-center text-ink" title="Overview">
         <Wordmark className="@max-[700px]:[&>span]:hidden" />
       </button>
       <span className="mx-1 h-4 w-px bg-line-2" />
-      <CityMenu />
+      <ProjectName />
+      {/* place search (place-search swaps the component in this slot) */}
       <CommandSearch />
       <span className="mx-1 h-4 w-px bg-line-2" />
       <ScenarioMenu />
@@ -76,7 +79,77 @@ export function TopBar() {
   );
 }
 
-/** the scenarios (designs / proposals): switch, branch, show changes, and proposal files */
+/** the open project's name; click to rename it in place */
+function ProjectName() {
+  const project = useProjects((s) => s.list.find((p) => p.id === s.currentId));
+  const [editing, setEditing] = useState(false);
+  const [v, setV] = useState("");
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (editing) requestAnimationFrame(() => input.current?.select());
+  }, [editing]);
+  if (!project) return null;
+  const finish = (keep: boolean) => {
+    if (keep) void renameProject(project.id, v);
+    setEditing(false);
+  };
+  if (editing)
+    return (
+      <Input
+        ref={input}
+        size="xs"
+        value={v}
+        maxLength={80}
+        aria-label="Project name"
+        data-testid="topbar-project-rename"
+        className="h-7 w-44 shrink-0 text-[12.5px] font-medium"
+        onChange={(e) => setV(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") finish(true);
+          else if (e.key === "Escape") finish(false);
+        }}
+        onBlur={() => finish(true)}
+      />
+    );
+  return (
+    <Tip label="Rename project">
+      <button
+        data-testid="topbar-project-name"
+        onClick={() => {
+          setV(project.name);
+          setEditing(true);
+        }}
+        className="flex h-7 max-w-[200px] min-w-0 shrink items-center rounded-[6px] px-2 text-[12.5px] font-semibold whitespace-nowrap text-ink outline-none hover:bg-paper-3 focus-visible:ring-2 focus-visible:ring-rose/25 @max-[820px]:max-w-[120px]"
+      >
+        <span className="truncate">{project.name}</span>
+      </button>
+    </Tip>
+  );
+}
+
+/** opens and closes the projects sidebar (far left of the top bar) */
+function SidebarToggle() {
+  const open = useProjects((s) => s.sidebarOpen);
+  return (
+    <Tip label={open ? "Hide projects" : "Show projects"}>
+      <IconButton size="sm" onClick={toggleSidebar} aria-label={open ? "Hide projects" : "Show projects"} aria-pressed={open} data-testid="sidebar-toggle">
+        {open ? <PanelLeftClose size={15} strokeWidth={1.7} /> : <PanelLeftOpen size={15} strokeWidth={1.7} />}
+      </IconButton>
+    </Tip>
+  );
+}
+
+/** a proposal name not used yet: "Option B", "Option C"… */
+function nextOptionName(names: string[]) {
+  const taken = new Set(names.map((n) => n.toLowerCase()));
+  for (let i = 0; i < 26 * 4; i++) {
+    const n = `Option ${String.fromCharCode(65 + (i % 26))}${i >= 26 ? ` ${Math.floor(i / 26) + 1}` : ""}`;
+    if (!taken.has(n.toLowerCase())) return n;
+  }
+  return "Option";
+}
+
+/** the proposals of the open project: switch, rename, start new or branch, delete, export / import */
 function ScenarioMenu() {
   useApp((s) => s.scenarioVersion);
   const R = rt();
@@ -87,16 +160,41 @@ function ScenarioMenu() {
     useApp.getState().bumpWorld();
     useApp.getState().bumpScenarios();
   };
-  const word = R.meta.sandbox ? "design" : "proposal";
   const canExport = active.id !== "baseline" && active.cursor > 0;
   const many = exportableScenarios(R).length > 1;
-  const save = saveProposal;
-  const open = openProposalFile;
+  const names = () => [...S.scenarios.values()].map((s) => s.name);
+  const make = async (from: "baseline" | "active") => {
+    const src = from === "baseline" ? S.scenarios.get("baseline")! : S.active;
+    const name = await promptText({
+      title: from === "baseline" ? "New proposal" : `Branch from “${src.name}”`,
+      body: from === "baseline" ? `Starts from ${R.meta.sandbox ? "the empty site" : "the existing city"}.` : `Starts as a copy of “${src.name}” with its ${src.cursor} edit${src.cursor === 1 ? "" : "s"}; the original stays as it is.`,
+      label: "Proposal name",
+      value: nextOptionName(names()),
+      confirm: from === "baseline" ? "Create proposal" : "Create branch",
+    });
+    if (!name) return;
+    S.branch(name, "user", src.id);
+    bump();
+  };
+  const rename = async () => {
+    const name = await promptText({ title: "Rename proposal", label: "Proposal name", value: active.name, confirm: "Rename" });
+    if (name && name !== active.name) {
+      S.rename(active.id, name);
+      bump();
+    }
+  };
+  const remove = async () => {
+    if (active.id === "baseline") return;
+    const ok = !active.changesets.length || (await confirmAction({ title: `Delete “${active.name}”?`, body: `Its ${active.changesets.length} edit${active.changesets.length === 1 ? "" : "s"} and their history are removed. Export it first to keep a copy.`, confirm: "Delete proposal", danger: true }));
+    if (!ok) return;
+    S.remove(active.id);
+    bump();
+  };
   return (
     <DropdownMenu>
-      <Tip label="Designs: switch, compare, try an alternative, export or import">
+      <Tip label="Proposals: switch, rename, start new, branch, export or import">
         <DropdownMenuTrigger asChild>
-          <button className="flex h-7 min-w-0 items-center gap-1.5 rounded-[6px] px-2 text-[12.5px] font-medium text-ink outline-none hover:bg-paper-3">
+          <button data-testid="proposal-menu" className="flex h-7 min-w-0 items-center gap-1.5 rounded-[6px] px-2 text-[12.5px] font-medium text-ink outline-none hover:bg-paper-3">
             <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: active.color }} />
             <span className="max-w-[140px] truncate">{active.name}</span>
             <span className="tabular shrink-0 text-[11px] font-normal text-ink-4 @max-[820px]:hidden">{active.cursor ? `${active.cursor} edit${active.cursor > 1 ? "s" : ""}` : ""}</span>
@@ -105,7 +203,7 @@ function ScenarioMenu() {
         </DropdownMenuTrigger>
       </Tip>
       <DropdownMenuContent align="start" className="w-72">
-        <DropdownMenuLabel>Scenarios</DropdownMenuLabel>
+        <DropdownMenuLabel>Proposals</DropdownMenuLabel>
         {[...S.scenarios.values()].map((s) => (
           <DropdownMenuItem
             key={s.id}
@@ -113,26 +211,11 @@ function ScenarioMenu() {
               S.switchTo(s.id);
               bump();
             }}
-            className="group"
           >
             <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: s.color }} />
             <span className="min-w-0 flex-1 truncate">{s.name}</span>
-            <span className="tabular text-[11px] text-ink-4">{s.cursor}</span>
+            <span className="tabular text-[11px] text-ink-4">{s.cursor || ""}</span>
             {s.id === S.activeId ? <Check size={13} className="text-ink-2" /> : <span className="w-[13px]" />}
-            {s.id !== "baseline" && (
-              <button
-                className="hidden text-ink-4 group-hover:block hover:text-bad"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  S.remove(s.id);
-                  bump();
-                }}
-                title="Delete scenario"
-                aria-label={`Delete ${s.name}`}
-              >
-                <Trash2 size={12} />
-              </button>
-            )}
           </DropdownMenuItem>
         ))}
         {active.cursor > 0 && (
@@ -142,40 +225,50 @@ function ScenarioMenu() {
           </>
         )}
         <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onSelect={() => {
-            S.branch(`Option ${String.fromCharCode(64 + S.scenarios.size)}`, "user");
-            bump();
-          }}
-        >
-          <GitBranch /> Branch from “{active.name}”
+        {active.id !== "baseline" && (
+          <DropdownMenuItem onSelect={() => void make("active")}>
+            <GitBranch /> <span className="min-w-0 truncate">Branch from “{active.name}”…</span>
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem onSelect={() => void make("baseline")}>
+          <Plus /> New proposal…
         </DropdownMenuItem>
+        {active.id !== "baseline" && (
+          <>
+            <DropdownMenuItem onSelect={() => void rename()}>
+              <Pencil /> Rename…
+            </DropdownMenuItem>
+            <DropdownMenuItem variant="danger" onSelect={() => void remove()}>
+              <Trash2 /> Delete proposal…
+            </DropdownMenuItem>
+          </>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuSub>
           <DropdownMenuSubTrigger disabled={!canExport && !many}>
-            <Download /> Export {word}
+            <Download /> Export proposal
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="w-64">
-            <DropdownMenuItem disabled={!canExport} onSelect={() => save("json")}>
+            <DropdownMenuItem disabled={!canExport} onSelect={() => saveProposal("json")}>
               <FileJson /> <span className="flex-1">JSON</span>
               <span className="text-[11px] text-ink-4">exact, re-importable</span>
             </DropdownMenuItem>
-            <DropdownMenuItem disabled={!canExport} onSelect={() => save("csv")}>
+            <DropdownMenuItem disabled={!canExport} onSelect={() => saveProposal("csv")}>
               <FileSpreadsheet /> <span className="flex-1">CSV</span>
               <span className="text-[11px] text-ink-4">a row per feature</span>
             </DropdownMenuItem>
             {many && (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => save("json", "all")}>
-                  <FileJson /> <span className="flex-1">All {word}s (JSON)</span>
+                <DropdownMenuItem onSelect={() => saveProposal("json", "all")}>
+                  <FileJson /> <span className="flex-1">All proposals (JSON)</span>
                 </DropdownMenuItem>
               </>
             )}
           </DropdownMenuSubContent>
         </DropdownMenuSub>
         <DropdownMenuItem onSelect={() => file.current?.click()}>
-          <Upload /> Import {word}…
+          <Upload /> Import proposal…
         </DropdownMenuItem>
       </DropdownMenuContent>
       <input
@@ -187,7 +280,7 @@ function ScenarioMenu() {
         onChange={(e) => {
           const f = e.target.files?.[0];
           e.target.value = "";
-          if (f) void open(f);
+          if (f) void openProposalFile(f);
         }}
       />
     </DropdownMenu>
@@ -338,50 +431,6 @@ function Compass() {
         </svg>
       </IconButton>
     </Tip>
-  );
-}
-
-/** which city is open: the blank canvas or a measured preset (designs are exported from the scenario menu) */
-function CityMenu() {
-  const R = rt();
-  return (
-    <DropdownMenu>
-      <Tip label="Change city">
-        <DropdownMenuTrigger asChild>
-          <button className="flex h-7 shrink-0 items-center gap-1 rounded-[6px] px-2 text-[12.5px] font-medium whitespace-nowrap text-ink outline-none hover:bg-paper-3">
-            {R.meta.name}
-            <ChevronDown size={13} className="text-ink-4" />
-          </button>
-        </DropdownMenuTrigger>
-      </Tip>
-      <DropdownMenuContent align="start" className="w-80">
-        <DropdownMenuLabel>Start from</DropdownMenuLabel>
-        {CITY_PRESETS.map((c) => (
-          <DropdownMenuItem key={c.id} onSelect={() => void switchCity(c.id)} className="h-auto items-start py-1.5 leading-normal">
-            <span className="min-w-0 flex-1">
-              <span className="block font-medium">{c.name}</span>
-              <span className="block text-[11px] leading-snug text-ink-4">{c.blurb}</span>
-            </span>
-            {c.id === R.cityId ? <Check size={13} className="mt-0.5 text-ink-2" /> : <span className="w-[13px]" />}
-          </DropdownMenuItem>
-        ))}
-        {R.meta.sandbox && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onSelect={async () => {
-                if (hasDesign() && !(await confirmAction({ title: "Start a new blank canvas?", body: "This clears the current design. Export it first (design menu → Export) to keep a copy.", confirm: "Clear and start again", danger: true }))) return;
-                await clearDesign();
-                window.location.reload();
-              }}
-            >
-              <FilePlus2 /> New blank canvas
-            </DropdownMenuItem>
-            <div className="px-2 pt-1 pb-1.5 text-[10.5px] leading-snug text-ink-4">Your designs are saved in this browser as you work. Export or import them from the design menu.</div>
-          </>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }
 
