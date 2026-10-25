@@ -206,14 +206,15 @@ export function legendFor(overlay: OverlayId | null): Legend | null {
 /**
  * Colour range of the heat map (°C). Shade sits near air temperature and sun-baked pavement 10–15 °C
  * above it, so the range is anchored to the shown hour's air temperature: every day and hour spans
- * blue (shade) to orange (sun on hard ground).
+ * blue (shade) to orange (sun on hard ground). The top sits low (air + 18 °C) so sunlit ground already
+ * reads yellow to orange and the hottest pavement saturates.
  */
 function heatRange(): [number, number] {
   const { rec } = shown("heat");
   if (!rec) return [25, 70];
   // one scale for the whole day (anchored to its hottest hour), so playback has no colour jumps
   const air = Math.round(Math.max(...(rec.result.airTemp as number[])));
-  return [air - 4, air + 30];
+  return [air - 4, air + 18];
 }
 
 /** the surrounding-city result for the same parameters (started on first request, redrawn when it lands) */

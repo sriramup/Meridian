@@ -30,6 +30,28 @@ export const CATEGORY: Record<Category, { label: string; icon: LucideIcon }> = {
 
 export const CATEGORY_ORDER = Object.keys(CATEGORY) as Category[];
 
+/** the library's three shelves, each gathering several catalog categories */
+export type Group = "buildings" | "nature" | "streets";
+
+export const GROUP: Record<Group, { label: string; icon: LucideIcon; cats: Category[] }> = {
+  buildings: { label: "Buildings", icon: Building2, cats: ["buildings", "housing", "commercial", "civic", "education", "health", "industrial", "utilities", "recreation", "landmarks", "composites"] },
+  nature: { label: "Nature", icon: Trees, cats: ["parks", "flora", "fauna", "water"] },
+  streets: { label: "Streets", icon: Bus, cats: ["transport", "streetscape"] },
+};
+
+export const GROUP_ORDER = Object.keys(GROUP) as Group[];
+
+/** the shelf a category sits on */
+export function groupOf(c: Category): Group {
+  return GROUP_ORDER.find((g) => GROUP[g].cats.includes(c)) ?? "buildings";
+}
+
+/** a group id, or the group of a catalog category (shortcuts and older callers pass categories) */
+export function asGroup(c: string | null): Group | null {
+  if (!c) return null;
+  return c in GROUP ? (c as Group) : c in CATEGORY ? groupOf(c as Category) : null;
+}
+
 const NAMES = new Set<string>(iconNames);
 
 /** the definition's own lucide icon when it names one, otherwise its category's */

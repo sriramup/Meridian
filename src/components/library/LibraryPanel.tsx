@@ -10,7 +10,7 @@ import { ensureLibrary, getPrimitive, listPrimitives, searchPrimitives, type Cat
 import { rt } from "@/state/runtime";
 import { useApp } from "@/state/store";
 import { IconButton } from "../ui";
-import { CATEGORY, CATEGORY_ORDER, PrimitiveIcon, PrimitiveThumb } from "./icons";
+import { CATEGORY, CATEGORY_ORDER, GROUP, GROUP_ORDER, groupOf, type Group, PrimitiveIcon, PrimitiveThumb } from "./icons";
 import { useLibrary } from "./libraryStore";
 import { ParamForm } from "./ParamForm";
 
@@ -74,7 +74,7 @@ const GRID = "[&_[cmdk-group-items]]:grid [&_[cmdk-group-items]]:grid-cols-2 [&_
 
 function Browse() {
   const query = useLibrary((s) => s.query);
-  const category = useLibrary((s) => s.category) as Category | null;
+  const category = useLibrary((s) => s.category) as Group | null;
   const { setQuery, setCategory, arm } = useLibrary.getState();
   const input = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -86,18 +86,21 @@ function Browse() {
   const groups = useMemo(() => {
     // our own ranking (names, then synonyms / tags, then descriptions); cmdk only handles the keyboard
     const all = query.trim() ? searchPrimitives(query, 200) : listPrimitives();
-    const list = category ? all.filter((d) => d.category === category) : all;
-    if (query.trim()) return [{ cat: null as Category | null, defs: list }];
+    const list = category ? all.filter((d) => groupOf(d.category) === category) : all;
+    if (query.trim()) return [{ heading: null as string | null, defs: list }];
+    const byName = (a: PrimitiveDef, b: PrimitiveDef) => a.name.localeCompare(b.name);
+    // all shelves: one heading per shelf; one shelf: headed by the catalog categories on it
+    if (!category) return GROUP_ORDER.map((g) => ({ heading: GROUP[g].label as string | null, defs: list.filter((d) => groupOf(d.category) === g).sort(byName) })).filter((g) => g.defs.length);
     const by = new Map<Category, PrimitiveDef[]>();
     for (const d of list) {
       if (!by.has(d.category)) by.set(d.category, []);
       by.get(d.category)!.push(d);
     }
-    return CATEGORY_ORDER.filter((c) => by.has(c)).map((c) => ({ cat: c as Category | null, defs: by.get(c)!.sort((a, b) => a.name.localeCompare(b.name)) }));
+    return CATEGORY_ORDER.filter((c) => by.has(c)).map((c) => ({ heading: CATEGORY[c].label as string | null, defs: by.get(c)!.sort(byName) }));
   }, [query, category]);
   const counts = useMemo(() => {
-    const m = new Map<Category, number>();
-    for (const d of listPrimitives()) m.set(d.category, (m.get(d.category) ?? 0) + 1);
+    const m = new Map<Group, number>();
+    for (const d of listPrimitives()) m.set(groupOf(d.category), (m.get(groupOf(d.category)) ?? 0) + 1);
     return m;
   }, [total]);
   // a new query or category starts at its best match, scrolled to the top (cmdk would otherwise
@@ -150,15 +153,8 @@ function Browse() {
           </span>
         }
       />
-      {/* categories: a scrolling row of labelled chips (the wheel scrolls it sideways) */}
-      <div
-        className="kit-scroll flex shrink-0 gap-1 overflow-x-auto border-b border-line px-2 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        role="group"
-        aria-label="Categories"
-        onWheel={(e) => {
-          if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) e.currentTarget.scrollLeft += e.deltaY;
-        }}
-      >
+      {/* shelves: a row of labelled chips */}
+      <div className="flex shrink-0 gap-1 border-b border-line px-2 py-2" role="group" aria-label="Categories">
         <button
           aria-pressed={!category}
           onClick={() => setCategory(null)}
@@ -166,18 +162,18 @@ function Browse() {
         >
           All
         </button>
-        {CATEGORY_ORDER.filter((c) => counts.has(c)).map((c) => {
-          const Icon = CATEGORY[c].icon;
+        {GROUP_ORDER.filter((c) => counts.has(c)).map((c) => {
+          const Icon = GROUP[c].icon;
           const on = category === c;
           return (
             <button
               key={c}
               aria-pressed={on}
               onClick={() => setCategory(on ? null : c)}
-              className={cn("flex h-7 shrink-0 items-center gap-1.5 rounded-full border pr-2.5 pl-2 text-[11.5px] font-medium whitespace-nowrap transition-colors", on ? "border-accent bg-accent text-on-accent" : "border-line text-ink-2 hover:border-line-2 hover:bg-paper-3")}
+              className={cn("flex h-7 min-w-0 flex-1 items-center justify-center gap-1 rounded-full border px-1.5 text-[11.5px] font-medium whitespace-nowrap transition-colors", on ? "border-accent bg-accent text-on-accent" : "border-line text-ink-2 hover:border-line-2 hover:bg-paper-3")}
             >
               <Icon size={13} strokeWidth={1.8} />
-              {CATEGORY[c].label}
+              {GROUP[c].label}
               <span className={cn("tabular text-[10.5px]", on ? "opacity-80" : "text-ink-4")}>{counts.get(c)}</span>
             </button>
           );
@@ -186,8 +182,8 @@ function Browse() {
       <CommandList ref={list} className="max-h-none min-h-0 flex-1 px-1 pt-0">
         <CommandEmpty>{total ? `Nothing matches “${query}”.` : "The library is loading…"}</CommandEmpty>
         {groups.map((g) =>
-          g.cat && !category ? (
-            <CommandGroup key={g.cat} heading={CATEGORY[g.cat].label} className={GRID}>
+          g.heading ? (
+            <CommandGroup key={g.heading} heading={g.heading} className={GRID}>
               {g.defs.map(item)}
             </CommandGroup>
           ) : (

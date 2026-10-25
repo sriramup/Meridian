@@ -4,22 +4,19 @@ import { ImageUp, LayoutGrid, MessageSquare, Search, Spline, X } from "lucide-re
 import { openSketchStart } from "./sketch/SketchStart";
 import { useMemo } from "react";
 import { Kbd } from "@/components/ui/kit";
-import { ensureLibrary, listPrimitives, type Category } from "@/library";
+import { ensureLibrary, listPrimitives } from "@/library";
 import { resetDraw } from "@/state/drawing";
 import { newProject } from "./projects/ProjectsSidebar";
 import { setStartClosed, useProjects } from "@/state/projects";
 import { rt } from "@/state/runtime";
 import { useApp, type Tool } from "@/state/store";
-import { CATEGORY } from "./library/icons";
+import { GROUP, GROUP_ORDER, groupOf, type Group } from "./library/icons";
 import { openLibrary as open } from "./library/libraryStore";
 
-function openLibrary(category: Category | null) {
+function openLibrary(category: Group | null) {
   resetDraw();
   open(category);
 }
-
-/** the categories offered as starting points, in order (those the catalog has) */
-const START: Category[] = ["housing", "buildings", "commercial", "civic", "education", "parks", "flora", "streetscape", "recreation", "water", "transport", "landmarks"];
 
 
 /** shown on an empty canvas only: start from the library, lay out streets, or describe it */
@@ -30,8 +27,8 @@ export function StartCard() {
   const closed = useProjects((s) => !!s.list.find((p) => p.id === s.currentId)?.startClosed);
   const counts = useMemo(() => {
     ensureLibrary();
-    const m = new Map<Category, number>();
-    for (const d of listPrimitives()) m.set(d.category, (m.get(d.category) ?? 0) + 1);
+    const m = new Map<Group, number>();
+    for (const d of listPrimitives()) m.set(groupOf(d.category), (m.get(groupOf(d.category)) ?? 0) + 1);
     return m;
   }, []);
   const R = rt();
@@ -40,7 +37,8 @@ export function StartCard() {
     resetDraw();
     useApp.getState().setTool(t);
   };
-  const cats = START.filter((c) => counts.has(c)).slice(0, 8);
+  // the library's shelves as starting points (those the catalog has)
+  const cats = GROUP_ORDER.filter((c) => counts.has(c));
   const total = [...counts.values()].reduce((a, b) => a + b, 0);
   return (
     <div data-testid="start-card" className="pop-in pointer-events-auto chrome relative w-[440px] max-w-[calc(100vw-32px)] p-4">
@@ -60,13 +58,13 @@ export function StartCard() {
         <Kbd size="xs">L</Kbd>
       </button>
       {cats.length > 0 && (
-        <div className="mt-2 grid grid-cols-4 gap-1.5">
+        <div className="mt-2 grid grid-cols-3 gap-1.5">
           {cats.map((c) => {
-            const Icon = CATEGORY[c].icon;
+            const Icon = GROUP[c].icon;
             return (
               <button key={c} onClick={() => openLibrary(c)} className="flex flex-col items-start gap-1 rounded-[7px] border border-line px-2 py-1.5 text-left transition-colors hover:border-accent/60 hover:bg-accent-2">
                 <Icon size={15} strokeWidth={1.7} className="text-rose" />
-                <span className="text-[11.5px] leading-tight font-medium text-ink">{CATEGORY[c].label}</span>
+                <span className="text-[11.5px] leading-tight font-medium text-ink">{GROUP[c].label}</span>
                 <span className="text-[10px] text-ink-4">{counts.get(c)} types</span>
               </button>
             );

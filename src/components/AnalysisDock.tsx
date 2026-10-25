@@ -21,15 +21,15 @@ import { SelectField, Slider } from "./ui/kit";
 import { Button, Segmented, Tip, cx } from "./ui";
 
 export const CHIPS: { id: OverlayId; label: string; icon: typeof Car; sim?: SimKind; hint: string; more?: boolean }[] = [
-  { id: "heat", label: "Heat", icon: Thermometer, sim: "heat", hint: "Surface temperature, hour by hour" },
-  { id: "sun", label: "Shade", icon: Sun, sim: "sun", hint: "Hours of direct sun per spot (fewer = more shade)" },
-  { id: "runoff", label: "Stormwater", icon: CloudRain, sim: "runoff", hint: "Design-storm runoff from hard surfaces" },
-  { id: "traffic", label: "Traffic", icon: Car, sim: "traffic", hint: "Volumes and congestion, hour by hour", more: true },
+  { id: "heat", label: "Heat", icon: Thermometer, sim: "heat", hint: "Surface temperature by hour" },
+  { id: "sun", label: "Shade", icon: Sun, sim: "sun", hint: "Hours of direct sun" },
+  { id: "runoff", label: "Stormwater", icon: CloudRain, sim: "runoff", hint: "Design-storm runoff" },
+  { id: "traffic", label: "Traffic", icon: Car, sim: "traffic", hint: "Volumes and congestion by hour", more: true },
   { id: "density", label: "Density", icon: Users, hint: "Residents / jobs per acre", more: true },
   { id: "access", label: "Access", icon: Footprints, sim: "access", hint: "Walk times", more: true },
-  { id: "bike", label: "Bike", icon: Bike, sim: "bike", hint: "Bicycle level of traffic stress", more: true },
-  { id: "zoning", label: "Capacity", icon: LayoutGrid, sim: "capacity", hint: "Zoned development capacity", more: true },
-  { id: "growth", label: "Growth", icon: TrendingUp, sim: "growth", hint: "Where residential growth could go", more: true },
+  { id: "bike", label: "Bike", icon: Bike, sim: "bike", hint: "Bike traffic stress", more: true },
+  { id: "zoning", label: "Capacity", icon: LayoutGrid, sim: "capacity", hint: "Zoned capacity", more: true },
+  { id: "growth", label: "Growth", icon: TrendingUp, sim: "growth", hint: "Where housing could grow", more: true },
   { id: "transit", label: "Transit", icon: TramFront, hint: "Routes & ¼-mile catchments", more: true },
   { id: "flood", label: "Flood", icon: Droplets, sim: "flood", hint: "Inundation screening", more: true },
 ];
@@ -160,19 +160,19 @@ export function AnalysisDock() {
         >
         <div className="-mx-1 min-h-0 overflow-hidden px-1">
         {/* one row on a wide map; on a narrow one the legend and KPIs share the top row, controls below */}
-        <div className="chrome grid w-full max-w-[min(1000px,calc(100cqw-24px))] grid-cols-[220px_minmax(0,1fr)_auto] @max-[860px]:grid-cols-[minmax(0,1fr)_auto]">
-          {/* legend */}
-          <div className="min-w-0 px-3 py-2.5">
+        <div className="chrome grid w-full max-w-[min(1000px,calc(100cqw-24px))] grid-cols-[minmax(240px,1fr)_auto_auto] @max-[860px]:grid-cols-[minmax(0,1fr)_auto]">
+          {/* legend: the title, then the ramp running the width with its ends beside it */}
+          <div className="flex min-w-0 flex-col justify-center px-3 py-1.5">
             {legend ? (
               <>
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="truncate text-[12px] font-semibold text-ink">{cmpRec ? `Δ ${legend.title}` : legend.title}</span>
                   <span className="shrink-0 text-[10.5px] text-ink-4">{legend.unit}</span>
                 </div>
-                <div className="mt-1.5 h-2 rounded-full" style={{ background: cssGradient(cmpRec ? DIVERGE : legend.palette) }} />
-                <div className="mt-1 flex justify-between text-[10.5px] text-ink-4 tabular">
-                  <span>{cmpRec ? (overlay === "heat" ? "−5 °F cooler" : "less") : legend.min}</span>
-                  <span>{cmpRec ? (overlay === "heat" ? "+5 °F hotter" : "more") : legend.max}</span>
+                <div className="mt-1 flex items-center gap-2 text-[10.5px] whitespace-nowrap text-ink-4 tabular">
+                  <span>{cmpRec ? (overlay === "heat" ? "−5 °F" : "less") : legend.min}</span>
+                  <div className="h-2 min-w-0 flex-1 rounded-full" style={{ background: cssGradient(cmpRec ? DIVERGE : legend.palette) }} />
+                  <span>{cmpRec ? (overlay === "heat" ? "+5 °F" : "more") : legend.max}</span>
                 </div>
               </>
             ) : overlay === "transit" ? (
@@ -185,13 +185,16 @@ export function AnalysisDock() {
             )}
           </div>
           {/* controls */}
-          <div className="flex min-w-0 flex-col justify-center gap-2 border-l border-line px-3 py-2 @max-[860px]:order-last @max-[860px]:col-span-2 @max-[860px]:border-t @max-[860px]:border-l-0">
+          <div className="flex min-w-0 flex-col justify-center gap-2 border-l border-line px-3 py-1.5 @max-[860px]:order-last @max-[860px]:col-span-2 @max-[860px]:border-t @max-[860px]:border-l-0">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               {chip?.sim === "heat" || chip?.sim === "sun" ? (
-                <>
-                  <MonthSelect />
-                  {running && <LoaderCircle size={13} className="shrink-0 animate-spin text-ink-3" />}
-                </>
+                <div className="flex items-end gap-1.5">
+                  <div>
+                    <div className="px-6 text-center text-[10px] leading-none text-ink-4">Month</div>
+                    <MonthSelect />
+                  </div>
+                  {running && <LoaderCircle size={13} className="mb-2 shrink-0 animate-spin text-ink-3" />}
+                </div>
               ) : running ? (
                 <span className="flex min-w-0 items-center gap-1.5 truncate text-[12px] text-ink-2">
                   <LoaderCircle size={13} className="shrink-0 animate-spin" /> {running.label}
@@ -345,14 +348,14 @@ function kpiFor(rec: SimRecord): { label: string; value: string; hint?: string }
   switch (rec.kind) {
     case "bike":
       return [
-        { label: "Low-stress streets", value: fmtMi((r.kmByLts[1] + r.kmByLts[2]) * KM), hint: "Street length at LTS 1–2, comfortable for most adults" },
+        { label: "Low-stress streets", value: fmtMi((r.kmByLts[1] + r.kmByLts[2]) * KM), hint: "Street length at LTS 1–2" },
         { label: "High-stress (LTS 4)", value: fmtMi(r.kmByLts[4] * KM) },
-        { label: "Grocery, low-stress", value: `${f((r.coverage.grocery?.lowStress ?? 0) * 100)}%`, hint: "Residents who can reach a grocery on low-stress streets" },
-        { label: "Largest island", value: `${f(r.islands[0]?.residents ?? 0)} residents`, hint: "Residents in the largest connected low-stress area" },
+        { label: "Grocery, low-stress", value: `${f((r.coverage.grocery?.lowStress ?? 0) * 100)}%`, hint: "Residents reaching a grocery on low-stress streets" },
+        { label: "Largest island", value: `${f(r.islands[0]?.residents ?? 0)} residents`, hint: "Residents in the largest low-stress area" },
       ];
     case "access":
       return [
-        { label: "Frequent transit", value: `${f(r.coverage.frequent_transit * 100)}%`, hint: "Residents within a 5-minute walk of a stop with service every 15 minutes or better" },
+        { label: "Frequent transit", value: `${f(r.coverage.frequent_transit * 100)}%`, hint: "Residents within 5 min of 15-min service" },
         { label: "Any stop ¼ mi", value: `${f(r.coverage.transit * 100)}%` },
         { label: "Grocery 15 min", value: `${f(r.coverage.grocery * 100)}%` },
         { label: "Park 15 min", value: `${f(r.coverage.park * 100)}%` },
@@ -476,17 +479,18 @@ function useHeatKpis(rec: SimRecord | undefined, hour: number): { label: string;
   const none = "—";
   // every figure is for the hour shown (interpolated between modelled hours, like the map)
   return [
-    { label: "Feels like on foot", value: k.feels === null ? none : fmtF(k.feels), hint: "Mean feels-like temperature on the sidewalks, plazas and streets in view (air, sun and the heat the ground gives off)" },
-    { label: "Ground surface", value: k.surface === null ? none : fmtF(k.surface), hint: "Mean surface temperature of the ground in view: what the map colours show" },
-    { label: "Air", value: k.air === null ? none : fmtF(k.air), hint: "Air temperature at this hour on the modelled day" },
-    { label: "Shaded paths", value: k.feels === null ? none : k.shaded === null ? "Night" : pct(k.shaded), hint: `Share of walkable ground in view out of direct sun · tree canopy covers ${k.cells ? pct(k.canopy, 1) : none} of the view` },
+    { label: "Feels like on foot", value: k.feels === null ? none : fmtF(k.feels), hint: "Mean feels-like temperature on walkable ground in view" },
+    { label: "Ground surface", value: k.surface === null ? none : fmtF(k.surface), hint: "Mean ground temperature in view (the map colours)" },
+    { label: "Air", value: k.air === null ? none : fmtF(k.air), hint: "Air temperature at this hour" },
+    { label: "Shaded paths", value: k.feels === null ? none : k.shaded === null ? "Night" : pct(k.shaded), hint: `Walkable ground out of direct sun · canopy ${k.cells ? pct(k.canopy, 1) : none}` },
   ];
 }
 
 function KpiGrid({ kpis, title }: { kpis: { label: string; value: string; hint?: string }[]; title?: string }) {
   if (!kpis.length) return null;
   return (
-    <div className="grid grid-cols-[repeat(2,max-content)] content-center gap-x-5 gap-y-1 border-l border-line px-3 py-2 @max-[480px]:gap-x-3" title={title}>
+    // one line of figures; two columns on a narrow map
+    <div className="grid auto-cols-max grid-flow-col content-center gap-x-5 gap-y-1 border-l border-line px-3 py-1.5 @max-[860px]:grid-flow-row @max-[860px]:grid-cols-[repeat(2,max-content)] @max-[480px]:gap-x-3" title={title}>
       {kpis.slice(0, 4).map((k) => (
         <div key={k.label} className="whitespace-nowrap" title={k.hint}>
           <div className="text-[10px] text-ink-4">{k.label}</div>
@@ -515,10 +519,10 @@ function TrafficKpiBlock({ rec }: { rec: SimRecord | undefined }) {
     <KpiGrid
       title="Across the network, for the hour shown"
       kpis={[
-        { label: "Trips this hour", value: fmtNum(k.vehTrips, 0), hint: "Vehicle trips starting in this hour" },
-        { label: "Avg speed", value: fmtSpeed(k.avgSpeed, 1), hint: "Distance-weighted mean speed of traffic on the network" },
-        { label: "Congested", value: k.congestedM < 1 ? "None" : fmtLen(k.congestedM), hint: "Street length running above 90% of capacity" },
-        { label: "Delay", value: k.delayHours < 1 ? `${fmtNum(k.delayHours * 60, 0)} veh·min` : `${fmtNum(k.delayHours, k.delayHours < 10 ? 1 : 0)} veh·h`, hint: "Vehicle-hours lost to congestion in this hour, against free flow" },
+        { label: "Trips this hour", value: fmtNum(k.vehTrips, 0), hint: "Vehicle trips starting this hour" },
+        { label: "Avg speed", value: fmtSpeed(k.avgSpeed, 1), hint: "Mean network speed" },
+        { label: "Congested", value: k.congestedM < 1 ? "None" : fmtLen(k.congestedM), hint: "Street length over 90% of capacity" },
+        { label: "Delay", value: k.delayHours < 1 ? `${fmtNum(k.delayHours * 60, 0)} veh·min` : `${fmtNum(k.delayHours, k.delayHours < 10 ? 1 : 0)} veh·h`, hint: "Time lost to congestion this hour" },
       ]}
     />
   );
@@ -586,17 +590,14 @@ const ChipBar = memo(function ChipBar({ overlay, busy }: { overlay: OverlayId | 
           </button>
         </DM.Trigger>
         <DM.Portal>
-          <DM.Content side="top" align="end" sideOffset={8} collisionPadding={8} className="kit-surface kit-pop z-50 w-72 p-1">
+          <DM.Content side="top" align="end" sideOffset={8} collisionPadding={8} className="kit-surface kit-pop z-50 w-48 p-1">
             <div className="px-2 pt-1.5 pb-1.5 font-legend text-[11px] leading-4 font-medium text-ink-3">Other analyses</div>
             {extra.map((c) => (
-              <DM.Item key={c.id} onSelect={() => setOverlay(overlay === c.id ? null : c.id)} className="flex cursor-default items-center gap-2.5 rounded-[6px] px-2 py-1.5 outline-none data-[highlighted]:bg-paper-3">
+              <DM.Item key={c.id} title={c.hint} onSelect={() => setOverlay(overlay === c.id ? null : c.id)} className="flex cursor-default items-center gap-2.5 rounded-[6px] px-2 py-1 outline-none data-[highlighted]:bg-paper-3">
                 <span className={cx("grid size-7 shrink-0 place-items-center rounded-[6px] border", overlay === c.id ? "border-accent/50 bg-accent text-on-accent" : "border-line bg-paper-2 text-ink-3")}>
                   <c.icon size={14} strokeWidth={1.8} />
                 </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[12.5px] leading-4 font-medium text-ink">{c.label}</span>
-                  <span className="block truncate text-[11px] leading-4 text-ink-4">{c.hint}</span>
-                </span>
+                <span className="min-w-0 flex-1 text-[12.5px] leading-4 font-medium text-ink">{c.label}</span>
                 {overlay === c.id && <Check size={14} className="shrink-0 text-rose" />}
               </DM.Item>
             ))}

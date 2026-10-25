@@ -20,7 +20,7 @@ export const MonthSelect = memo(function MonthSelect() {
       </button>
       <Select value={String(m)} onValueChange={(v) => setDate(monthDate(+v))}>
         {/* the month and its chevron centred together as one unit */}
-        <SelectTrigger aria-label="Month" title="Modelled month: sun path and typical weather" className="w-[62px] justify-center gap-1 px-1.5 font-medium [&>span]:flex-none">
+        <SelectTrigger aria-label="Month" title="Sun path and typical weather" className="w-[62px] justify-center gap-1 px-1.5 font-medium [&>span]:flex-none">
           <SelectValue />
         </SelectTrigger>
         <SelectContent side="top" align="center" className="min-w-[var(--radix-select-trigger-width)]">

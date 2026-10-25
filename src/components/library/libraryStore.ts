@@ -8,6 +8,7 @@ import { create } from "zustand";
 import { defaultParams, ensureLibrary, getPrimitive, type ParamValues } from "@/library";
 import { useApp } from "@/state/store";
 import type { Vec2 } from "@/world/types";
+import { asGroup } from "./icons";
 
 export interface LibraryState {
   /** definition being configured / placed (null: browsing) */
@@ -16,7 +17,7 @@ export interface LibraryState {
   params: Record<string, ParamValues>;
   /** heading for point / rect placement, degrees ccw from east */
   rotation: number;
-  /** browse filter */
+  /** browse filter: the search, and the shelf (a library/icons Group) */
   query: string;
   category: string | null;
   /** clicked points of a polygon / path being drawn */
@@ -93,11 +94,11 @@ export function armedParams(): ParamValues {
   return s.defId ? (s.params[s.defId] ?? {}) : {};
 }
 
-/** open the library palette on a category (and query), back at the list */
+/** open the library palette on a shelf or category (and query), back at the list */
 export function openLibrary(category: string | null = null, query = "") {
   const lib = useLibrary.getState();
   lib.disarm();
-  lib.setCategory(category);
+  lib.setCategory(asGroup(category));
   lib.setQuery(query);
   useApp.getState().setTool("library");
 }
