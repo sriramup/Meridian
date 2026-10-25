@@ -101,13 +101,9 @@ async function spend(): Promise<{ total_usd: number; cap_usd: number | null; con
 // ------------------------------------------------------------------ browser
 
 async function openCity(page: Page, city: "sandbox" | "austin") {
-  await page.goto(URL, { waitUntil: "domcontentloaded", timeout: 180_000 });
-  await page.waitForFunction(() => (window as any).__meridianAgent && (window as any).__meridian && (window as any).__meridianTools, null, { timeout: 180_000 });
-  const cur = await page.evaluate(() => (window as any).__meridian.cityId);
-  if (city !== cur) {
-    if (city === "austin") await page.getByText(/open Austin/i).first().click();
-    await page.waitForFunction((c) => (window as any).__meridian?.cityId === c && (c === "sandbox" || (window as any).__meridian.world.count("street") > 100), city, { timeout: 300_000 });
-  }
+  // each page is a fresh browser context: ?city= opens a new project from that template
+  await page.goto(`${URL}/?city=${city}`, { waitUntil: "domcontentloaded", timeout: 180_000 });
+  await page.waitForFunction((c) => (window as any).__meridian?.cityId === c && (c === "sandbox" || (window as any).__meridian.world.count("street") > 100), city, { timeout: 300_000 });
   await page.waitForFunction(() => (window as any).__meridianAgent?.createSession && (window as any).__meridianTools, null, { timeout: 120_000 });
   await page.waitForTimeout(4000);
 }
