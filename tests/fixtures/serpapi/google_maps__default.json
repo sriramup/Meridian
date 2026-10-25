@@ -1,0 +1,10 @@
+{
+ "_fixture": "hand-written for tests (shape of a SerpApi google_maps type=search response); not live data",
+ "search_metadata": { "id": "fixture", "status": "Success" },
+ "local_results": [
+  { "position": 1, "title": "Fixture Taqueria", "place_id": "fx-taq", "gps_coordinates": { "latitude": 30.2671, "longitude": -97.7429 }, "rating": 4.6, "reviews": 1840, "type": "Mexican restaurant", "types": ["Mexican restaurant", "Taco restaurant"], "address": "600 Congress Ave, Austin, TX 78701", "open_state": "Open ⋅ Closes 10 PM", "price": "$10–20", "description": "Breakfast tacos and late-night plates." },
+  { "position": 2, "title": "Fixture Bistro", "place_id": "fx-bistro", "gps_coordinates": { "latitude": 30.2683, "longitude": -97.7407 }, "rating": 4.4, "reviews": 960, "type": "French restaurant", "address": "120 E 6th St, Austin, TX 78701", "open_state": "Closed ⋅ Opens 5 PM", "price": "$$$" },
+  { "position": 3, "title": "Fixture Coffee Bar", "place_id": "fx-coffee", "gps_coordinates": { "latitude": 30.2690, "longitude": -97.7447 }, "rating": 4.7, "reviews": 650, "type": "Coffee shop", "address": "701 Lavaca St, Austin, TX 78701", "open_state": "Open ⋅ Closes 6 PM", "price": "$" },
+  { "position": 4, "title": "Fixture BBQ", "place_id": "fx-bbq", "gps_coordinates": { "latitude": 30.2650, "longitude": -97.7330 }, "rating": 4.8, "reviews": 7200, "type": "Barbecue restaurant", "address": "900 E 3rd St, Austin, TX 78702", "open_state": "Open ⋅ Closes 3 PM", "price": "$$" }
+ ]
+}

@@ -1,0 +1,6 @@
+{
+ "_fixture": "hand-written for tests (shape of a SerpApi google_scholar response); not live data",
+ "organic_results": [
+  { "position": 0, "title": "Walkability and grocery access (fixture)", "link": "https://journals.fixture.example.org/walk", "snippet": "We measure walking distance to food retail…", "publication_info": { "summary": "A Author, B Author - Journal of Fixture Planning, 2021 - fixture.example.org" }, "inline_links": { "cited_by": { "total": 87 } } }
+ ]
+}

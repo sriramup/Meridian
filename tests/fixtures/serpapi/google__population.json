@@ -1,0 +1,9 @@
+{
+ "_fixture": "hand-written for tests (shape of a SerpApi google response with a knowledge graph); not live data",
+ "search_metadata": { "id": "fixture", "status": "Success" },
+ "knowledge_graph": { "title": "Austin", "type": "City in Texas", "kgmid": "/m/0vzm", "description": "Austin is the capital of the U.S. state of Texas.", "source": { "name": "Wikipedia", "link": "https://en.wikipedia.org/wiki/Austin,_Texas" }, "population": "979,882 (fixture)", "area": "326.5 mi²", "elevation": "489 ft", "header_images": [ { "image": "https://x/y.jpg" } ], "population_links": [ { "text": "x", "link": "https://serpapi.com/x" } ] },
+ "organic_results": [
+  { "position": 1, "title": "Austin, Texas - Wikipedia", "link": "https://en.wikipedia.org/wiki/Austin,_Texas", "snippet": "Austin is the capital of Texas… population of 979,882 (fixture).", "source": "Wikipedia" },
+  { "position": 2, "title": "Austin city, Texas QuickFacts (fixture)", "link": "https://www.census.gov/quickfacts/austincitytexas", "snippet": "Population estimates, July 1 (fixture).", "source": "U.S. Census Bureau" }
+ ]
+}

@@ -1,0 +1,13 @@
+{
+ "_fixture": "hand-written for tests (shape of a SerpApi google_maps type=search response); not live data",
+ "search_metadata": { "id": "fixture", "status": "Success", "json_endpoint": "https://serpapi.com/searches/fixture.json" },
+ "search_parameters": { "engine": "google_maps", "q": "grocery", "type": "search" },
+ "local_results": [
+  { "position": 1, "title": "Royal Blue Grocery", "place_id": "fx-rbg-3rd", "data_id": "0x0:0x1", "gps_coordinates": { "latitude": 30.2652, "longitude": -97.7454 }, "rating": 4.3, "reviews": 512, "type": "Grocery store", "types": ["Grocery store", "Convenience store"], "address": "247 W 3rd St, Austin, TX 78701", "open_state": "Open ⋅ Closes 11 PM", "hours": "Open ⋅ Closes 11 PM", "price": "$$", "website": "https://www.royalbluegrocery.com/?utm_source=google", "thumbnail": "https://lh5.googleusercontent.com/p/fixture1.jpg", "serpapi_link": "https://serpapi.com/search.json?engine=google_maps&place_id=fx" },
+  { "position": 2, "title": "Trader Joe's", "place_id": "fx-tj-seaholm", "gps_coordinates": { "latitude": 30.2676, "longitude": -97.7519 }, "rating": 4.6, "reviews": 2310, "type": "Grocery store", "address": "211 Walter Seaholm Dr, Austin, TX 78701", "open_state": "Open ⋅ Closes 9 PM", "price": "$$", "website": "https://www.traderjoes.com/" },
+  { "position": 3, "title": "Whole Foods Market", "place_id": "fx-wfm-lamar", "gps_coordinates": { "latitude": 30.2706, "longitude": -97.7531 }, "rating": 4.5, "reviews": 9800, "type": "Grocery store", "types": ["Grocery store", "Health food store"], "address": "525 N Lamar Blvd, Austin, TX 78703", "open_state": "Open ⋅ Closes 10 PM", "price": "$$$", "website": "https://www.wholefoodsmarket.com/stores/lamar" },
+  { "position": 4, "title": "H-E-B", "place_id": "fx-heb-east", "gps_coordinates": { "latitude": 30.2600, "longitude": -97.7220 }, "rating": 4.4, "reviews": 3100, "type": "Supermarket", "address": "2508 E Riverside Dr, Austin, TX 78741", "open_state": "Closed ⋅ Opens 6 AM", "price": "$" },
+  { "position": 5, "title": "Fresh Plus Grocery", "place_id": "fx-fresh-plus", "gps_coordinates": { "latitude": 30.3010, "longitude": -97.7440 }, "rating": 4.5, "reviews": 410, "type": "Grocery store", "address": "2917 W 35th St, Austin, TX 78703", "open_state": "Open 24 hours" }
+ ],
+ "serpapi_pagination": { "next": "https://serpapi.com/search.json?engine=google_maps&start=20" }
+}
