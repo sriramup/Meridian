@@ -2,7 +2,6 @@
 // view, only when the row is chosen (Enter or a click) — never while typing. Results become pins and
 // a list on the map (DiscoveredPlaces).
 
-import { viewInsets } from "@/state/panels";
 import { rtMaybe } from "@/state/runtime";
 import { useApp } from "@/state/store";
 import { LocalProjection } from "@/world/projection";
@@ -16,8 +15,8 @@ export async function searchGoogleMaps(query: string) {
   const app = useApp.getState();
   const R = rtMaybe();
   if (!R?.map) return;
-  // the middle of what the side panels leave visible, and its half-size as the search radius
-  const ins = viewInsets();
+  // the middle of the map (it stops at the side panels), and its half-size as the search radius
+  const ins = { left: 0, right: 0 };
   const el = R.map.getContainer();
   const proj = new LocalProjection(R.meta.origin.lon, R.meta.origin.lat);
   const local = (x: number, y: number): Vec2 => {

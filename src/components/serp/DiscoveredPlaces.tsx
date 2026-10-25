@@ -10,7 +10,6 @@ import { ChevronDown, ChevronUp, ExternalLink, MapPin, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { fmtLen } from "@/lib/units";
 import { useLayerSlot } from "@/render/layerSlots";
-import { useViewInsets } from "@/state/panels";
 import { rtMaybe } from "@/state/runtime";
 import { clearShown, focusPlace, useSerp, type LocalPlace, type PlaceSet } from "@/serp/store";
 import { LocalProjection } from "@/world/projection";
@@ -99,7 +98,8 @@ export function DiscoveredPlaces() {
   const [hover, setHover] = useState<string | null>(null);
   const [open, setOpen] = useState(true);
   useEffect(() => setOpen(set?.by === "search"), [set?.id, set?.by]);
-  const ins = useViewInsets();
+  // the map stops at the side panels, so all of its container is visible
+  const ins = { left: 0, right: 0 };
   useGroundLayers(set, focus ?? hover);
   useCameraTick(!!set);
   const R = rtMaybe();

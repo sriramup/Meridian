@@ -3,7 +3,6 @@
 
 import { stopOrbit } from "@/render/camera";
 import { restore as restoreStreetView } from "@/render/streetView";
-import { centreOffset, viewInsets } from "@/state/panels";
 import { rtMaybe } from "@/state/runtime";
 import { useApp } from "@/state/store";
 import { LocalProjection } from "@/world/projection";
@@ -14,11 +13,8 @@ import type { PlaceResult } from "./placeIndex";
 /** kinds framed by their extent (the rest are points seen close up) */
 const EXTENT = new Set(["street", "trail", "district", "neighbourhood", "park", "campus", "water", "area", "bridge", "landmark", "building", "design"]);
 
-/** room the chrome takes around the map (top bar, tool rail, analysis dock) and the open side panels */
-function padding() {
-  const i = viewInsets();
-  return { top: 96, bottom: 150, left: 96 + i.left, right: 96 + i.right };
-}
+/** room the chrome takes around the map (top bar, tool rail, analysis dock) */
+const PADDING = { top: 96, bottom: 150, left: 96, right: 96 };
 
 /**
  * Fly to `r`. Resolves when the camera arrives (or the flight is interrupted); false when there
@@ -36,9 +32,6 @@ export function flyToPlace(r: Pick<PlaceResult, "kind" | "point" | "bbox"> & { i
     st.setCameraMode("orbit");
   }
   const proj = new LocalProjection(R.meta.origin.lon, R.meta.origin.lat);
-  const PADDING = padding();
-  // a view framed by its bounds is centred within the padding; any other lands mid-way between the panels
-  let framed = false;
   const [x0, y0, x1, y1] = r.bbox;
   const size = Math.max(x1 - x0, y1 - y0);
   let bearing = map.getBearing();
@@ -64,7 +57,6 @@ export function flyToPlace(r: Pick<PlaceResult, "kind" | "point" | "bbox"> & { i
   } else if (EXTENT.has(r.kind) && size > 60) {
     const cam = map.cameraForBounds([proj.toLonLat([x0, y0]), proj.toLonLat([x1, y1])], { padding: PADDING, bearing, maxZoom: 18.4 });
     if (cam?.zoom !== undefined && cam.center) {
-      framed = true;
       // tilted views see further at the top: pull back a little
       zoom = Math.max(14, Math.min(18.4, cam.zoom - 0.25));
       const c = cam.center as { lng: number; lat: number } | [number, number];
@@ -81,7 +73,7 @@ export function flyToPlace(r: Pick<PlaceResult, "kind" | "point" | "bbox"> & { i
       resolve(true);
     };
     map.on("moveend", finish);
-    map.flyTo({ center, zoom, pitch, bearing, offset: framed ? [0, 0] : centreOffset(), curve: 1.42, speed: 1.3, maxDuration: 3000, essential: true });
+    map.flyTo({ center, zoom, pitch, bearing, curve: 1.42, speed: 1.3, maxDuration: 3000, essential: true });
     // a flight that goes nowhere fires no moveend (a slow one still will)
     setTimeout(() => {
       if (!map.isMoving()) finish();

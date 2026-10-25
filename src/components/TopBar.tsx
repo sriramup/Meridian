@@ -1,7 +1,7 @@
 "use client";
 
 import * as DM from "@radix-ui/react-dropdown-menu";
-import { Check, ChevronDown, CircleHelp, Download, FileJson, FileSpreadsheet, GitCompare, LoaderCircle, Footprints, GitBranch, Layers, PanelLeftOpen, Pencil, Plus, Redo2, Sparkles, Undo2, Upload, Trash2 } from "lucide-react";
+import { Check, ChevronDown, CircleHelp, Download, FileJson, FileSpreadsheet, GitCompare, LoaderCircle, Footprints, GitBranch, Layers, PanelLeftClose, PanelLeftOpen, Pencil, Plus, Redo2, Sparkles, Undo2, Upload, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { rt, rtMaybe } from "@/state/runtime";
 import { useApp } from "@/state/store";
@@ -127,14 +127,13 @@ function ProjectName() {
   );
 }
 
-/** opens the projects sidebar (far left of the top bar); while it is open its close button is in the sidebar */
+/** opens and closes the projects sidebar (far left of the top bar) */
 function SidebarToggle() {
   const open = useProjects((s) => s.sidebarOpen);
-  if (open) return null;
   return (
-    <Tip label="Show projects" kbd={SIDEBAR_KEY}>
-      <IconButton size="sm" onClick={toggleSidebar} aria-label="Show projects" data-testid="sidebar-toggle">
-        <PanelLeftOpen size={15} strokeWidth={1.7} />
+    <Tip label={open ? "Hide projects" : "Show projects"} kbd={SIDEBAR_KEY}>
+      <IconButton size="sm" onClick={toggleSidebar} aria-label={open ? "Hide projects" : "Show projects"} aria-pressed={open} data-testid="sidebar-toggle">
+        {open ? <PanelLeftClose size={15} strokeWidth={1.7} /> : <PanelLeftOpen size={15} strokeWidth={1.7} />}
       </IconButton>
     </Tip>
   );

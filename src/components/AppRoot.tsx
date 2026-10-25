@@ -8,9 +8,7 @@ import { useApp } from "@/state/store";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { LoadingScreen } from "./LoadingScreen";
 import { PromptDialog } from "./projects/PromptDialog";
-import { PANEL_EASE, SIDEBAR_WIDTH } from "@/state/panels";
-import { ProjectsSidebar } from "./projects/ProjectsSidebar";
-import { SlidePanel } from "./SlidePanel";
+import { ProjectsSidebar, SIDEBAR_WIDTH } from "./projects/ProjectsSidebar";
 import { SketchStartHost } from "./sketch/SketchStart";
 
 const Shell = dynamic(() => import("./Shell").then((m) => m.Shell), { ssr: false });
@@ -40,20 +38,18 @@ export function AppRoot() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
   return (
-    <main className="fixed inset-0 overflow-hidden bg-paper" style={{ backgroundImage: "var(--parchment), radial-gradient(90% 80% at 50% 40%, #f8eccf 0%, #eedcb5 62%, #d9bd8a 100%)" }}>
+    <main className="fixed inset-0 flex overflow-hidden bg-paper" style={{ backgroundImage: "var(--parchment), radial-gradient(90% 80% at 50% 40%, #f8eccf 0%, #eedcb5 62%, #d9bd8a 100%)" }}>
       {mounted && (
         <TooltipPrimitive.Provider>
-          {/* the workspace keeps the whole window; the sidebar slides in over it (no canvas resize) */}
-          <div className="absolute inset-0">{status === "ready" && <Shell />}</div>
-          {/* only positions the loading card: it must never take the map's pointer events */}
-          <div className="pointer-events-none absolute inset-y-0 right-0" style={{ left: loaded && sidebarOpen ? SIDEBAR_WIDTH : 0, transition: `left ${PANEL_EASE}` }}>
+          {loaded && sidebarOpen && (
+            <div className="relative z-20 h-full shrink-0" style={{ width: SIDEBAR_WIDTH }}>
+              <ProjectsSidebar />
+            </div>
+          )}
+          <div className="relative h-full min-w-0 flex-1">
+            {status === "ready" && <Shell />}
             <LoadingScreen />
           </div>
-          {loaded && (
-            <SlidePanel side="left" open={sidebarOpen} width={SIDEBAR_WIDTH} className="z-30">
-              <ProjectsSidebar />
-            </SlidePanel>
-          )}
           <ConfirmDialog />
           <PromptDialog />
           <SketchStartHost />

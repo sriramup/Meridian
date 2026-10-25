@@ -8,7 +8,7 @@ import { togglePedestrian } from "@/state/view";
 import { applyOp } from "@/state/actions";
 import { rt } from "@/state/runtime";
 import { useApp, type Tool, type OverlayId } from "@/state/store";
-import { PANEL_EASE, usePanels, useViewInsets } from "@/state/panels";
+import { useProjects } from "@/state/projects";
 import { LocalProjection } from "@/world/projection";
 import { removeBuildings } from "@/world/ops/buildings";
 import { plantTreesAt, removeEntities } from "@/world/ops/landscape";
@@ -24,7 +24,6 @@ import { AnalysisDock } from "./AnalysisDock";
 import { HelpDialog } from "./Help";
 import { ExitStreetView } from "./pedestrian/ExitStreetView";
 import { Inspector } from "./Inspector";
-import { SlidePanel } from "./SlidePanel";
 import { StartCard } from "./StartCard";
 import { LibraryRuntime } from "./library/LibraryRuntime";
 import { openLibrary } from "./library/libraryStore";
@@ -36,6 +35,7 @@ import { TopBar, ViewControls } from "./TopBar";
 
 export function Shell() {
   const agentOpen = useApp((s) => s.agentOpen);
+  const sidebarOpen = useProjects((s) => s.sidebarOpen);
   // side panels stop above the analysis dock, whose height follows the open overlay and the width
   const dock = useRef<HTMLDivElement>(null);
   const [dockH, setDockH] = useState(52);
@@ -45,9 +45,7 @@ export function Shell() {
     return () => ro.disconnect();
   }, []);
   const clearDock = { bottom: dockH + 20 };
-  const width = usePanels((s) => s.agentWidth);
-  // the chrome sits in the part of the map the side panels leave visible
-  const insets = useViewInsets();
+  const [width, setWidth] = useState(420);
   const drag = useRef(false);
   useShortcuts();
   useAgentShortcuts();
@@ -68,7 +66,7 @@ export function Shell() {
   useEffect(() => {
     const move = (e: PointerEvent) => {
       if (!drag.current) return;
-      usePanels.getState().setAgentWidth(window.innerWidth - e.clientX);
+      setWidth(Math.max(340, Math.min(640, window.innerWidth - e.clientX)));
     };
     const up = () => (drag.current = false);
     window.addEventListener("pointermove", move);
@@ -78,11 +76,16 @@ export function Shell() {
       window.removeEventListener("pointerup", up);
     };
   }, []);
+  // keep the map sized to its container when the agent panel changes
+  useEffect(() => {
+    const t = setTimeout(() => rt().map?.resize(), 0);
+    return () => clearTimeout(t);
+  }, [agentOpen, width, sidebarOpen]);
+
   return (
     <TooltipPrimitive.Provider>
-      <div className="absolute inset-0">
-        {/* the map always fills the window: side panels open over it, so the canvas never resizes */}
-        <div className="absolute inset-0">
+      <div className="absolute inset-0 flex">
+        <div className="@container relative min-w-0 flex-1">
           <MapView />
           <LibraryRuntime />
           <ZoneDrawSurface />
@@ -93,8 +96,7 @@ export function Shell() {
           <div className="pointer-events-none absolute inset-0 z-[6]">
             <DiscoveredPlaces />
           </div>
-          {/* the chrome moves aside for the panels; its container queries measure what is visible */}
-          <div className="@container pointer-events-none absolute inset-y-0 z-10" style={{ left: insets.left, right: insets.right, transition: `left ${PANEL_EASE}, right ${PANEL_EASE}` }}>
+          <div className="pointer-events-none absolute inset-0 z-10">
             <div className="absolute top-3 right-3 left-3 flex items-start justify-between gap-2">
               <TopBar />
               <ViewControls agentOpen={agentOpen} />
@@ -122,11 +124,12 @@ export function Shell() {
             <HelpDialog />
           </div>
         </div>
-        {/* a floating card over the map, inset like the top bar and the dock */}
-        <SlidePanel side="right" open={agentOpen} width={width} className="z-20 py-3 pr-3">
-          <div className="absolute top-0 bottom-0 -left-1 z-10 w-2 cursor-col-resize" onPointerDown={() => (drag.current = true)} />
-          <AgentsPane onClose={() => useApp.getState().setAgentOpen(false)} />
-        </SlidePanel>
+        {agentOpen && (
+          <div className="relative h-full shrink-0" style={{ width }}>
+            <div className="absolute top-0 bottom-0 -left-1 z-10 w-2 cursor-col-resize" onPointerDown={() => (drag.current = true)} />
+            <AgentsPane onClose={() => useApp.getState().setAgentOpen(false)} />
+          </div>
+        )}
       </div>
     </TooltipPrimitive.Provider>
   );
