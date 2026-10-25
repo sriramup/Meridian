@@ -1,14 +1,14 @@
 "use client";
 
 import * as DM from "@radix-ui/react-dropdown-menu";
-import { Check, ChevronDown, CircleHelp, Download, FileJson, FileSpreadsheet, GitCompare, LoaderCircle, Footprints, GitBranch, Layers, MessageSquareText, PanelLeftClose, PanelLeftOpen, Pencil, Plus, Redo2, Undo2, Upload, Trash2 } from "lucide-react";
+import { Check, ChevronDown, CircleHelp, Download, FileJson, FileSpreadsheet, GitCompare, LoaderCircle, Footprints, GitBranch, Layers, MessageSquareText, Pencil, Plus, Redo2, Undo2, Upload, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { rt, rtMaybe } from "@/state/runtime";
 import { useApp } from "@/state/store";
 import { useSims } from "@/sim/client";
 import { compareWith } from "./ImpactPanel";
 import { defaultParams } from "./AnalysisDock";
-import { faceNorth, orbitDrag, overview } from "@/render/camera";
+import { faceNorth, orbitDrag } from "@/render/camera";
 import { togglePedestrian } from "@/state/view";
 import { Wordmark } from "./LoadingScreen";
 import { renameProject, toggleSidebar, useProjects } from "@/state/projects";
@@ -43,10 +43,7 @@ export function TopBar() {
   };
   return (
     <div className="pointer-events-auto flex h-10 min-w-0 items-center gap-1 chrome scroll-ends pr-1.5 pl-1.5">
-      <SidebarToggle />
-      <button onClick={overview} className="mr-1 ml-0.5 flex h-full shrink-0 items-center text-ink" title="Overview">
-        <Wordmark className="@max-[960px]:[&>span]:hidden" />
-      </button>
+      <ProjectsButton />
       <span className="mx-1 h-4 w-px bg-line-2" />
       <ProjectName />
       <PlaceSearch />
@@ -128,14 +125,20 @@ function ProjectName() {
   );
 }
 
-/** opens and closes the projects sidebar (far left of the top bar) */
-function SidebarToggle() {
+/** the wordmark (far left of the top bar): opens and closes the projects sidebar */
+function ProjectsButton() {
   const open = useProjects((s) => s.sidebarOpen);
   return (
     <Tip label={open ? "Hide projects" : "Show projects"} kbd={SIDEBAR_KEY}>
-      <IconButton size="sm" onClick={toggleSidebar} aria-label={open ? "Hide projects" : "Show projects"} aria-pressed={open} data-testid="sidebar-toggle">
-        {open ? <PanelLeftClose size={15} strokeWidth={1.7} /> : <PanelLeftOpen size={15} strokeWidth={1.7} />}
-      </IconButton>
+      <button
+        onClick={toggleSidebar}
+        aria-label={open ? "Hide projects" : "Show projects"}
+        aria-pressed={open}
+        data-testid="sidebar-toggle"
+        className="mr-1 flex h-full shrink-0 items-center rounded-[6px] px-1 text-ink outline-none hover:bg-paper-3 focus-visible:ring-2 focus-visible:ring-rose/25"
+      >
+        <Wordmark className="@max-[960px]:[&>span]:hidden" />
+      </button>
     </Tip>
   );
 }

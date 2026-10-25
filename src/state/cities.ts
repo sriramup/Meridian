@@ -19,7 +19,7 @@ export interface CityPreset {
 
 export const CITY_PRESETS: CityPreset[] = [
   { id: "sandbox", name: "Blank canvas", blurb: "An empty 1.9 × 1.9 mi site to design from scratch", kind: "sandbox", climate: "austin", projectName: "Untitled canvas", menuLabel: "Blank canvas", badge: "Blank" },
-  { id: "austin", name: "Austin", blurb: "Downtown, Central & East Austin, measured", kind: "pack", projectName: "Austin plan", menuLabel: "From Austin template", badge: "Austin" },
+  { id: "austin", name: "Austin", blurb: "Downtown, Central & East Austin, measured", kind: "pack", projectName: "Austin plan", menuLabel: "City template", badge: "Austin" },
 ];
 
 export const DEFAULT_CITY = "sandbox";

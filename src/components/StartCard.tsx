@@ -1,6 +1,6 @@
 "use client";
 
-import { ImageUp, LayoutGrid, MessageSquare, Search, Spline, X } from "lucide-react";
+import { ImageUp, MessageSquare, Search, X } from "lucide-react";
 import { openSketchStart } from "./sketch/SketchStart";
 import { useMemo } from "react";
 import { Kbd } from "@/components/ui/kit";
@@ -9,7 +9,7 @@ import { resetDraw } from "@/state/drawing";
 import { newProject } from "./projects/ProjectsSidebar";
 import { setStartClosed, useProjects } from "@/state/projects";
 import { rt } from "@/state/runtime";
-import { useApp, type Tool } from "@/state/store";
+import { useApp } from "@/state/store";
 import { GROUP, GROUP_ORDER, groupOf, type Group } from "./library/icons";
 import { openLibrary as open } from "./library/libraryStore";
 
@@ -33,10 +33,6 @@ export function StartCard() {
   }, []);
   const R = rt();
   if (!R.meta.sandbox || R.world.entities.size > 0 || tool !== "select" || closed) return null;
-  const pick = (t: Tool) => {
-    resetDraw();
-    useApp.getState().setTool(t);
-  };
   // the library's shelves as starting points (those the catalog has)
   const cats = GROUP_ORDER.filter((c) => counts.has(c));
   const total = [...counts.values()].reduce((a, b) => a + b, 0);
@@ -71,19 +67,7 @@ export function StartCard() {
           })}
         </div>
       )}
-      <div className="mt-2 grid grid-cols-2 gap-1.5">
-        <button onClick={() => pick("street")} className="flex items-center gap-2 rounded-[7px] border border-line px-2 py-1.5 text-left hover:border-accent/60 hover:bg-accent-2">
-          <Spline size={15} strokeWidth={1.7} className="text-rose" />
-          <span className="flex-1 text-[11.5px] font-medium text-ink">Lay out streets</span>
-          <Kbd size="xs">S</Kbd>
-        </button>
-        <button onClick={() => pick("district")} className="flex items-center gap-2 rounded-[7px] border border-line px-2 py-1.5 text-left hover:border-accent/60 hover:bg-accent-2">
-          <LayoutGrid size={15} strokeWidth={1.7} className="text-rose" />
-          <span className="flex-1 text-[11.5px] font-medium text-ink">Generate a district</span>
-          <Kbd size="xs">D</Kbd>
-        </button>
-      </div>
-      <button onClick={() => openSketchStart({ reuse: true })} data-testid="start-from-sketch" className="mt-1.5 flex w-full items-center gap-2 rounded-[7px] border border-line px-2 py-1.5 text-left hover:border-accent/60 hover:bg-accent-2">
+      <button onClick={() => openSketchStart({ reuse: true })} data-testid="start-from-sketch" className="mt-2 flex w-full items-center gap-2 rounded-[7px] border border-line px-2 py-1.5 text-left hover:border-accent/60 hover:bg-accent-2">
         <ImageUp size={15} strokeWidth={1.7} className="text-rose" />
         <span className="flex-1">
           <span className="block text-[11.5px] font-medium text-ink">From a sketch or photo…</span>

@@ -179,7 +179,7 @@ function NewProjectMenu() {
         <DropdownMenuItem onSelect={() => openSketchStart()} className="h-auto items-start py-1.5 leading-normal" data-testid="new-from-sketch">
           <ImageUp className="mt-0.5 text-rose" />
           <span className="min-w-0 flex-1">
-            <span className="block font-medium">From a sketch or photo…</span>
+            <span className="block font-medium">Sketch to canvas</span>
             <span className="block text-[11px] leading-snug text-ink-4">A bird’s-eye plan the agent reads and builds on a blank canvas</span>
           </span>
         </DropdownMenuItem>

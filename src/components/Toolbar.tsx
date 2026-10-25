@@ -1,7 +1,7 @@
 "use client";
 
-import { Building2, Grid3x3, LibraryBig, LayoutGrid, MousePointer2, Ruler, Spline, Square, TramFront, TreeDeciduous } from "lucide-react";
-import { Fragment, useEffect, type ReactNode } from "react";
+import { Grid3x3, MousePointer2, Ruler } from "lucide-react";
+import { useEffect, type ReactNode } from "react";
 import { TYPOLOGIES, type Typology } from "@/geometry/massing";
 import { MODEL } from "@/render/theme";
 import { createDrawn, paletteStreetWidth } from "@/state/create";
@@ -9,6 +9,8 @@ import { draw, resetDraw } from "@/state/drawing";
 import { useApp, type Palette, type Tool } from "@/state/store";
 import { SPECIES } from "@/world/species";
 import type { Vec2 } from "@/world/types";
+import { GROUP, type Group } from "./library/icons";
+import { openLibrary, useLibrary } from "./library/libraryStore";
 import { LibraryPanel } from "./library/LibraryPanel";
 import { DistrictPlan, MassingPreview, SpeciesThumb, StreetSection, SurfaceThumb, TransitDiagram } from "./paletteArt";
 import { Kbd, NumberField, Popover, PopoverContent, PopoverTrigger, Segmented, SelectField, Slider, Switch } from "@/components/ui/kit";
@@ -16,43 +18,54 @@ import { gridOn, useSnap } from "@/state/snap";
 import { GRID_SIZES_FT, type GridFt } from "@/world/ops/snap";
 import { Button, IconButton, Tip, cx } from "./ui";
 
-const TOOLS: { id: Tool; icon: typeof Building2; label: string; key: string; group: number }[] = [
-  { id: "select", icon: MousePointer2, label: "Select", key: "V", group: 0 },
-  { id: "library", icon: LibraryBig, label: "Library: buildings, parks, trees, furniture… (B buildings, A parks, T trees)", key: "L", group: 0 },
-  { id: "street", icon: Spline, label: "Street", key: "S", group: 1 },
-  { id: "district", icon: LayoutGrid, label: "District", key: "D", group: 2 },
-  { id: "transit", icon: TramFront, label: "Transit line", key: "R", group: 2 },
-  { id: "measure", icon: Ruler, label: "Measure", key: "M", group: 3 },
-];
+/** the rail: move, the three library shelves, then measure and the grid */
+const SHELVES: Group[] = ["buildings", "nature", "streets"];
 
 export function Toolbar() {
   const tool = useApp((s) => s.tool);
   const setTool = useApp((s) => s.setTool);
+  const shelf = useLibrary((s) => s.category);
   useApp((s) => s.toolVersion);
+  const inLibrary = tool === "library" || tool === "building" || tool === "tree" || tool === "area";
+  const pick = (t: Tool) => {
+    resetDraw();
+    setTool(t);
+  };
+  const sep = <span className="mx-1.5 my-1 h-px bg-line" />;
   return (
     <div className="pointer-events-auto flex items-start gap-2">
       <div className="flex flex-col gap-0.5 chrome p-1">
-        {TOOLS.map((x, i) => {
-          const Icon = x.icon;
+        <Tip label="Move" kbd="V" side="right">
+          <IconButton aria-label="Move" active={tool === "select"} onClick={() => pick("select")}>
+            <MousePointer2 size={16} strokeWidth={1.7} />
+          </IconButton>
+        </Tip>
+        {sep}
+        {SHELVES.map((g) => {
+          const Icon = GROUP[g].icon;
+          const on = inLibrary && shelf === g;
           return (
-            <Fragment key={x.id}>
-            {i > 0 && TOOLS[i - 1].group !== x.group && <span className="mx-1.5 my-1 h-px bg-line" />}
-            <Tip label={x.label} kbd={x.key} side="right">
+            <Tip key={g} label={GROUP[g].label} side="right">
               <IconButton
-                aria-label={x.label}
-                active={tool === x.id || (x.id === "library" && (tool === "building" || tool === "tree" || tool === "area"))}
+                aria-label={GROUP[g].label}
+                active={on}
                 onClick={() => {
                   resetDraw();
-                  setTool(x.id);
+                  if (on) useApp.getState().setTool("select");
+                  else openLibrary(g);
                 }}
               >
                 <Icon size={16} strokeWidth={1.7} />
               </IconButton>
             </Tip>
-            </Fragment>
           );
         })}
-        <span className="mx-1.5 my-1 h-px bg-line" />
+        {sep}
+        <Tip label="Measure" kbd="M" side="right">
+          <IconButton aria-label="Measure" active={tool === "measure"} onClick={() => pick("measure")}>
+            <Ruler size={16} strokeWidth={1.7} />
+          </IconButton>
+        </Tip>
         <GridControl />
       </div>
       <div key={draw.pending ? "confirm" : tool} className="panel-in-left">
