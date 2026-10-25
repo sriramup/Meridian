@@ -82,6 +82,8 @@ export interface RunStats {
   firstTokenMs?: number;
   /** tool calls made */
   tools: number;
+  /** API cost of the run in USD (server spend ledger, summed over its model turns) */
+  costUsd?: number;
 }
 
 /**
