@@ -52,7 +52,7 @@ function placeFrame(all: PlaceMatch[], top: PlaceMatch): { anchor: PlaceMatch; b
 }
 
 /** fly to frame a local-metre box (aerial, pitched) */
-function frame(bb: BBox, zoomOverride?: number) {
+export function frame(bb: BBox, zoomOverride?: number) {
   const R = rtMaybe();
   const map = R?.map;
   const c: Vec2 = [(bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2];
@@ -69,8 +69,8 @@ function frame(bb: BBox, zoomOverride?: number) {
     } catch {
       zoom = undefined;
     }
-    // pitched views show more than the flat fit: back off a little, and keep within a useful range
-    zoom = Math.max(15, Math.min(17.4, (zoom ?? 16.5) - 0.3));
+    // a pitched view foreshortens the far side, so the flat fit leaves room: come in a little
+    zoom = Math.max(14.8, Math.min(17.4, (zoom ?? 16.5) + 0.35));
   }
   flyTo(c, { zoom, pitch: 55 });
 }
