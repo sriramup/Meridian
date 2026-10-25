@@ -13,13 +13,13 @@ import { useLod } from "@/render/lod";
 export function useExtraLayers(): { ground: Layer[]; top: Layer[] } {
   const overlay = useApp((s) => s.overlay);
   const overlayVersion = useApp((s) => s.overlayVersion);
-  const hour = useApp((s) => s.hour);
+  // hour only matters for time-varying overlays; quantised inside the selector so the map doesn't
+  // re-render while the clock moves under an overlay that ignores it (day and night are uniforms)
+  // heat cross-fades between modelled hours: follow the clock in 3-minute steps
+  const h = useApp((s) => (overlay === "traffic" ? Math.floor(s.hour) : overlay === "heat" ? Math.round(s.hour * 20) / 20 : 0));
   const worldVersion = useApp((s) => s.worldVersion);
   const shown = useSims((s) => s.shown);
   const compare = useSims((s) => s.compare);
-  // hour only matters for time-varying overlays; quantise to avoid rebuilding every frame
-  // heat cross-fades between modelled hours: follow the clock in 3-minute steps
-  const h = overlay === "traffic" ? Math.floor(hour) : overlay === "heat" ? Math.round(hour * 20) / 20 : 0;
   return useMemo(() => {
     return overlayLayers(overlay, h, "model");
     // eslint-disable-next-line react-hooks/exhaustive-deps
