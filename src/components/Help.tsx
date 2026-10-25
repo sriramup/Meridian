@@ -7,6 +7,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useApp } from "@/state/store";
+import { SIDEBAR_KEY } from "./projects/ProjectsSidebar";
 
 function Keys({ children }: { children: ReactNode }) {
   return <kbd className="inline-flex h-5 items-center rounded-[5px] border border-line-2 bg-paper-2 px-1.5 font-sans text-[10.5px] font-medium whitespace-nowrap text-ink-2 shadow-[0_1px_0_rgb(88_60_28/0.15)]">{children}</kbd>;
@@ -83,6 +84,7 @@ export function HelpDialog() {
               <Row k={<><Keys>/</Keys><Keys>⌘K</Keys></>}>Search for a place, street or address</Row>
               <Row k={<Keys>⌘J</Keys>}>Ask the agent</Row>
               <Row k={<Keys>C</Keys>}>New agent</Row>
+              <Row k={<Keys>{SIDEBAR_KEY}</Keys>}>Show or hide your projects</Row>
               <Row k={<Keys>?</Keys>}>This guide</Row>
             </Section>
           </div>

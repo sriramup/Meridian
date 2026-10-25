@@ -30,6 +30,7 @@ import { IconButton, Tip, cx } from "./ui";
 import { PlaceSearch } from "./PlaceSearch";
 import { confirmAction } from "./ConfirmDialog";
 import { promptText } from "./projects/PromptDialog";
+import { SIDEBAR_KEY } from "./projects/ProjectsSidebar";
 
 export function TopBar() {
   useApp((s) => s.scenarioVersion);
@@ -130,7 +131,7 @@ function ProjectName() {
 function SidebarToggle() {
   const open = useProjects((s) => s.sidebarOpen);
   return (
-    <Tip label={open ? "Hide projects" : "Show projects"}>
+    <Tip label={open ? "Hide projects" : "Show projects"} kbd={SIDEBAR_KEY}>
       <IconButton size="sm" onClick={toggleSidebar} aria-label={open ? "Hide projects" : "Show projects"} aria-pressed={open} data-testid="sidebar-toggle">
         {open ? <PanelLeftClose size={15} strokeWidth={1.7} /> : <PanelLeftOpen size={15} strokeWidth={1.7} />}
       </IconButton>
