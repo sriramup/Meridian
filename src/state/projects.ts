@@ -73,16 +73,20 @@ export async function migrateLegacy(be: ProjectBackend, now = Date.now()): Promi
   return made;
 }
 
-/** which project the page opens: ?project=…, an old ?city=… address, the last one opened, the first */
+/** the city a plain visit opens on */
+export const HOME_CITY = "austin";
+
+/**
+ * Which project the page opens: ?project=…, else a project of the ?city=… (Austin when none is
+ * given): the last one opened if it is one, else its most recent, else a new one.
+ */
 export function pickInitial(list: ProjectMeta[], ask: { project?: string | null; city?: string | null; last?: string | null }): { open: string } | { create: string } {
   if (ask.project && list.some((p) => p.id === ask.project)) return { open: ask.project };
-  if (ask.city) {
-    const recent = list.filter((p) => p.base === ask.city).sort((a, b) => b.updatedAt - a.updatedAt)[0];
-    return recent ? { open: recent.id } : { create: ask.city };
-  }
-  if (ask.last && list.some((p) => p.id === ask.last)) return { open: ask.last };
-  const first = sortProjects(list)[0];
-  return first ? { open: first.id } : { create: "sandbox" };
+  const city = ask.city || HOME_CITY;
+  const of = list.filter((p) => p.base === city);
+  if (ask.last && of.some((p) => p.id === ask.last)) return { open: ask.last };
+  const recent = of.sort((a, b) => b.updatedAt - a.updatedAt)[0];
+  return recent ? { open: recent.id } : { create: city };
 }
 
 // ---------------------------------------------------------------- store

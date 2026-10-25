@@ -1,13 +1,13 @@
 # Meridian
 
-**An AI-native 3D planning and simulation workspace for real cities.** Meridian opens on a blank canvas where you can design a city from scratch. It can also load a measured, editable model of central Austin (about 17 km²: downtown, East Austin, UT, Rainey, Bouldin), with 10,800 buildings, the street network with full cross-sections, parcels and zoning, and drainage and transit. You can edit it directly or through a planning agent. Every edit cascades through the physical model, and traffic, heat, stormwater, flood, access and capacity models re-run on the edited world.
+**An AI-native 3D planning and simulation workspace for real cities.** Meridian opens on a measured, editable model of central Austin (about 17 km²: downtown, East Austin, UT, Rainey, Bouldin), with 10,800 buildings, the street network with full cross-sections, parcels and zoning, and drainage and transit; a blank canvas lets you design a city from scratch. You can edit it directly or through a planning agent. Every edit cascades through the physical model, and traffic, heat, stormwater, flood, access and capacity models re-run on the edited world.
 
 ```
 npm install
-npm run dev            # http://localhost:3000 opens your last project (a fresh blank canvas on a first visit); ?city=austin opens Austin
+npm run dev            # http://localhost:3000 opens an Austin project (your last one, or a new one on a first visit) in the current month at 3 PM; ?project=… opens a given project
 ```
 
-Work is organised in **projects**, listed in the sidebar on the left (toggle it with the button at the far left of the top bar). *New* starts a project from a blank canvas or from the Austin template; click a project to open it, double-click (or F2) to rename it, right-click for Rename / Duplicate / Delete, and drag it (or Alt+↑/↓) to reorder. Every project, Austin-based ones included, is saved in the browser as you work: every proposal with its full undo history, and the last camera view. Opening a project never reloads the page: the next one is built under a short loading card and swapped in (`src/state/projects.ts`), and the address follows it (`?project=…`, so Back returns to the previous project). The single blank-canvas design saved by earlier versions becomes a project called *My design* on first start.
+Work is organised in **projects**, listed in the sidebar on the left (click the Meridian wordmark at the far left of the top bar to show or hide it). *New* starts a project from a blank canvas or from the Austin template; click a project to open it, double-click (or F2) to rename it, right-click for Rename / Duplicate / Delete, and drag it (or Alt+↑/↓) to reorder. Every project, Austin-based ones included, is saved in the browser as you work: every proposal with its full undo history, and the last camera view. Opening a project never reloads the page: the next one is built under a short loading card and swapped in (`src/state/projects.ts`), and the address follows it (`?project=…`, so Back returns to the previous project). The single blank-canvas design saved by earlier versions becomes a project called *My design* on first start.
 
 The Austin data pack ships prebuilt in `public/data/austin/` (≈ 30 MB), so no API keys or downloads are needed to explore, edit, or simulate.
 

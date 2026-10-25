@@ -46,14 +46,16 @@ describe("project list model", () => {
     expect(neighbourOf(list("a"), "p0")).toBeNull();
   });
 
-  it("opens the URL's project, an old ?city= address, the last one, or makes a canvas", () => {
-    const l = [...list("a", "b"), { ...list("x")[0], id: "aus", base: "austin", updatedAt: 99 }];
+  it("opens the URL's project, else an Austin project (the last, the latest, or a new one)", () => {
+    const l = [...list("a", "b"), { ...list("x")[0], id: "aus", base: "austin", updatedAt: 99 }, { ...list("y")[0], id: "aus2", base: "austin", updatedAt: 50 }];
     expect(pickInitial(l, { project: "p1" })).toEqual({ open: "p1" });
-    expect(pickInitial(l, { project: "gone", last: "p1" })).toEqual({ open: "p1" });
+    expect(pickInitial(l, { project: "gone", last: "p1" })).toEqual({ open: "aus" });
+    expect(pickInitial(l, { last: "aus2" })).toEqual({ open: "aus2" });
     expect(pickInitial(l, { city: "austin" })).toEqual({ open: "aus" });
     expect(pickInitial(list("a"), { city: "austin" })).toEqual({ create: "austin" });
-    expect(pickInitial(l, {})).toEqual({ open: "p0" });
-    expect(pickInitial([], {})).toEqual({ create: "sandbox" });
+    expect(pickInitial(l, {})).toEqual({ open: "aus" });
+    expect(pickInitial([], {})).toEqual({ create: "austin" });
+    expect(pickInitial(l, { city: "sandbox" })).toEqual({ open: "p1" });
   });
 
   it("formats relative times", () => {
