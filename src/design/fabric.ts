@@ -178,7 +178,8 @@ export function planFabric(blocks: Block[], o: FabricOptions): FabricPlan {
       blockScore = -Infinity;
     for (const { e, s } of order) {
       blockScore = Math.max(blockScore, s);
-      const fam = s >= PERIMETER_FROM && o.prog.density !== "low" ? "perimeter" : "yard";
+      // main streets are continuous shopfront frontage wherever the programme is urban
+      const fam = o.prog.density !== "low" && (s >= PERIMETER_FROM || e.role === "main") ? "perimeter" : "yard";
       let d = edgeDepth(fam, s, e.across / 2);
       if (fam === "perimeter" && e.across < 2 * d + 12) d = Math.max(12, e.across / 2);
       if (fam === "yard") d = Math.min(d, Math.max(18, e.across / 2));
@@ -216,7 +217,8 @@ export function planFabric(blocks: Block[], o: FabricOptions): FabricPlan {
           }
           const score = s + (corner ? 0.35 : 0) + rng.range(-0.45, 0.45);
           let t = shop && !corner ? t0 : typologyFor(score, fam, o.prog.maxFloors);
-          if (fam === "yard" && t.key === "house" && rng.chance(0.25)) t = { ...t, def: rng.pick(["housing.cottage", "housing.l_shaped_house", "housing.single_family_home"]) };
+          // a street of houses mixes plans: two-storey, L-shaped, cottages, ranches on wide lots
+          if (fam === "yard" && t.key === "house") t = { ...t, def: rng.weighted(["housing.single_family_home", "housing.l_shaped_house", "housing.cottage", "housing.ranch_house"], [0.4, 0.25, 0.15, widths[k] >= 19 ? 0.25 : 0]) };
           if (fam === "yard" && t.key === "plex" && rng.chance(0.4)) t = { ...t, def: "housing.triplex", homes: 3 };
           const lot = makeLot(blk, e, lp, b - widths[k], b, d, score, corner, t, rng, o, pal, prevFacade);
           if (!lot) {
@@ -349,7 +351,7 @@ export function lotPlacement(l: Lot, rng: Rng, palette: PaletteName): { def: str
       def: t.def,
       at: l.at,
       rotation: l.heading,
-      params: { width: garage === "attached" ? Math.min(d.width, d.lotW - 8.5) : d.width, depth: d.depth, floors: l.floors, facade: l.facade, roofMaterial: rng.pick(pal.pitched), roofType: rng.pick(["gable", "hip", "gable"]), yard: true, frontSetback: d.front, rearSetback: Math.max(1, d.rear), sideSetback: d.sideSetback, driveway: true, garage, garageCars: 2, porch: rng.chance(0.6), chimney: rng.chance(0.25), fitToSite: false, ...name },
+      params: { width: garage === "attached" ? Math.min(d.width, d.lotW - 8.5) : t.def === "housing.ranch_house" ? Math.min(d.lotW - 2 * 1.5, 18) : d.width, depth: d.depth, floors: t.def === "housing.ranch_house" || t.def === "housing.cottage" ? 1 : l.floors, facade: l.facade, roofMaterial: rng.pick(pal.pitched), roofType: rng.pick(["gable", "hip", "gable"]), yard: true, frontSetback: d.front, rearSetback: Math.max(1, d.rear), sideSetback: d.sideSetback, driveway: true, garage, garageCars: 2, porch: rng.chance(0.6), chimney: rng.chance(0.25), fitToSite: false, ...name },
     };
   }
   if (!l.site || !isValidPoly(l.site)) return null;

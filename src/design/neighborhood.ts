@@ -148,7 +148,7 @@ export function designNeighborhood(world: World, spec: NeighborhoodSpec, actor: 
     const unc = fabric.filter((x) => !covered(x.centroid));
     if (!unc.length) break;
     const pick = unc.map((x) => ({ x, n: unc.filter((y) => dist(y.centroid, x.centroid) < 400).length })).sort((p, q) => q.n - p.n)[0].x;
-    const r = reserveOpenSpace(pick, res, "pocket_park", 36, Math.min(40, pick.edges[0]?.across ?? 40), ["local", "collector", "main"]);
+    const r = reserveOpenSpace(pick, res, "pocket_park", prog.density === "low" ? 64 : 36, Math.min(prog.density === "low" ? 80 : 40, pick.edges[0]?.across ?? 40), ["local", "collector", "main"]);
     if (!r) break;
     res.push(r);
     parkPolys.push(r.poly);
@@ -156,7 +156,7 @@ export function designNeighborhood(world: World, spec: NeighborhoodSpec, actor: 
   const openTarget = prog.openSpace * blockLand;
   for (let iter = 0; iter < 10 && parkPolys.reduce((s, q) => s + polyArea(q), 0) < openTarget * 0.85; iter++) {
     const far = fabric.slice().sort((p, q) => minParkDist(q.centroid, parkPolys) - minParkDist(p.centroid, parkPolys))[0];
-    const r = far ? reserveOpenSpace(far, res, "pocket_park", 40, Math.min(44, far.edges[0]?.across ?? 44), ["local", "collector", "main"]) : null;
+    const r = far ? reserveOpenSpace(far, res, "pocket_park", prog.density === "low" ? 64 : 40, Math.min(prog.density === "low" ? 80 : 44, far.edges[0]?.across ?? 44), ["local", "collector", "main"]) : null;
     if (!r) break;
     res.push(r);
     parkPolys.push(r.poly);
