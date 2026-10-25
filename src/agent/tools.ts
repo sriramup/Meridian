@@ -2,6 +2,7 @@
 // operations, simulations and view controls the user drives manually.
 
 import { getPrimitive, hexToRgb, normColor } from "@/library/registry";
+import { areaKpi, tilesIn } from "@/sim/heatKpi";
 import { instanceOf, reconfigureInstance } from "@/world/ops/library";
 import { SPECIES } from "@/world/species";
 import { carriagewayWidth, describeSection, hasSidewalk, laneCount, sectionWidth } from "@/geometry/crossSection";
@@ -1690,6 +1691,7 @@ export const TOOLS: Record<string, (i: In, ctx: ToolContext) => Promise<ToolOutp
     useApp.getState().bumpOverlay();
     const s = simSummary(rec) as Record<string, unknown>;
     if (i.kind === "access" && i.params?.area) s.in_area = accessInArea(rec, resolveArea(i.params.area));
+    if (i.kind === "heat" && i.params?.area) s.in_area = heatInArea(rec, resolveArea(i.params.area)?.poly ?? null, i.params?.hour ?? 15);
     return { content: { scenario: rec.scenarioName, at_edit: rec.cursor, runtime_s: r1((rec.ms ?? 0) / 1000), ...s }, display: { title: `${rec.label} — ${rec.scenarioName}`, detail: `${r1((rec.ms ?? 0) / 1000)} s`, status: "ok", simId: rec.id } };
   },
 
@@ -2461,4 +2463,14 @@ function customizeEntity(e: Entity, color: [number, number, number] | null | und
     changed.push(`${k} ${JSON.stringify(v)}`);
   }
   return { entity: next, changed };
+}
+
+/** heat figures for one area at an hour (what the analysis card shows for the view, for any area) */
+function heatInArea(rec: SimRecord, poly: Polygon | null, hour: number) {
+  const r = rec.result;
+  const grid = r?.grid ?? rt().meta.grid;
+  if (!poly || !r?.tiles || !grid) return null;
+  const k = areaKpi(r, tilesIn(r.tiles, grid, { poly: poly[0] as [number, number][] }), hour);
+  const f = (c: number | null) => (c === null ? null : r1(toF(c)));
+  return { hour, feels_like_on_foot_f: f(k.feels), surface_f: f(k.surface), shaded_paths: k.shaded === null ? null : Math.round(k.shaded * 100) + "%", canopy: Math.round(k.canopy * 1000) / 10 + "%", ground_over_104f: k.hot === null ? null : Math.round(k.hot * 100) + "%" };
 }

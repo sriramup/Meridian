@@ -29,6 +29,8 @@ import { slotLayers, useLayerSlots } from "@/render/layerSlots";
 const HOVER_MS = 70;
 /** how long the camera must have been still before idle work (the memory cap) runs (ms) */
 const IDLE_MS = 400;
+/** steepest tilt above street level: past ~71° the sky's horizon shows as a thin bright band along the top edge */
+const MAX_TILT = 70;
 
 type AppState = ReturnType<typeof useApp.getState>;
 
@@ -94,7 +96,7 @@ export const MapView = memo(function MapView() {
       zoom: iv.zoom,
       pitch: iv.pitch,
       bearing: iv.bearing,
-      maxPitch: 85,
+      maxPitch: MAX_TILT,
       maxZoom: 23.2,
       minZoom: 12.6,
       // each city is its own place: the camera stays over it
@@ -219,13 +221,13 @@ export const MapView = memo(function MapView() {
       moving = loader.moving = false;
       deck?.setProps({ _pickable: true });
     });
-    // tilt opens up as the camera comes down: from 60° over the whole city to 85° near the street,
-    // so a zoomed-out view can't be tipped into a horizon of sky and grazing roofs. Fly-throughs
-    // and street level (which set their own pitch) run unlimited.
+    // tilt opens up as the camera comes down: from 60° over the whole city to MAX_TILT near the
+    // street, so a zoomed-out view can't be tipped into a horizon of sky and grazing roofs. Street
+    // level (which sets its own pitch) runs unlimited.
     const pitchLimit = () => {
-      if (map.isEasing() || useApp.getState().cameraMode === "pedestrian") return 85;
+      if (map.isEasing() || useApp.getState().cameraMode === "pedestrian") return MAX_TILT;
       const t = Math.max(0, Math.min(1, (map.getZoom() - 14) / 2.5));
-      return 60 + 25 * t;
+      return 60 + (MAX_TILT - 60) * t;
     };
     const applyPitchLimit = () => {
       // street level sets (and afterwards restores) its own limits
@@ -234,7 +236,7 @@ export const MapView = memo(function MapView() {
       if (Math.abs(map.getMaxPitch() - lim) > 0.5) map.setMaxPitch(lim);
     };
     map.on("movestart", () => {
-      if (map.isEasing() && useApp.getState().cameraMode !== "pedestrian") map.setMaxPitch(85);
+      if (map.isEasing() && useApp.getState().cameraMode !== "pedestrian") map.setMaxPitch(MAX_TILT);
     });
     map.on("zoomend", applyPitchLimit);
     map.on("moveend", applyPitchLimit);

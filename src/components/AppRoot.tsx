@@ -12,6 +12,7 @@ import { ProjectsSidebar, SIDEBAR_WIDTH } from "./projects/ProjectsSidebar";
 import { SidePanel, usePaneWidth } from "./SidePanel";
 
 import { SketchStartHost } from "./sketch/SketchStart";
+import { DemoOverlay } from "@/demo/DemoOverlay";
 
 const Shell = dynamic(() => import("./Shell").then((m) => m.Shell), { ssr: false });
 
@@ -54,6 +55,8 @@ export function AppRoot() {
           <ConfirmDialog />
           <PromptDialog />
           <SketchStartHost />
+          {/* demo-video director (demo branch): ?demo */}
+          {typeof window !== "undefined" && new URLSearchParams(window.location.search).has("demo") && <DemoOverlay />}
         </TooltipPrimitive.Provider>
       )}
     </main>
