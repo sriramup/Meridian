@@ -14,6 +14,7 @@
 // primary pupil, 12–14 per middle-school pupil, 14–16 per high-school pupil; urban sites are compact
 // (multi-storey, play yards, fields at youth dimensions where land is short).
 
+import { editDistance } from "@/search/fuzzy";
 import type { Polygon, Vec2 } from "@/world/types";
 
 export type DensityClass = "low" | "medium" | "high" | "very_high";
@@ -205,10 +206,29 @@ const WORDS: [RegExp, FacilityKind][] = [
 ];
 const NUM: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, few: 3, several: 3, couple: 2 };
 
-/** parse facilities out of plain words ("two restaurants, a fire station and a few parks") */
+/** the long words of the facility vocabulary, for typo correction ("unviersity", "resturants") */
+const VOCAB = ["university", "universities", "college", "secondary", "elementary", "primary", "middle", "school", "schools", "police", "station", "restaurant", "restaurants", "library", "libraries", "community", "center", "centre", "recreation", "grocery", "supermarket", "daycare", "preschool", "nursery", "storefronts", "hospital", "clinic"];
+
+/** words of 7+ letters one typo (two from 9 letters) from a facility word are read as that word; shorter ones are left alone ("policy" is not "police") */
+function correctTypos(text: string): string {
+  return text.replace(/[a-z]{7,}/gi, (w) => {
+    const lw = w.toLowerCase();
+    if (VOCAB.includes(lw)) return w;
+    const max = lw.length >= 9 ? 2 : 1;
+    let best: string | null = null,
+      bd = max + 1;
+    for (const v of VOCAB) {
+      const d = editDistance(lw, v, max);
+      if (d < bd) [best, bd] = [v, d];
+    }
+    return best ?? w;
+  });
+}
+
+/** parse facilities out of plain words ("two restaurants, a fire station and a few parks"), tolerating typos */
 export function facilitiesFromText(text: string): FacilityRequest[] {
   const out: FacilityRequest[] = [];
-  const parts = text.split(/,|;|\band\b|\bwith\b|\bplus\b/i);
+  const parts = correctTypos(text).split(/,|;|\band\b|\bwith\b|\bplus\b/i);
   for (const p of parts) {
     for (const [re, kind] of WORDS) {
       if (!re.test(p)) continue;
