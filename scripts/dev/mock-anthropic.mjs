@@ -40,17 +40,26 @@
 //                               edit flow: create_building (at "X, Y", else the zone centre, else 0,0) → summary;
 //                               in plan mode (from the <context> block) the executor turns it into a dry run and the
 //                               summary says nothing was applied
+//   a user turn carrying an image (a sketch)  (checked first)
+//                               sketch flow: the runtime has already read it (vision request, below) → build_sketch
+//                               {sketch_id} → summary naming what was built and where; a "doesn't look like a plan"
+//                               note → a one-line explanation, nothing built
 //   question words (what / how many / which / where / is / are / does …) with none of the above
 //                               quick answer: immediate text from the <context> block, no tools
 //   anything else               a short text reply
+// Vision requests (the sketch reader, src/app/api/vision: non-streaming, tool report_sketch_plan) get a JSON
+// message whose tool input is the canned plan of the test fixture (tests/fixtures/sketch-plan.json); an image
+// taller than it is wide (the "selfie" fixture) is answered is_plan:false.
 // Usage: every response carries cache-shaped usage (tools + system read from cache after the first
 // request per model, the new history written, the newest turn uncached), so the server's spend ledger
 // (src/agent/spend.ts) records realistic entries; point MERIDIAN_SPEND_LEDGER at a scratch file when
 // testing against the mock, and set MERIDIAN_SPEND_CAP_USD low to exercise the cap.
 // Turn latency: quick answers are immediate; other turns wait MOCK_DELAY ms (default 250; long flow 1200).
 import http from "node:http";
+import { readFileSync } from "node:fs";
 
 const port = Number(process.argv[2] ?? 3999);
+const SKETCH_PLAN = JSON.parse(readFileSync(new URL("../../tests/fixtures/sketch-plan.json", import.meta.url), "utf8"));
 const BASE_DELAY = Number(process.env.MOCK_DELAY ?? 250);
 
 function sse(res, events) {
@@ -213,7 +222,34 @@ function designFlow(body, r, home) {
   return { delay: 300, turn: say(`Done: a walkable neighbourhood with a main street, a school and parks.${failed ? ` ${failed} step${failed > 1 ? "s" : ""} failed.` : ""}${issues}`) };
 }
 
+/** the sketch note of the latest user turn that carries an image, if any */
+function sketchTurn(messages) {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m.role !== "user" || !Array.isArray(m.content)) continue;
+    if (m.content.some((c) => c.type === "tool_result")) continue;
+    if (!m.content.some((c) => c.type === "image")) return null;
+    const note = m.content.map(textOf).find((t) => t.startsWith("[runtime] The user attached")) ?? "";
+    return { note, id: note.match(/sketch_id (\w+)/)?.[1] ?? null, notPlan: /doesn't look like a plan|reading it failed/.test(note) };
+  }
+  return null;
+}
+
+function sketchFlow(sk, r) {
+  if (sk.notPlan) return { delay: 150, turn: say(/reading it failed/.test(sk.note) ? "I couldn't read that image — please try again, or describe the plan in words." : "That doesn't look like a bird's-eye plan, so I haven't built anything. Try a photo of a whiteboard or paper sketch taken from above, or a map.") };
+  if (!r.length) return { delay: 300, turn: [call("build_sketch", { sketch_id: sk.id }, "Building your sketch as drawn."), "tool_use"] };
+  const last = r[r.length - 1];
+  if (last.error) return { delay: 150, turn: say(`I couldn't build it: ${String(last.data?.error ?? "").slice(0, 200)}`) };
+  const d = last.data?.data ?? {};
+  const st = d.streets ?? {};
+  const streets = [st.arterial ? `${st.arterial} avenue${st.arterial > 1 ? "s" : ""}` : "", st.collector ? `${st.collector} collector${st.collector > 1 ? "s" : ""}` : "", st.local ? `${st.local} local streets` : ""].filter(Boolean).join(", ");
+  const extras = [d.water ? "the river" : "", d.parks ? `${d.parks} park${d.parks > 1 ? "s" : ""}` : "", ...(d.facilities ?? []).map((f) => f.name)].filter(Boolean).join(", ");
+  return { delay: 200, turn: say(`Built **${d.name ?? "the sketch"}**: ${streets}; ${extras}. About ${d.homes ?? "?"} homes and ${d.jobs ?? "?"} jobs in ${d.buildings ?? "?"} buildings. Placed at ${last.data?.placed_at ?? "the canvas"}.`) };
+}
+
 function nextTurn(body) {
+  const sk = sketchTurn(body.messages);
+  if (sk) return sketchFlow(sk, conversation(body.messages).results);
   const { context, request, results: r } = conversation(body.messages);
   const q = request.toLowerCase();
   const { plan, zone, line } = ctxInfo(context);
@@ -359,6 +395,20 @@ http
         return;
       }
       const body = JSON.parse(raw);
+      if (!body.stream && (body.tools ?? []).some((t) => t.name === "report_sketch_plan")) {
+        // the sketch reader: one non-streaming call, answered with the fixture's plan (or "not a plan")
+        const text = (body.messages?.[0]?.content ?? []).map(textOf).join(" ");
+        const m = text.match(/(\d+) × (\d+) pixels/);
+        const portrait = m && Number(m[2]) > Number(m[1]) * 1.1;
+        const input = portrait ? { is_plan: false, not_plan_reason: "a photo of a person, not a plan", extent: { width_m: 0, height_m: 0, basis: "guess", confidence: 0 }, streets: [], blocks: [], areas: [], facilities: [], transit: [], notes: [] } : SKETCH_PLAN;
+        const hasImage = (body.messages?.[0]?.content ?? []).some((c) => c.type === "image" && c.source?.type === "base64" && c.source.data?.length > 100);
+        console.log(JSON.stringify({ vision: true, model: body.model, image: hasImage, forced: body.tool_choice?.type, portrait: !!portrait }));
+        setTimeout(() => {
+          res.writeHead(200, { "Content-Type": "application/json", "request-id": "req_mock_vision" });
+          res.end(JSON.stringify({ id: `msg_mock_v${Date.now()}`, type: "message", role: "assistant", model: body.model, stop_reason: "tool_use", stop_sequence: null, content: [{ type: "tool_use", id: `toolu_mock_v${++n}`, name: "report_sketch_plan", input }], usage: { input_tokens: 1750, output_tokens: portrait ? 60 : 1150, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 } }));
+        }, 600);
+        return;
+      }
       const { turn, delay } = nextTurn(body);
       console.log(JSON.stringify({ tools: body.tools?.length, msgs: body.messages.length, model: body.model, effort: body.output_config?.effort, thinking: body.thinking?.type, stop: turn[1] }));
       // usage shaped like the real API's with caching: the stable prefix (tools + system) is read from

@@ -11,6 +11,7 @@ import { PromptDialog } from "./projects/PromptDialog";
 import { PANEL_EASE, SIDEBAR_WIDTH } from "@/state/panels";
 import { ProjectsSidebar } from "./projects/ProjectsSidebar";
 import { SlidePanel } from "./SlidePanel";
+import { SketchStartHost } from "./sketch/SketchStart";
 
 const Shell = dynamic(() => import("./Shell").then((m) => m.Shell), { ssr: false });
 
@@ -54,6 +55,7 @@ export function AppRoot() {
           )}
           <ConfirmDialog />
           <PromptDialog />
+          <SketchStartHost />
         </TooltipPrimitive.Provider>
       )}
     </main>

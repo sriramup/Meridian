@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { SketchDropZone } from "../sketch/SketchDropZone";
 import { useApp } from "@/state/store";
 import { focusComposerNext, hasDraft, type ComposerHandle } from "./Composer";
 import { DeleteAgentDialog, SessionList } from "./SessionList";
@@ -88,7 +89,8 @@ export function AgentsPane({ onClose }: { onClose: () => void }) {
   }, [draft]);
 
   return (
-    <aside aria-label="Agents" className="agent-sheet flex h-full w-full flex-col border-l border-line-2">
+    <aside aria-label="Agents" className="agent-sheet relative flex h-full w-full flex-col border-l border-line-2">
+      <SketchDropZone target={() => (useAgents.getState().viewing ?? newAgent())} />
       {session ? (
         <SessionView key={session.id} ref={composer} session={session} onBack={() => agents.view(null)} onNew={() => openNewAgent()} onClose={onClose} />
       ) : (
