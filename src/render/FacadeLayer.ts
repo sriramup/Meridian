@@ -124,11 +124,16 @@ vec3 fac_apply(vec3 base, vec3 pos, vec3 nrm, float type, vec2 d) {
     float unitW = bay * (type == 0.0 ? 2.0 : 1.0);
     float h = fac_hash(vec2(floor(along / unitW), floorIdx));
     float floorBias = fac_hash(vec2(floorIdx, 3.7)) * 0.5 - 0.25;
-    // distant facades: average occupancy glow instead of per-window flicker
-    float far = max(fac_fade(d.x / unitW), fv);
-    lit = mix(step(0.6 + floorBias, h) * windowMask, 0.38 * max(coverage, windowMask * 0.5), far);
+    // a run of ~8 units along one storey (a tenant, a floor plate) shares its lights
+    float run = fac_hash(vec2(floor(along / (unitW * 8.0)), floorIdx + 0.5));
+    // once a unit is narrower than ~10 px, per-window on/off only reads as noise: storeys light
+    // in runs (bands); once storeys are unresolvable, the facade takes an average glow
+    float band = smoothstep(0.05, 0.16, d.x / unitW);
+    float perWindow = step(0.6 + floorBias, h) * windowMask;
+    float perRun = step(0.55 + floorBias, run) * mix(windowMask, coverage, band);
+    lit = mix(mix(perWindow, perRun, band), 0.38 * max(coverage, windowMask * 0.5), fv);
     vec3 warm = mix(vec3(1.0, 0.78, 0.45), vec3(0.95, 0.92, 0.85), fac_hash(vec2(floorIdx, 7.0)));
-    col = mix(col * (1.0 - 0.75 * facade.night), warm * (0.55 + 0.3 * h), lit * facade.night);
+    col = mix(col * (1.0 - 0.75 * facade.night), warm * (0.55 + 0.3 * mix(h, run, band)), lit * facade.night);
     return col;
   }
   return col * ao * (1.0 - 0.72 * facade.night);
