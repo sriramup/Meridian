@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { presetOf } from "@/state/cities";
 import { openProject, useProjects } from "@/state/projects";
 import { useApp } from "@/state/store";
-import { Badge, Button } from "./ui/kit";
+import { Badge, Button, cn } from "./ui/kit";
 
 /**
  * The loading card: a rounded card with the project's name and a progress bar, over the app while a
@@ -38,7 +38,8 @@ export function LoadingScreen() {
     <div
       data-testid="loading-card"
       aria-busy={busy}
-      className="absolute inset-0 z-40 grid place-items-center"
+      // while it is up it blocks the map underneath (a project is being swapped); fading out it lets go
+      className={cn("absolute inset-0 z-40 grid place-items-center", busy ? "pointer-events-auto" : "pointer-events-none")}
       style={{
         // over the app: a sheet of parchment laid on the map (a blur would cost every frame under it)
         background: over ? "rgb(241 226 194 / 0.72)" : "var(--parchment), radial-gradient(90% 80% at 50% 40%, #f8eccf 0%, #eedcb5 62%, #d9bd8a 100%)",

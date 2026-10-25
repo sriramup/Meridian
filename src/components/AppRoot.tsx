@@ -45,7 +45,8 @@ export function AppRoot() {
         <TooltipPrimitive.Provider>
           {/* the workspace keeps the whole window; the sidebar slides in over it (no canvas resize) */}
           <div className="absolute inset-0">{status === "ready" && <Shell />}</div>
-          <div className="absolute inset-y-0 right-0" style={{ left: loaded && sidebarOpen ? SIDEBAR_WIDTH : 0, transition: `left ${PANEL_EASE}` }}>
+          {/* only positions the loading card: it must never take the map's pointer events */}
+          <div className="pointer-events-none absolute inset-y-0 right-0" style={{ left: loaded && sidebarOpen ? SIDEBAR_WIDTH : 0, transition: `left ${PANEL_EASE}` }}>
             <LoadingScreen />
           </div>
           {loaded && (
