@@ -46,9 +46,9 @@ export interface WebResult {
   engine: "google" | "google_news" | "google_scholar";
   query: string;
   /** Google's direct answer (answer box), when there is one */
-  answer?: { text: string; title?: string; url?: string; domain?: string };
+  answer?: { text: string; title?: string; url?: string; domain?: string; /** its source number */ n?: number };
   /** knowledge-graph entity (a city, an agency…) with its facts */
-  entity?: { title: string; type?: string; description?: string; facts: SerpFact[]; url?: string; domain?: string };
+  entity?: { title: string; type?: string; description?: string; facts: SerpFact[]; url?: string; domain?: string; n?: number };
   /** "People also ask" answers, each with its source */
   questions?: { q: string; a: string; url?: string; domain?: string }[];
   sources: SerpSource[];
@@ -85,6 +85,9 @@ export interface PlacesResult {
 }
 
 export type SerpData = WebResult | PlacesResult;
+
+/** a tool card's payload (ToolDisplay.serp): what the agents pane renders as a search card */
+export type SerpCard = { kind: "web"; data: WebResult; cached?: boolean } | { kind: "places"; set: import("./store").PlaceSet; walk_minutes?: number };
 
 export interface SerpCredits {
   /** searches billed by this server so far (cache hits and fixtures are free) */
