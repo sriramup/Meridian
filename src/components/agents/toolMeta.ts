@@ -181,9 +181,9 @@ export interface Starter {
 
 export const STARTERS: Starter[] = [
   {
-    label: "Untangle the 5 PM rush",
+    label: "Add bike lanes to Guadalupe Street",
     prompt:
-      "Simulate the 5 PM peak downtown, find the five worst bottlenecks, try a junction redesign for each in its own scenario, and recommend the combination that cuts average delay the most",
+      "In a new scenario, convert Guadalupe Street between MLK Jr Blvd and West 24th Street from four travel lanes to two with a center turn lane and protected bike lanes, keeping the curb-to-curb width. Run the 5 PM traffic model and the bike stress model on today's street and on the scenario, then compare corridor travel time, delay at the MLK and 24th Street intersections, and the bike level of traffic stress, and flag any intersection that ends up over capacity",
   },
   {
     label: "Cool down Republic Square",
