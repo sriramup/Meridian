@@ -96,7 +96,7 @@ export function createTransitRoute(world: World, p: CreateRouteParams, actor: Ac
     createdBy: b.tag,
   };
   b.add(route);
-  b.summary(`${p.mode.toUpperCase()} route “${p.name}”: ${(L / 1000).toFixed(2)} km on ${r.streets.length} street segments, ${stops.length} stops (~${spacing} m spacing), ${route.headway}-min headway`);
+  b.summary(`${p.mode.toUpperCase()} route “${p.name}”: ${fmt.m(L)} on ${r.streets.length} street segments, ${stops.length} stops (~${fmt.m(spacing)} spacing), ${route.headway}-min headway`);
   if (p.dedicated) {
     // convert lanes for the whole alignment, cascading each segment
     const edit = p.mode === "tram" ? { op: "tram" as const, on: true } : { op: "bus_lanes" as const, on: true };

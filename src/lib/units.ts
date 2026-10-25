@@ -98,6 +98,11 @@ export function fmtArea(m2: number, digits?: number): string {
 }
 /** always sq ft: "12,400 sq ft" (floor area) */
 export const fmtSqFt = (m2: number) => `${fmtNum(toSqFt(m2))} sq ft`;
+/** floor area: "12,400 sq ft", "1.24M sq ft" */
+export function fmtFloorArea(m2: number): string {
+  const sf = toSqFt(m2);
+  return Math.abs(sf) >= 1e6 ? `${fmtNum(sf / 1e6, 2)}M sq ft` : `${fmtNum(sf)} sq ft`;
+}
 /** always acres: "3.4 acres" */
 export const fmtAcres = (m2: number, digits = 1) => `${fmtNum(toAcres(m2), digits)} acres`;
 export const fmtDArea = (m2: number) => signed(fmtArea(m2), m2);

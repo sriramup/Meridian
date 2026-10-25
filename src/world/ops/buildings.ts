@@ -127,7 +127,7 @@ export function createBuilding(world: World, p: CreateBuildingParams, actor: Act
     if (p.demolishConflicts) {
       if (building.historic) b.warn(`Demolishes historic-designated ${building.name ?? building.id}`);
       b.remove(building.id);
-      b.conflict(building.id, "overlap", `Demolished ${building.name ?? "existing building"} (${area.toFixed(0)} m² overlap)`, true);
+      b.conflict(building.id, "overlap", `Demolished ${building.name ?? "existing building"} (${fmt.area(area)} overlap)`, true);
     } else {
       // keep the existing building: carve the proposal around it
       for (const m of bld.masses) {
@@ -166,9 +166,9 @@ export function createBuilding(world: World, p: CreateBuildingParams, actor: Act
   }
   const prog = programmeOf(bld);
   b.summary(`New ${p.spec.typology.replace("_", " ")} — ${bld.floors} floors, ${fmt.m(bld.height)}, ${fmt.m2(prog.gfa)} GFA${prog.units >= 1 ? `, ~${fmt.int(prog.units)} units` : ""}${prog.jobs >= 1 ? `, ~${fmt.int(prog.jobs)} jobs` : ""}`);
-  for (const [t, m2] of displaced) b.summary(t === "parking" ? `Displaces ${fmt.m2(m2)} of surface parking (≈${fmt.int(m2 / 30)} spaces at 30 m²/space)` : `Displaces ${fmt.m2(m2)} of ${t}`);
+  for (const [t, m2] of displaced) b.summary(t === "parking" ? `Displaces ${fmt.area(m2)} of surface parking (≈${fmt.int(m2 / 30)} spaces at 320 sq ft each)` : `Displaces ${fmt.area(m2)} of ${t}`);
   if (felled) b.summary(`${felled} tree${felled > 1 ? "s" : ""} inside the footprint removed`);
-  if ((displaced.get("park") ?? 0) > 50) b.warn(`Builds on ${fmt.m2(displaced.get("park")!)} of parkland — public park conversion typically requires a public process`);
+  if ((displaced.get("park") ?? 0) > 50) b.warn(`Builds on ${fmt.area(displaced.get("park")!)} of parkland — public park conversion typically requires a public process`);
   const removedGfa = [...replace].map((id) => world.get<Building>(id)).filter(Boolean).reduce((s, x) => s + programmeOf(x!).gfa, 0);
   if (replace.size) b.summary(`Replaces ${replace.size} existing building${replace.size > 1 ? "s" : ""} (${fmt.m2(removedGfa)})`);
   for (const iss of checkBuilding(world, bld, new Set([bld.id, ...replace]))) {

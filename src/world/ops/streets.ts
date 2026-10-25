@@ -68,7 +68,7 @@ export function cascadeRow(b: OpBuilder, before: Street | null, after: Street | 
         const lost = pr.gfa - programmeOf(nb).gfa;
         stats.trimmed++;
         stats.gfaLost += lost;
-        b.conflict(bld.id, "row", `${nm}: façade set back ≈${depth.toFixed(1)} m; −${fmt.m2(lost)} GFA`, true);
+        b.conflict(bld.id, "row", `${nm}: façade set back ≈${fmt.m(depth)}; −${fmt.m2(lost)} GFA`, true);
       } else {
         if (bld.historic) b.warn(`${nm} is historic-designated — demolition requires Historic Landmark Commission approval`);
         b.remove(bld.id);
@@ -306,7 +306,7 @@ export function setNodeControl(world: World, nodeId: string, control: NodeContro
       const area = overlapArea(bld.footprint, footprint);
       if (area < 2) continue;
       if (policy === "report") {
-        b.conflict(bld.id, "row", `${bld.name ?? "Building"} intersects the roundabout footprint (${area.toFixed(0)} m²)`, false);
+        b.conflict(bld.id, "row", `${bld.name ?? "Building"} intersects the roundabout footprint (${fmt.area(area)})`, false);
         continue;
       }
       const rem = difference(bld.footprint, footprint).sort((x, y) => polyArea(y) - polyArea(x))[0];
@@ -337,7 +337,7 @@ export function setNodeControl(world: World, nodeId: string, control: NodeContro
       }
     }
     b.summary(`${names}: ${lanes}-lane roundabout, outer radius ${R.toFixed(0)} m (inscribed diameter ${(2 * R).toFixed(0)} m); ${inc.length} approaches rebuilt with entry flares and crossings set back`);
-    if (taken) b.summary(`Corner right-of-way acquisition ${fmt.m2(taken)}`);
+    if (taken) b.summary(`Corner right-of-way acquisition ${fmt.area(taken)}`);
     if (trim) b.summary(`${trim} corner building${trim > 1 ? "s" : ""} trimmed`);
     if (dem) b.summary(`${dem} building${dem > 1 ? "s" : ""} demolished for the roundabout footprint`);
     if (trees) b.summary(`${trees} trees removed from the circulatory roadway`);
@@ -602,7 +602,7 @@ export function createStreet(world: World, p: CreateStreetParams, actor: Actor, 
     cascadeRow(b, null, st, p.policy ?? "demolish");
   }
   const joined = uniq.length;
-  b.summary(`New ${cls} street${p.name ? ` “${p.name}”` : ""}: ${fmt.m(L)}, ${created.length} segment${created.length > 1 ? "s" : ""}, ${sectionWidth(section).toFixed(1)} m ROW; connected at ${joined} point${joined === 1 ? "" : "s"} (${uniq.filter((h) => h.street).length} existing streets split)`);
+  b.summary(`New ${cls} street${p.name ? ` “${p.name}”` : ""}: ${fmt.m(L)}, ${created.length} segment${created.length > 1 ? "s" : ""}, ${fmt.m(sectionWidth(section))} ROW; connected at ${joined} point${joined === 1 ? "" : "s"} (${uniq.filter((h) => h.street).length} existing streets split)`);
   b.data.streetIds = created.map((s) => s.id);
   if (ob) return { ok: true, report: b.report, created: created.map((s) => s.id), removed: [], modified: [], data: b.data };
   return b.finish(`New street${p.name ? ` ${p.name}` : ""}`);
@@ -628,7 +628,7 @@ export function removeStreets(world: World, ids: string[], opts: { reclaim?: "pl
     const bb = polyBBox(land[0]);
     for (const e of world.query(bb, ["street"])) if (!removed.has(e.id)) land = land.flatMap((q) => difference(q, streetBand(e as Street)));
     for (const q of land) if (isValidPoly(q) && polyArea(q) > 30) b.add<Area>({ id: newId("a"), kind: "area", type: opts.reclaim, poly: q, source: "Reclaimed right-of-way", provenance: "proposed", createdBy: b.tag });
-    b.summary(`${fmt.m2(land.reduce((s, q) => s + polyArea(q), 0))} of former right-of-way reclaimed as ${opts.reclaim}`);
+    b.summary(`${fmt.area(land.reduce((s, q) => s + polyArea(q), 0))} of former right-of-way reclaimed as ${opts.reclaim}`);
   }
   // transit routes that used these streets
   for (const r of world.all("route")) if (r.streets.some((s) => removed.has(s))) b.warn(`Transit route ${r.ref} ${r.name} used a removed street — reroute required`);
@@ -682,7 +682,7 @@ export function moveStreets(world: World, ids: string[], offset: Vec2, opts: { p
     released += difference(streetBand(o), streetBand(n)).reduce((s, q) => s + polyArea(q), 0);
   }
   b.summary(`Shifted ${ids.length} segment${ids.length > 1 ? "s" : ""} by ${Math.hypot(offset[0], offset[1]).toFixed(1)} m; ${touched.size - ids.length} connecting streets re-attached; ${nodes.size} junctions rebuilt`);
-  if (released > 5) b.summary(`${fmt.m2(released)} of former right-of-way released for reuse`);
+  if (released > 5) b.summary(`${fmt.area(released)} of former right-of-way released for reuse`);
   return b.finish(`Shift ${world.get<Street>(ids[0])?.name ?? "street"}`);
 }
 
@@ -706,7 +706,7 @@ export function realignStreets(world: World, ids: string[], opts: { radius?: num
     b.update(ns);
     cascadeRow(b, s, ns, opts.policy ?? "trim");
     n++;
-    const basis = opts.radius ? "requested" : `AASHTO minimum for ${V} km/h, e = 4%`;
+    const basis = opts.radius ? "requested" : `AASHTO minimum for ${Math.round(V / 1.609344)} mph, e = 4%`;
     b.summary(`${s.name ?? id}: tightest curve ${before.minRadius.toFixed(0)} m → ${after.minRadius.toFixed(0)} m (design radius ${R} m, ${basis})`);
     if (after.minRadius < R * 0.9) b.warn(`${s.name ?? id}: only ${after.minRadius.toFixed(0)} m achievable within the existing alignment — the bend is too close to the junctions for a ${R} m curve; consider a lower speed limit or moving the junction`);
   }
