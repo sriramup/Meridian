@@ -128,7 +128,7 @@ export const LANDMARKS: PrimitiveDef[] = [
     name: "Flagpole",
     category: LM,
     tags: ["flag", "flag mast", "banner pole"],
-    description: "Flagpole with a flag; ground-set poles are typically 6–15 m.",
+    description: "Flagpole with a flag; ground-set poles are typically 20–50 ft.",
     icon: "flag",
     params: [num("height", "Height", 10, { group: D, unit: "m", min: 3, max: 60, step: 0.5 }), int("count", "Poles", 1, { group: D, min: 1, max: 9 }), color("flag", "Flag colour", "#3c5aa0", { group: A })],
     build: (r) => {

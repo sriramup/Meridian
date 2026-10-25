@@ -2,6 +2,7 @@
 // a residential subdivision with its streets, a shopping centre, a mixed-use block, a town square
 // and a business park. Every entity belongs to the one composite instance (re-configured together).
 
+import { fmtDims, fmtFloorArea } from "@/lib/units";
 import type { Polygon, Vec2 } from "@/world/types";
 import { difference, polyArea } from "@/geometry/polygon";
 import type { GenerateContext, ParamValues, PlacementInput, PrimitiveDef } from "../types";
@@ -126,7 +127,7 @@ export const COMPOSITES: PrimitiveDef[] = [
         const s = parkingLot(out, f, W / 2 - pw / 2 - 5, -D / 2 + 30, pw, 54, { lamps: true });
         out.summary.push(`${s} parking stalls`);
       }
-      out.summary.unshift(`Campus ${Math.round(W)} × ${Math.round(D)} m around a ${Math.round(qw)} × ${Math.round(qd)} m quad`);
+      out.summary.unshift(`Campus ${fmtDims(W, D)} around a ${fmtDims(qw, qd)} quad`);
       return out.done();
     },
   },
@@ -141,7 +142,7 @@ export const COMPOSITES: PrimitiveDef[] = [
     params: [
       num("width", "Width (if not drawn)", 240, { group: L, unit: "m", min: 60, max: 2000, step: 5 }),
       num("depth", "Depth (if not drawn)", 120, { group: L, unit: "m", min: 50, max: 2000, step: 5 }),
-      num("lotWidth", "Lot frontage", 18, { group: L, unit: "m", min: 8, max: 60, step: 0.5, description: "Typical 15–25 m (50–80 ft)" }),
+      num("lotWidth", "Lot frontage", 18, { group: L, unit: "m", min: 8, max: 60, step: 0.5, description: "Typical 50–80 ft" }),
       num("lotDepth", "Lot depth", 36, { group: L, unit: "m", min: 15, max: 100, step: 0.5 }),
       choice("houseType", "Houses", "mixed", [{ value: "mixed", label: "Mixed styles" }, { value: "single_family_home", label: "Two-storey homes" }, { value: "ranch_house", label: "Ranch houses" }, { value: "cottage", label: "Cottages" }, { value: "duplex", label: "Duplexes" }, { value: "townhouse", label: "Townhouses" }], { group: B }),
       bool("streets", "Build the streets", true, { group: L, description: "Local streets through the subdivision (spliced into the network)" }),
@@ -193,7 +194,7 @@ export const COMPOSITES: PrimitiveDef[] = [
       }
       // make the first house the primary entity (inspector edits the instance through it)
       if (out.buildings[0]) out.setPrimary(out.buildings[0]);
-      out.summary.unshift(`Subdivision: ${homes} homes on ${bands} street${bands > 1 ? "s" : ""}, lots ${lw} × ${ld} m`);
+      out.summary.unshift(`Subdivision: ${homes} homes on ${bands} street${bands > 1 ? "s" : ""}, lots ${fmtDims(lw, ld)}`);
       return out.done();
     },
   },
@@ -253,7 +254,7 @@ export const COMPOSITES: PrimitiveDef[] = [
       if (r.b("tower")) bld(out, f, [W / 2 - 15, D / 2 - 15], 0, { use: r.s("upperUse"), width: 26, depth: 26, floors: fl * 3, groundFloorHeight: 5, facade: "glass_blue", penthouse: true });
       out.area("grass", polyToWorld(f, rectL(0, 0, W - 2 * bd - 2, D - 2 * bd - 2)), { primary: false, name: "Courtyard" });
       if (r.b("streetTrees")) for (const sg of [-1, 1]) for (let x = -W / 2 + 6; x <= W / 2 - 6; x += 9) streetTree(out, toWorld(f, [x, sg * (D / 2 + 3)]), x);
-      out.summary.unshift(`Mixed-use block ${Math.round(W)} × ${Math.round(D)} m, ${fl} floors`);
+      out.summary.unshift(`Mixed-use block ${fmtDims(W, D)}, ${fl} floors`);
       return out.done();
     },
   },
@@ -300,7 +301,7 @@ export const COMPOSITES: PrimitiveDef[] = [
         const fr = subFrame(f, p, rot);
         for (let i = 0; i < n; i++) bld(out, fr, [-len / 2 + (len * (i + 0.5)) / n, 0], 0, { use: "residential", groundUse: "retail", width: len / n - 0.2, depth: 16, floors: fl + (k % 3 === 0 ? 1 : 0), groundFloorHeight: 4.8, facade: facades[k++ % facades.length], awning: true, awningColor: ["#b65a3c", "#2a5a3c", "#3c6ca8"][k % 3], parapetHeight: 1.3 });
       }
-      out.summary.unshift(`Town square ${Math.round(pw)} × ${Math.round(pd)} m`);
+      out.summary.unshift(`Town square ${fmtDims(pw, pd)}`);
       return out.done();
     },
   },
@@ -454,7 +455,7 @@ function urbanSchool(values: ParamValues, place: PlacementInput, ctx: GenerateCo
   for (let y = -D / 2 + 12; y <= D / 2 - 20; y += 11) for (const sg of [-1, 1]) if (!(sg > 0 && W - barW > 18 && y > D / 2 - 55)) streetTree(out, toWorld(f, [sg * (W / 2 - 1.5), y]), y * 0.7 + sg, 0.7);
   lawnFill(out, f, W, D);
   if (main) out.setPrimary(main.building);
-  out.summary.unshift(`${name}: ${fmtInt(pupils)} pupils, ${Math.round(gfa).toLocaleString()} m² over ${floors} floors${fieldPlaced ? "" : " (no room for a full field)"}`);
+  out.summary.unshift(`${name}: ${fmtInt(pupils)} pupils, ${fmtFloorArea(gfa)} over ${floors} floors${fieldPlaced ? "" : " (no room for a full field)"}`);
   return out.done();
 }
 
@@ -563,7 +564,7 @@ function campusBlock(values: ParamValues, place: PlacementInput, ctx: GenerateCo
   }
   lawnFill(out, f, W, D);
   if (first) out.setPrimary((first as NonNullable<typeof first>).building);
-  out.summary.unshift(`Campus block (${role}) ${Math.round(W)} × ${Math.round(D)} m`);
+  out.summary.unshift(`Campus block (${role}) ${fmtDims(W, D)}`);
   return out.done();
 }
 

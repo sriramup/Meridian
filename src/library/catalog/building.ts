@@ -5,6 +5,7 @@
 
 import { massesGFA } from "@/geometry/massing";
 import { insetPoly, isValidPoly, polyArea, polyBBox, polyCentroid } from "@/geometry/polygon";
+import { fmtDims } from "@/lib/units";
 import { PROGRAMME, fmt } from "@/world/ops/core";
 import type { Building, Mass, Polygon, Solid, Use, Vec2 } from "@/world/types";
 import type { Category, GenerateContext, ParamSpec, ParamValues, Placement, PlacementInput, PrimitiveDef } from "../types";
@@ -49,7 +50,7 @@ export const BUILDING_PARAMS: ParamSpec[] = [
   choice("shape", "Plan shape", "rect", [...FOOTPRINT_SHAPES, { value: "site", label: "Drawn outline", description: "Use the drawn site polygon as the footprint" }], { group: F, description: "Footprint shape; dimensions below are its overall extents" }),
   num("width", "Width", 24, { group: F, unit: "m", min: 3, max: 400, step: 0.5, description: "Overall extent along the building's x axis (diameter for round plans)" }),
   num("depth", "Depth", 16, { group: F, unit: "m", min: 3, max: 400, step: 0.5, description: "Overall extent front to back", when: { key: "shape", in: ["rect", "l", "t", "u", "h", "o", "plus", "z", "trapezoid", "triangle", "ellipse", "ngon", "rounded", "chamfered", "crescent", "stepped"] } }),
-  num("wing", "Wing width", 10, { group: F, unit: "m", min: 1, max: 100, step: 0.5, description: "Thickness of the vertical wings / legs / ring (typical double-loaded bar 12–20 m)", when: { key: "shape", in: WINGS } }),
+  num("wing", "Wing width", 10, { group: F, unit: "m", min: 1, max: 100, step: 0.5, description: "Thickness of the vertical wings / legs / ring (typical double-loaded bar 40–65 ft)", when: { key: "shape", in: WINGS } }),
   num("wing2", "Cross-wing width", 10, { group: F, unit: "m", min: 1, max: 100, step: 0.5, description: "Thickness of the horizontal bar / foot / crossbar", when: { key: "shape", in: ["l", "t", "u", "h", "o", "plus", "z"] } }),
   int("sides", "Sides", 6, { group: F, min: 3, max: 24, when: { key: "shape", in: ["ngon"] } }),
   num("corner", "Corner radius / chamfer", 4, { group: F, unit: "m", min: 0.2, max: 60, step: 0.5, when: { key: "shape", in: ["rounded", "chamfered"] } }),
@@ -64,8 +65,8 @@ export const BUILDING_PARAMS: ParamSpec[] = [
   int("floors", "Floors", 4, { group: MS, min: 1, max: 160, unit: "floors", description: "Storeys above ground" }),
   num("targetHeight", "Target height", 0, { group: MS, unit: "m", min: 0, max: 700, step: 0.5, description: "If set, floors are derived from this height and the floor heights (0 = use Floors)" }),
   num("targetGFA", "Target floor area", 0, { group: MS, unit: "m²", min: 0, max: 2000000, step: 50, description: "If set, floors are derived so the gross floor area reaches this (0 = use Floors)" }),
-  num("groundFloorHeight", "Ground floor height", 0, { group: MS, unit: "m", min: 0, max: 12, step: 0.1, description: "Floor-to-floor height of the ground storey (0 = typical for the use: 4.2 m residential, 4.8 m other)" }),
-  num("floorHeight", "Typical floor height", 0, { group: MS, unit: "m", min: 0, max: 10, step: 0.1, description: "Floor-to-floor height of upper storeys (0 = typical for the use: 3.2 m residential / hotel, 4.0 m office, 5.5 m industrial)" }),
+  num("groundFloorHeight", "Ground floor height", 0, { group: MS, unit: "m", min: 0, max: 12, step: 0.1, description: "Floor-to-floor height of the ground storey (0 = typical for the use: 14 ft residential, 16 ft other)" }),
+  num("floorHeight", "Typical floor height", 0, { group: MS, unit: "m", min: 0, max: 10, step: 0.1, description: "Floor-to-floor height of upper storeys (0 = typical for the use: 10.5 ft residential / hotel, 13 ft office, 18 ft industrial)" }),
   int("podiumFloors", "Podium floors", 0, { group: MS, min: 0, max: 20, unit: "floors", description: "Floors in a full-footprint base; the floors above form a tower (0 = no podium)" }),
   num("towerCoverage", "Tower plate", 45, { group: MS, unit: "%", min: 5, max: 100, step: 1, description: "Tower floor-plate area as a share of the podium" }),
   num("towerOffsetX", "Tower offset across", 0, { group: MS, unit: "m", min: -100, max: 100, step: 0.5, advanced: true }),
@@ -497,7 +498,7 @@ export { box, floorHeightsFor };
 
 const ROW_PARAMS: ParamSpec[] = [
   int("count", "Buildings in row", 6, { group: "Layout", min: 1, max: 40, description: "Number of attached units / buildings" }),
-  num("unitWidth", "Unit frontage", 6.5, { group: "Layout", unit: "m", min: 3, max: 60, step: 0.1, description: "Width of each unit along the row (rowhouse lots are typically 5–8 m)" }),
+  num("unitWidth", "Unit frontage", 6.5, { group: "Layout", unit: "m", min: 3, max: 60, step: 0.1, description: "Width of each unit along the row (rowhouse lots are typically 16–25 ft)" }),
   num("gap", "Gap between units", 0, { group: "Layout", unit: "m", min: 0, max: 30, step: 0.5, description: "0 = attached (party walls)" }),
   num("stagger", "Front stagger", 0, { group: "Layout", unit: "m", min: 0, max: 10, step: 0.1, description: "Alternate units step forward / back" }),
   int("heightVariation", "Height variation", 0, { group: "Layout", min: 0, max: 5, unit: "floors", description: "Random extra floors per unit" }),
@@ -550,7 +551,7 @@ export function buildingRowType(o: Omit<BuildingTypeOpts, "layout">): PrimitiveD
         units += info.units;
         gfa += info.gfa;
       }
-      out.summary.unshift(`${o.name}: ${n} units of ${uw.toFixed(1)} m × ${depth.toFixed(1)} m, ${floorsBase}+ floors, GFA ${fmt.m2(gfa)}${units ? `, ${units} homes` : ""}`);
+      out.summary.unshift(`${o.name}: ${n} units of ${fmtDims(uw, depth)}, ${floorsBase}+ floors, GFA ${fmt.m2(gfa)}${units ? `, ${units} homes` : ""}`);
       return out.done();
     },
   };

@@ -3,6 +3,7 @@
 // woodland and green walls. Trees are Props with detailed solids and `shade` (crown radius and
 // height) by default, or plain Tree entities (form = "simple") for the tree-specific models.
 
+import { fmtArea, fmtFt, fmtLen } from "@/lib/units";
 import { polyArea, polyCentroid } from "@/geometry/polygon";
 import type { Solid, Vec2 } from "@/world/types";
 import type { GenerateContext, ParamSpec, PrimitiveDef } from "../types";
@@ -157,7 +158,7 @@ function treeDef(sp: SpeciesPreset | null): PrimitiveDef {
     name: sp ? sp.name : "Tree (any species)",
     category: FL,
     tags: sp ? ["tree", sp.latin.toLowerCase(), ...sp.tags] : ["tree", "shade tree", "street tree", "canopy", "plant", "vegetation"],
-    description: sp ? `${sp.name} (${sp.latin}): ${sp.note.toLowerCase()}; ≈ ${sp.height} m tall, ${sp.crown} m spread at maturity.` : `A tree of any of ${SPECIES_PRESETS.length} species, or any crown shape, size and colour; casts shade in the heat and sun models.`,
+    description: sp ? `${sp.name} (${sp.latin}): ${sp.note.toLowerCase()}; ≈ ${fmtFt(sp.height, 0)} tall, ${fmtFt(sp.crown, 0)} spread at maturity.` : `A tree of any of ${SPECIES_PRESETS.length} species, or any crown shape, size and colour; casts shade in the heat and sun models.`,
     icon: sp && (sp.shape === "conical" || sp.shape === "layered" || sp.shape === "columnar") ? "tree-pine" : sp && (sp.shape === "palm" || sp.shape === "fan_palm") ? "tree-palm" : "tree-deciduous",
     placement: "point",
     params,
@@ -168,7 +169,7 @@ function treeDef(sp: SpeciesPreset | null): PrimitiveDef {
       const seed = (hashSeed(ctx.ref?.instance ?? id) % 1000) / 1000;
       addTree(out, r, sp, f.c, (f.a * 180) / Math.PI, seed, true, id);
       const t = resolveTree(r, sp, seed);
-      out.summary.push(`${t.name}: ${t.spec.height.toFixed(1)} m tall, ${t.spec.crown.toFixed(1)} m crown (≈ ${Math.round(Math.PI * (t.spec.crown / 2) ** 2)} m² canopy)`);
+      out.summary.push(`${t.name}: ${fmtFt(t.spec.height)} tall, ${fmtFt(t.spec.crown)} crown (≈ ${fmtArea(Math.PI * (t.spec.crown / 2) ** 2)} canopy)`);
       return out.done();
     },
   };
@@ -221,7 +222,7 @@ export const FLORA: PrimitiveDef[] = [
     name: "Row of trees",
     category: FL,
     tags: ["street trees", "allée", "avenue", "tree line", "boulevard trees", "windbreak"],
-    description: "Trees at a regular spacing along a drawn line (street trees typically 7–12 m apart).",
+    description: "Trees at a regular spacing along a drawn line (street trees typically 25–40 ft apart).",
     icon: "trees",
     placement: "path",
     params: ROW_PARAMS,
@@ -233,7 +234,7 @@ export const FLORA: PrimitiveDef[] = [
       const pts: { p: Vec2; rot: number }[] = [];
       for (const off of lines) for (const st of stations(offsetPathLocal(base, off), r.n("spacing"))) pts.push({ p: st.p, rot: st.rot });
       plantMany(out, r, pts, seedOf(ctx, r), true, "flora.tree");
-      out.summary.push(`${pts.length} trees along ${Math.round(pathLen(base))} m`);
+      out.summary.push(`${pts.length} trees along ${fmtLen(pathLen(base))}`);
       return out.done();
     },
   },
@@ -257,7 +258,7 @@ export const FLORA: PrimitiveDef[] = [
       const pts = scatterIn(poly, sp, seed, r.s("layout") === "natural" ? 0.4 : 0, sp * 0.3).map((p) => ({ p, rot: 0 }));
       if (!pts.length) pts.push({ p: polyCentroid(poly), rot: 0 });
       plantMany(out, r, pts.slice(0, 1500), seed, false, "flora.tree");
-      out.summary.push(`${Math.min(1500, pts.length)} trees over ${Math.round(polyArea(poly)).toLocaleString()} m²`);
+      out.summary.push(`${Math.min(1500, pts.length)} trees over ${fmtArea(polyArea(poly))}`);
       return out.done();
     },
   },

@@ -2,6 +2,7 @@
 // features along a drawn path (fences, hedges, rows of bollards / lamps / trees), ground covers on a
 // drawn site (Area entities with optional scattered planting) — each is one small call.
 
+import { fmtArea, fmtFt, fmtLen } from "@/lib/units";
 import { normalizePoly, pointInPoly, polyArea, polyBBox } from "@/geometry/polygon";
 import type { AreaType, Polygon, PropCover, Solid, Vec2 } from "@/world/types";
 import type { Category, GenerateContext, ParamSpec, ParamValues, PlacementInput, PrimitiveDef, Siting } from "../types";
@@ -51,7 +52,7 @@ export function propDef(o: Common & { build: (r: Reader, ctx: GenerateContext, p
       const p = out.prop(o.id, f, b.solids, { shade: b.shade, name: b.name, anchorR: b.anchorR });
       if (b.cover) p.cover = b.cover;
       o.extra?.(r, out, f);
-      out.summary.push(`${o.name} (${solidsHeight(b.solids).toFixed(1)} m tall)`);
+      out.summary.push(`${o.name} (${fmtFt(solidsHeight(b.solids))} tall)`);
       return out.done();
     },
   };
@@ -166,7 +167,7 @@ export function linearDef(o: Common & { segment: (r: Reader, len: number) => Sol
         }
         total += L;
       }
-      out.summary.push(`${o.name}: ${total.toFixed(0)} m`);
+      out.summary.push(`${o.name}: ${fmtLen(total)}`);
       return out.done();
     },
   };
@@ -195,7 +196,7 @@ export function rowDef(o: Common & { item: (r: Reader, i: number, st: Station) =
         const p = out.prop(o.id, { c: s.p, a: (s.rot * Math.PI) / 180, siteW: 0, siteD: 0 }, b.solids, { shade: b.shade, anchorR: b.anchorR });
         if (b.cover) p.cover = b.cover;
       });
-      out.summary.push(`${o.name}: ${st.length} along ${pathLength(base).toFixed(0)} m`);
+      out.summary.push(`${o.name}: ${st.length} along ${fmtLen(pathLength(base))}`);
       return out.done();
     },
   };
@@ -264,7 +265,7 @@ export function areaDef(o: Common & { type: AreaType | ((r: Reader) => AreaType)
       const { poly, frame } = siteOf(place, r.n("width", w) || w, r.n("depth", d) || d);
       const type = typeof o.type === "function" ? o.type(r) : o.type;
       const a = out.area(type, poly, { depth: o.depthKey ? r.n(o.depthKey) : undefined, name: r.s("name") || undefined });
-      if (a) out.summary.push(`${o.name}: ${Math.round(polyArea(poly)).toLocaleString()} m²`);
+      if (a) out.summary.push(`${o.name}: ${fmtArea(polyArea(poly))}`);
       o.extra?.(r, out, poly, frame, ctx);
       return out.done();
     },

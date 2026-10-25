@@ -709,7 +709,7 @@ export function realignStreets(world: World, ids: string[], opts: { radius?: num
     n++;
     const basis = opts.radius ? "requested" : `AASHTO minimum for ${Math.round(V / 1.609344)} mph, e = 4%`;
     b.summary(`${s.name ?? id}: tightest curve ${fmtFt(before.minRadius, 0)} → ${fmtFt(after.minRadius, 0)} (design radius ${fmtFt(R, 0)}, ${basis})`);
-    if (after.minRadius < R * 0.9) b.warn(`${s.name ?? id}: only ${fmtFt(after.minRadius, 0)} achievable within the existing alignment — the bend is too close to the junctions for a ${R} m curve; consider a lower speed limit or moving the junction`);
+    if (after.minRadius < R * 0.9) b.warn(`${s.name ?? id}: only ${fmtFt(after.minRadius, 0)} achievable within the existing alignment — the bend is too close to the junctions for a ${fmtFt(R, 0)} curve; consider a lower speed limit or moving the junction`);
   }
   if (!n) b.summary("No curves needed realignment");
   return b.finish(`Realign ${world.get<Street>(ids[0])?.name ?? "street"}`);

@@ -1,6 +1,7 @@
 // Utilities: power poles and lines, transformers, substations, water towers, cell towers,
 // rooftop and ground-mount solar, wind turbines, utility cabinets.
 
+import { fmtLen } from "@/lib/units";
 import { polyArea, polyBBox, pointInPoly } from "@/geometry/polygon";
 import type { Solid, Vec2 } from "@/world/types";
 import type { PrimitiveDef } from "../types";
@@ -34,7 +35,7 @@ export function poleSolids(height: number, kind: "wood" | "steel" | "concrete", 
 }
 
 const poleParams = [
-  num("height", "Pole height", 12, { group: D, unit: "m", min: 6, max: 40, step: 0.5, description: "Distribution 10–14 m, sub-transmission 18–25 m" }),
+  num("height", "Pole height", 12, { group: D, unit: "m", min: 6, max: 40, step: 0.5, description: "Distribution 35–45 ft, sub-transmission 60–80 ft" }),
   choice("material", "Material", "wood", opts("wood", "steel", "concrete"), { group: A }),
   int("crossarms", "Cross-arms", 1, { group: D, min: 0, max: 4 }),
   bool("transformer", "Pole-mounted transformer", false, { group: A }),
@@ -61,7 +62,7 @@ export const UTILITIES: PrimitiveDef[] = [
     icon: "cable",
     placement: "path",
     siting: { overlapProps: true },
-    params: [...poleParams, num("span", "Span", 40, { group: D, unit: "m", min: 15, max: 400, step: 1, description: "Distribution 30–50 m, transmission 250–400 m" }), choice("kind", "Structure", "pole", [{ value: "pole", label: "Distribution poles" }, { value: "pylon", label: "Transmission pylons" }], { group: A }), int("conductors", "Conductors", 3, { group: D, min: 1, max: 6 })],
+    params: [...poleParams, num("span", "Span", 40, { group: D, unit: "m", min: 15, max: 400, step: 1, description: "Distribution 100–165 ft, transmission 800–1,300 ft" }), choice("kind", "Structure", "pole", [{ value: "pole", label: "Distribution poles" }, { value: "pylon", label: "Transmission pylons" }], { group: A }), int("conductors", "Conductors", 3, { group: D, min: 1, max: 6 })],
     generate(values, place, ctx) {
       const r = reader(values, this.params);
       const out = new Out(ctx);
@@ -88,7 +89,7 @@ export const UTILITIES: PrimitiveDef[] = [
         }
         out.prop("utilities.power_line", { c: st.p, a, siteW: 0, siteD: 0 }, s, { primary: i === 0 });
       });
-      out.summary.push(`${sts.length} ${pylon ? "pylons" : "poles"} along ${Math.round(pathLength(path))} m`);
+      out.summary.push(`${sts.length} ${pylon ? "pylons" : "poles"} along ${fmtLen(pathLength(path))}`);
       return out.done();
     },
   },
@@ -202,7 +203,7 @@ export const UTILITIES: PrimitiveDef[] = [
     name: "Rooftop solar array",
     category: UT,
     tags: ["solar panels", "pv", "photovoltaic", "solar roof", "renewable"],
-    description: "Rows of tilted PV panels at roof height over a drawn area (place on a flat roof; ≈ 200 W/m²).",
+    description: "Rows of tilted PV panels at roof height over a drawn area (place on a flat roof; ≈ 19 W/sq ft).",
     icon: "sun",
     placement: "rect",
     siting: { onBuildings: true, overlapProps: true },
@@ -257,7 +258,7 @@ export const UTILITIES: PrimitiveDef[] = [
     name: "Wind turbine",
     category: UT,
     tags: ["windmill", "wind power", "turbine", "renewable energy", "small wind"],
-    description: "Three-blade horizontal-axis wind turbine (utility 80–120 m hub, or small urban).",
+    description: "Three-blade horizontal-axis wind turbine (utility 260–400 ft hub, or small urban).",
     icon: "wind",
     params: [num("hub", "Hub height", 90, { group: D, unit: "m", min: 8, max: 160, step: 1 }), num("rotor", "Rotor diameter", 110, { group: D, unit: "m", min: 3, max: 200, step: 1 }), num("bladeAngle", "Blade position", 0, { group: A, unit: "°", min: 0, max: 120, step: 1, advanced: true })],
     build: (r) => {

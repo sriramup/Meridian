@@ -240,7 +240,7 @@ export function plantTrees(world: World, p: PlantTreesParams, actor: Actor, ob?:
   if (!cands.length) return b.fail("No feasible tree locations (sidewalks too narrow or constrained)");
   b.summary(`Planted ${cands.length} trees (≈${fmt.area(cands.length * Math.PI * r * r)} mature canopy)`);
   const rj = Object.entries(rejected).filter(([, v]) => v > 0);
-  if (rj.length) b.summary(`Skipped candidate positions — ${rj.map(([k, v]) => `${v} ${k === "narrow" ? "sidewalk < 3 m" : k === "junction" ? "within 11 m of a junction (sight lines)" : k === "utility" ? "over a kerb inlet" : k === "stop" ? "at a bus stop" : k === "existing" ? "existing tree" : "inside a building"}`).join(", ")}`);
+  if (rj.length) b.summary(`Skipped candidate positions — ${rj.map(([k, v]) => `${v} ${k === "narrow" ? `sidewalk < ${fmtFt(3, 0)}` : k === "junction" ? `within ${fmtFt(11, 0)} of a junction (sight lines)` : k === "utility" ? "over a kerb inlet" : k === "stop" ? "at a bus stop" : k === "existing" ? "existing tree" : "inside a building"}`).join(", ")}`);
   b.data.treeCount = cands.length;
   if (ob) return { ok: true, report: b.report, created: [], removed: [], modified: [], data: b.data };
   return b.finish(`Plant ${cands.length} trees`);

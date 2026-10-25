@@ -1,6 +1,7 @@
 // Parks and open space: composed parks, pocket parks, plazas, dog parks, community gardens,
 // amphitheatres, picnic areas, pavilions, gazebos, pergolas, cemeteries and trails.
 
+import { fmtArea, fmtLen } from "@/lib/units";
 import { distToPoly, insetPoly, isValidPoly, pointInPoly, polyArea, polyBBox, polyCentroid } from "@/geometry/polygon";
 import type { Polygon, Solid, Vec2 } from "@/world/types";
 import type { GenerateContext, ParamSpec, PlacementInput, PrimitiveDef } from "../types";
@@ -209,7 +210,7 @@ export function parkInto(out: Out, r: Reader, site: Polygon, ctx: GenerateContex
   const cand = scatterIn(site, spc, seed + 11, 0.4, Math.min(4, spc * 0.3)).filter((p) => free(p, Math.min(6, spc * 0.35)));
   const pick = cand.filter(() => rand() < cover).slice(0, 800);
   plantTrees(out, pick, r.s("species"), scale, seed + 5);
-  out.summary.push(`Park ${Math.round(area).toLocaleString()} m²: ${pick.length} trees, ${Math.round(totalLen)} m of paths`);
+  out.summary.push(`Park ${fmtArea(area)}: ${pick.length} trees, ${fmtLen(totalLen)} of paths`);
 }
 
 export const PARKS: PrimitiveDef[] = [
@@ -298,7 +299,7 @@ export const PARKS: PrimitiveDef[] = [
       else if (cp === "statue") out.prop("landmarks.statue", f, statueSolids(3, 2.5, C.bronze, C.granite), { primary: false });
       else if (cp === "obelisk") out.prop("landmarks.obelisk", f, [box(0, 0, 0, 3, 3, 1.2, C.granite, "stone"), box(0, 0, 1.2, 1.6, 1.6, 12, C.stone, "stone"), S("pyramid", [0, 0, 13.2], [1.6, 1.6, 1.4], C.stone, "stone")], { primary: false });
       else if (cp === "lawn") out.area("grass", polyToWorld({ c, a: 0, siteW: 0, siteD: 0 }, rectL(0, 0, Math.sqrt(polyArea(poly)) * 0.35, Math.sqrt(polyArea(poly)) * 0.25)), { primary: false });
-      out.summary.push(`Plaza ${Math.round(polyArea(poly)).toLocaleString()} m²`);
+      out.summary.push(`Plaza ${fmtArea(polyArea(poly))}`);
       return out.done();
     },
   },
@@ -336,7 +337,7 @@ export const PARKS: PrimitiveDef[] = [
       out.prop("streetscape.drinking_fountain", subFrame(f, [-4, 3]), [box(0, 0, 0, 0.35, 0.35, 0.95, C.blue, "metal"), cyl(0, 0.45, 0, 0.4, 0.12, C.steel, "metal")], { primary: false });
       const ins = insetPoly(poly, 2.5);
       if (ins && isValidPoly(ins)) for (const s of stations([...ins[0], ins[0][0]], pathLength([...ins[0], ins[0][0]]) / Math.max(1, r.n("benches")), 3, false).slice(0, r.n("benches"))) out.prop("streetscape.bench", { c: s.p, a: ((s.rot + 180) * Math.PI) / 180, siteW: 0, siteD: 0 }, benchSolids("backless", 1.8), { primary: false });
-      out.summary.push(`Dog park ${Math.round(polyArea(poly)).toLocaleString()} m²`);
+      out.summary.push(`Dog park ${fmtArea(polyArea(poly))}`);
       return out.done();
     },
   },
@@ -348,7 +349,7 @@ export const PARKS: PrimitiveDef[] = [
     description: "Rows of raised garden beds with paths, a tool shed, compost bins, water tank and fence.",
     icon: "carrot",
     placement: "polygon",
-    params: [num("width", "Width (if not drawn)", 30, { group: D, unit: "m", min: 6, max: 400 }), num("depth", "Depth (if not drawn)", 20, { group: D, unit: "m", min: 6, max: 400 }), num("bedLength", "Bed length", 3.6, { group: D, unit: "m", min: 1, max: 10, step: 0.1 }), num("bedWidth", "Bed width", 1.2, { group: D, unit: "m", min: 0.6, max: 3, step: 0.1 }), num("aisle", "Aisle width", 1.2, { group: D, unit: "m", min: 0.6, max: 3, step: 0.1, description: "≥ 1.5 m for wheelchair access" }), bool("shed", "Tool shed", true, { group: F }), bool("fence", "Fence", true, { group: F })],
+    params: [num("width", "Width (if not drawn)", 30, { group: D, unit: "m", min: 6, max: 400 }), num("depth", "Depth (if not drawn)", 20, { group: D, unit: "m", min: 6, max: 400 }), num("bedLength", "Bed length", 3.6, { group: D, unit: "m", min: 1, max: 10, step: 0.1 }), num("bedWidth", "Bed width", 1.2, { group: D, unit: "m", min: 0.6, max: 3, step: 0.1 }), num("aisle", "Aisle width", 1.2, { group: D, unit: "m", min: 0.6, max: 3, step: 0.1, description: "≥ 5 ft for wheelchair access" }), bool("shed", "Tool shed", true, { group: F }), bool("fence", "Fence", true, { group: F })],
     generate(values, place, ctx) {
       const params = this.params;
       const r = reader(values, params);
@@ -387,7 +388,7 @@ export const PARKS: PrimitiveDef[] = [
           out.prop("streetscape.fence", { c: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], a: Math.atan2(b[1] - a[1], b[0] - a[0]), siteW: 0, siteD: 0 }, fs, { primary: false });
         }
       }
-      out.summary.push(`Community garden: ${n} raised beds (${Math.round(n * bl * bw)} m² growing area)`);
+      out.summary.push(`Community garden: ${n} raised beds (${fmtArea(n * bl * bw)} growing area)`);
       return out.done();
     },
   },
@@ -545,7 +546,7 @@ export const PARKS: PrimitiveDef[] = [
         const sts = stations(offsetPath(path, 6), r.n("treeEvery"), r.n("treeEvery") / 3, false);
         plantTrees(out, sts.map((s) => s.p), r.s("species"), 0.8, seedOf(ctx));
       }
-      out.summary.push(`Trail: ${Math.round(pathLength(path))} m`);
+      out.summary.push(`Trail: ${fmtLen(pathLength(path))}`);
       return out.done();
     },
   },

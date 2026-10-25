@@ -15,19 +15,19 @@ const D = "Dimensions",
 
 const BENCH_STYLES = opts("classic", "backless", "modern", "park", "picnic", "curved", "stone");
 const LAMP_STYLES: { value: LampStyle; label: string; description: string }[] = [
-  { value: "cobra", label: "Cobra head (roadway)", description: "8–12 m roadway luminaire on an arm" },
+  { value: "cobra", label: "Cobra head (roadway)", description: "25–40 ft roadway luminaire on an arm" },
   { value: "double", label: "Double arm (median)", description: "Two luminaires for medians and lots" },
-  { value: "acorn", label: "Acorn (pedestrian)", description: "Globe on a decorative post, 3.5–4.5 m" },
+  { value: "acorn", label: "Acorn (pedestrian)", description: "Globe on a decorative post, 12–15 ft" },
   { value: "historic", label: "Historic post", description: "Fluted base and lantern" },
   { value: "post_top", label: "Post-top", description: "Disc luminaire on a straight post" },
   { value: "pedestrian", label: "Pedestrian column", description: "Low column light for paths" },
   { value: "modern", label: "Modern blade", description: "Linear LED head" },
-  { value: "high_mast", label: "High mast", description: "20–40 m ring of floodlights (interchanges, yards)" },
+  { value: "high_mast", label: "High mast", description: "65–130 ft ring of floodlights (interchanges, yards)" },
 ];
 
 const lampParams = [
   choice("style", "Style", "cobra", LAMP_STYLES, { group: A }),
-  num("height", "Mounting height", 9, { group: D, unit: "m", min: 2.5, max: 40, step: 0.5, description: "Pedestrian 3.5–6 m, roadway 8–12 m, high mast 20–40 m" }),
+  num("height", "Mounting height", 9, { group: D, unit: "m", min: 2.5, max: 40, step: 0.5, description: "Pedestrian 12–20 ft, roadway 25–40 ft, high mast 65–130 ft" }),
   num("arm", "Arm length", 1.8, { group: D, unit: "m", min: 0.3, max: 6, step: 0.1, when: { key: "style", in: ["cobra", "double", "modern"] } }),
   color("poleColor", "Pole colour", "#3e4248", { group: A, swatches: ["#3e4248", "#787e84", "#2a5a3c", "#1e1e1e", "#f0f0ec"] }),
   color("lightColor", "Light colour", "#ffecb4", { group: A, swatches: ["#ffecb4", "#fff6e0", "#e8f0ff"], advanced: true }),
@@ -41,11 +41,11 @@ export const STREETSCAPE: PrimitiveDef[] = [
     name: "Bench",
     category: SS,
     tags: ["seat", "seating", "park bench", "street furniture", "picnic table"],
-    description: "Bench in several styles; standard 1.8 m long, 0.45 m seat height.",
+    description: "Bench in several styles; standard 6 ft long, 18 in seat height.",
     icon: "armchair",
     params: [
       choice("style", "Style", "classic", BENCH_STYLES, { group: A }),
-      num("length", "Length", 1.8, { group: D, unit: "m", min: 0.6, max: 8, step: 0.1, description: "Typical 1.5–2.4 m" }),
+      num("length", "Length", 1.8, { group: D, unit: "m", min: 0.6, max: 8, step: 0.1, description: "Typical 5–8 ft" }),
       bool("arms", "Armrests", true, { group: A, description: "Centre / end arms aid standing up" }),
       color("seatColor", "Seat colour", "#96704c", { group: A, swatches: ["#96704c", "#c4a070", "#3e4248", "#2a5a3c", "#b8b0a4"] }),
       color("frameColor", "Frame colour", "#3e4248", { group: A }),
@@ -67,7 +67,7 @@ export const STREETSCAPE: PrimitiveDef[] = [
     name: "Row of street lamps",
     category: SS,
     tags: ["lighting run", "lamps along street", "light poles"],
-    description: "Street lights at a regular spacing along a line (typically 25–40 m for roadway, 12–20 m pedestrian).",
+    description: "Street lights at a regular spacing along a line (typically 80–130 ft for roadway, 40–65 ft pedestrian).",
     icon: "lamp",
     params: [...lampParams, num("spacing", "Spacing", 30, { group: D, unit: "m", min: 3, max: 100, step: 0.5 }), num("offset", "Side offset", 0, { group: D, unit: "m", min: -30, max: 30, step: 0.5, description: "Shift left (+) / right (−) of the drawn line" }), bool("alternate", "Alternate sides", false, { group: D })],
     sideKey: "offset",
@@ -78,7 +78,7 @@ export const STREETSCAPE: PrimitiveDef[] = [
     name: "Bollard",
     category: SS,
     tags: ["post", "barrier", "traffic post", "security bollard", "light bollard"],
-    description: "Steel or concrete bollard ≈ 0.9 m tall (crash-rated 0.2–0.3 m diameter).",
+    description: "Steel or concrete bollard ≈ 3 ft tall (crash-rated 8–12 in diameter).",
     icon: "circle-dot",
     siting: { carriageway: true },
     params: [
@@ -94,7 +94,7 @@ export const STREETSCAPE: PrimitiveDef[] = [
     name: "Row of bollards",
     category: SS,
     tags: ["bollards", "barrier line", "vehicle barrier", "pedestrian protection"],
-    description: "Bollards along a line; 1.2–1.5 m clear spacing stops cars but passes wheelchairs and bikes.",
+    description: "Bollards along a line; 4–5 ft clear spacing stops cars but passes wheelchairs and bikes.",
     icon: "circle-dot",
     siting: { carriageway: true },
     params: [num("spacing", "Spacing", 1.5, { group: D, unit: "m", min: 0.8, max: 20, step: 0.1 }), num("height", "Height", 0.9, { group: D, unit: "m", min: 0.3, max: 1.5, step: 0.05 }), num("diameter", "Diameter", 0.2, { group: D, unit: "m", min: 0.08, max: 0.8, step: 0.01 }), bool("lit", "Lighted", false, { group: A }), color("color", "Colour", "#3e4248", { group: A })],
@@ -115,7 +115,7 @@ export const STREETSCAPE: PrimitiveDef[] = [
     name: "Bike rack",
     category: SS,
     tags: ["bicycle parking", "bike hoops", "inverted u", "cycle stands", "covered bike parking"],
-    description: "Bicycle parking: inverted-U hoops 0.9 m apart (2 bikes each), wave, post-and-ring, grid or covered.",
+    description: "Bicycle parking: inverted-U hoops 3 ft apart (2 bikes each), wave, post-and-ring, grid or covered.",
     icon: "bike",
     params: [choice("style", "Style", "inverted_u", opts("inverted_u", "wave", "post_ring", "grid", "covered"), { group: A }), int("hoops", "Hoops / stands", 5, { group: D, min: 1, max: 30, description: "Each holds two bikes" }), color("color", "Colour", "#787e84", { group: A })],
     build: (r) => ({ solids: bikeRackSolids(r.s("style") as RackStyle, r.n("hoops"), hexToRgb(r.c("color"))) }),
@@ -135,7 +135,7 @@ export const STREETSCAPE: PrimitiveDef[] = [
     name: "Street sign",
     category: SS,
     tags: ["signpost", "stop sign", "yield", "speed limit", "parking sign", "wayfinding", "street name", "information board"],
-    description: "Street-name blades, stop / yield / speed / parking signs, a wayfinding board or info panel (MUTCD 2.1 m clearance).",
+    description: "Street-name blades, stop / yield / speed / parking signs, a wayfinding board or info panel (MUTCD 7 ft clearance).",
     icon: "signpost",
     params: [choice("kind", "Sign", "street_name", opts("street_name", "stop", "yield", "speed", "parking", "bus_stop", "wayfinding", "info_board"), { group: A }), num("height", "Post height", 2.7, { group: D, unit: "m", min: 1, max: 6, step: 0.1 }), color("color", "Panel colour", "#407e54", { group: A })],
     build: (r) => ({ solids: signSolids(r.s("kind") as SignKind, r.n("height"), hexToRgb(r.c("color"))) }),
@@ -196,10 +196,10 @@ export const STREETSCAPE: PrimitiveDef[] = [
     name: "Parklet",
     category: SS,
     tags: ["curbside seating", "street seat", "pavement to parks", "pocket park", "platform"],
-    description: "Kerbside platform in one or two parking spaces with planters, seating and a buffer rail (2 m wide, 6–12 m long).",
+    description: "Kerbside platform in one or two parking spaces with planters, seating and a buffer rail (≈ 7 ft wide, 20–40 ft long).",
     icon: "trees",
     siting: { carriageway: true },
-    params: [num("length", "Length", 11, { group: D, unit: "m", min: 4, max: 30, step: 0.5, description: "One parking space ≈ 6 m" }), num("width", "Width", 2.1, { group: D, unit: "m", min: 1.5, max: 3.5, step: 0.1 }), int("seats", "Benches / tables", 3, { group: D, min: 0, max: 10 }), color("deck", "Deck colour", "#b48c64", { group: A })],
+    params: [num("length", "Length", 11, { group: D, unit: "m", min: 4, max: 30, step: 0.5, description: "One parking space ≈ 20 ft" }), num("width", "Width", 2.1, { group: D, unit: "m", min: 1.5, max: 3.5, step: 0.1 }), int("seats", "Benches / tables", 3, { group: D, min: 0, max: 10 }), color("deck", "Deck colour", "#b48c64", { group: A })],
     build: (r) => {
       const L = r.n("length"),
         W = r.n("width");
@@ -266,7 +266,7 @@ export const STREETSCAPE: PrimitiveDef[] = [
     name: "Public toilet",
     category: SS,
     tags: ["restroom", "loo", "wc", "portland loo", "comfort station", "bathroom", "public convenience"],
-    description: "Freestanding single-stall public toilet (Portland Loo style, ≈ 3.2 × 1.9 m) or a restroom block.",
+    description: "Freestanding single-stall public toilet (Portland Loo style, ≈ 10.5 × 6 ft) or a restroom block.",
     icon: "bath",
     params: [int("stalls", "Stalls", 1, { group: D, min: 1, max: 8 }), color("color", "Colour", "#4c6c78", { group: A }), bool("handwash", "Exterior hand-wash", true, { group: A })],
     build: (r) => {
@@ -324,7 +324,7 @@ export const STREETSCAPE: PrimitiveDef[] = [
     name: "Tree pit with grate",
     category: SS,
     tags: ["tree well", "tree grate", "street tree pit", "silva cell"],
-    description: "Sidewalk tree pit (1.5 × 1.5 m minimum, larger for soil volume) with a cast-iron grate and guard.",
+    description: "Sidewalk tree pit (5 × 5 ft minimum, larger for soil volume) with a cast-iron grate and guard.",
     icon: "grid-3x3",
     params: [num("size", "Pit size", 1.8, { group: D, unit: "m", min: 1, max: 4, step: 0.1 }), bool("guard", "Tree guard", true, { group: A })],
     build: (r) => {
@@ -340,7 +340,7 @@ export const STREETSCAPE: PrimitiveDef[] = [
     name: "Speed hump / table",
     category: SS,
     tags: ["traffic calming", "speed bump", "speed table", "raised crosswalk", "speed cushion"],
-    description: "Traffic-calming hump (3.7 m long, 75–100 mm high) or a 6.7 m speed table; place across the carriageway.",
+    description: "Traffic-calming hump (12 ft long, 3–4 in high) or a 22 ft speed table; place across the carriageway.",
     icon: "waves",
     siting: { carriageway: true, overlapProps: true },
     params: [choice("kind", "Type", "hump", opts("hump", "table", "cushion"), { group: A }), num("width", "Width across road", 7, { group: D, unit: "m", min: 2, max: 20, step: 0.1 }), num("length", "Length along road", 3.7, { group: D, unit: "m", min: 1, max: 10, step: 0.1 }), num("height", "Height", 0.08, { group: D, unit: "m", min: 0.03, max: 0.15, step: 0.005 })],
@@ -361,7 +361,7 @@ export const STREETSCAPE: PrimitiveDef[] = [
     tags: ["traffic light", "stop light", "signal mast arm", "pedestrian signal"],
     description: "Mast-arm traffic signal pole with signal heads and pedestrian signal.",
     icon: "traffic-cone",
-    params: [num("arm", "Mast-arm length", 8, { group: D, unit: "m", min: 2, max: 18, step: 0.5 }), int("heads", "Signal heads", 2, { group: D, min: 1, max: 5 }), num("height", "Arm height", 6.2, { group: D, unit: "m", min: 4.6, max: 8, step: 0.1, description: "MUTCD: signal heads 4.6–7.6 m above the road" })],
+    params: [num("arm", "Mast-arm length", 8, { group: D, unit: "m", min: 2, max: 18, step: 0.5 }), int("heads", "Signal heads", 2, { group: D, min: 1, max: 5 }), num("height", "Arm height", 6.2, { group: D, unit: "m", min: 4.6, max: 8, step: 0.1, description: "MUTCD: signal heads 15–25.6 ft above the road" })],
     build: (r) => {
       const L = r.n("arm"),
         h = r.n("height");
@@ -415,7 +415,7 @@ export const STREETSCAPE: PrimitiveDef[] = [
     tags: ["garden wall", "retaining wall", "stone wall", "brick wall", "sound wall", "screen wall", "seat wall"],
     description: "Freestanding, seat, retaining or sound wall along a drawn line, with optional coping.",
     icon: "brick-wall",
-    params: [choice("material", "Material", "brick", opts("brick", "stone", "concrete", "stucco", "gabion"), { group: A }), num("height", "Height", 1.5, { group: D, unit: "m", min: 0.3, max: 8, step: 0.05, description: "Seat wall 0.45 m, garden 1–2 m, sound wall 3–6 m" }), num("thickness", "Thickness", 0.3, { group: D, unit: "m", min: 0.1, max: 1.5, step: 0.05 }), bool("coping", "Coping", true, { group: A }), bool("piers", "Piers", false, { group: A })],
+    params: [choice("material", "Material", "brick", opts("brick", "stone", "concrete", "stucco", "gabion"), { group: A }), num("height", "Height", 1.5, { group: D, unit: "m", min: 0.3, max: 8, step: 0.05, description: "Seat wall 18 in, garden 3–6 ft, sound wall 10–20 ft" }), num("thickness", "Thickness", 0.3, { group: D, unit: "m", min: 0.1, max: 1.5, step: 0.05 }), bool("coping", "Coping", true, { group: A }), bool("piers", "Piers", false, { group: A })],
     segment: (r, len) => {
       const colors: Record<string, RGB> = { brick: [168, 92, 72], stone: [184, 176, 164], concrete: [196, 192, 186], stucco: [238, 226, 200], gabion: [150, 146, 136] };
       const c = colors[r.s("material")] ?? C.concrete;
@@ -435,7 +435,7 @@ export const STREETSCAPE: PrimitiveDef[] = [
     name: "Railing / guardrail",
     category: SS,
     tags: ["handrail", "guard rail", "barrier", "pedestrian rail", "w-beam", "jersey barrier"],
-    description: "Pedestrian railing (1.07 m), highway W-beam guardrail or concrete Jersey barrier along a line.",
+    description: "Pedestrian railing (42 in), highway W-beam guardrail or concrete Jersey barrier along a line.",
     icon: "fence",
     siting: { carriageway: true },
     params: [choice("kind", "Type", "pedestrian", opts("pedestrian", "guardrail", "jersey_barrier", "cable"), { group: A }), num("height", "Height", 1.07, { group: D, unit: "m", min: 0.5, max: 2, step: 0.01 }), color("color", "Colour", "#787e84", { group: A })],

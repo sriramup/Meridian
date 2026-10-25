@@ -3,6 +3,7 @@
 //
 //   length       fmtLen(m)        "12 ft" · "850 ft" · "0.4 mi" · "2.3 mi"
 //   height       fmtFt(m)         "142 ft"
+//   plan size    fmtDims(w, d)    "344 × 223 ft"
 //   area         fmtArea(m2)      "1,200 sq ft" · "3.4 acres" · "2.1 sq mi"
 //   speed        fmtSpeed(mps)    "28 mph"   (fmtKmh for km/h values)
 //   temperature  fmtF(c)          "93.4 °F"  (fmtDF for differences)
@@ -86,6 +87,8 @@ export function fmtFt(m: number, digits?: number): string {
 export const fmtMi = (m: number, digits = 1) => `${fmtNum(toMi(m), digits)} mi`;
 /** signed: "+12 ft" */
 export const fmtDLen = (m: number) => signed(fmtLen(m), m);
+/** plan dimensions in whole feet: "344 × 223 ft" */
+export const fmtDims = (a: number, b: number) => `${fmtNum(toFt(a))} × ${fmtNum(toFt(b))} ft`;
 
 // ---- area -----------------------------------------------------------------
 /** sq ft below ½ acre, acres below 1 sq mi, then sq mi */
