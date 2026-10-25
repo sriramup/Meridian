@@ -314,7 +314,7 @@ export function designNeighborhood(world: World, spec: NeighborhoodSpec, actor: 
     const front = blk.edges.slice().sort((p, q2) => rank(pref, p.role) - rank(pref, q2.role) || q2.f.len - p.f.len)[0];
     const heading = front ? ((Math.atan2(-front.f.n[1], -front.f.n[0]) * 180) / Math.PI - 90 + 360) % 360 : 0;
     const level = site.kind === "primary_school" ? "primary" : site.kind === "middle_school" ? "middle" : "high";
-    sub((sb) => placePrimitive(world, { def: "composites.urban_school", params: { level, enrolment: Math.round(site.enrolment ?? 0), seed: brng.int(1, 9999) }, site: q, rotation: heading, name: site.name, onConflict: "carve", lenient: true }, actor, sb));
+    sub((sb) => placePrimitive(world, { def: "composites.urban_school", params: { level, enrolment: Math.round(site.enrolment ?? 0), seed: brng.int(1, 9999), name: site.name }, site: q, rotation: heading, name: site.name, onConflict: "carve", lenient: true }, actor, sb));
   }
 
   // ---- 9. reserved lots: facilities, plaza, pocket parks
@@ -539,6 +539,7 @@ function campusDistrict(world: World, b: OpBuilder, actor: Actor, g: GridPlan, s
     const blk = analyseBlock(`campus${k}`, o.q, refs);
     const front = blk.edges.slice().sort((p, q2) => q2.f.len - p.f.len)[0];
     const heading = front ? ((Math.atan2(-front.f.n[1], -front.f.n[0]) * 180) / Math.PI - 90 + 360) % 360 : 0;
-    placePrimitive(world, { def: "composites.campus_block", params: { role: roles[k], style, floors: rng.int(4, 6), seed: rng.int(1, 9999) }, site: o.q, rotation: heading, name: k === 0 ? site.name : undefined, lenient: true }, actor, b);
+    // every block's grounds carry the university's name: one place on the map and in search
+    placePrimitive(world, { def: "composites.campus_block", params: { role: roles[k], style, floors: rng.int(4, 6), seed: rng.int(1, 9999), name: site.name }, site: o.q, rotation: heading, name: k === 0 ? site.name : undefined, lenient: true }, actor, b);
   });
 }

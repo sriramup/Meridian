@@ -17,7 +17,7 @@ import { areaL, rectL, parkingLot } from "./decor";
 import { playgroundSolids } from "./recreation";
 import { Out } from "./make";
 import { parkInto } from "./parks";
-import { bool, choice, int, num, opts, reader } from "./params";
+import { bool, choice, int, num, opts, reader, text } from "./params";
 import { PARKS, fountainSolids, statueSolids } from "./parks";
 import { CIVIC, EDUCATION } from "./civic";
 import { seedOf } from "./kinds";
@@ -573,6 +573,7 @@ const URBAN_SCHOOL_PARAMS: PrimitiveDef["params"] = [
   int("enrolment", "Enrolment", 0, { group: B, min: 0, max: 5000, unit: "pupils", description: "0 = typical for the level (600 / 800 / 1,600)" }),
   int("floors", "Floors", 0, { group: B, min: 0, max: 8, description: "0 = typical for the level" }),
   choice("facade", "Facade", "auto", [{ value: "auto", label: "Automatic" }, ...SCHOOL_FACADES.map((v) => ({ value: v, label: v.replace(/_/g, " ") }))], { group: B }),
+  text("name", "School name", "", { group: B, description: "Names the grounds and the gymnasium (blank: the level, e.g. \"High school\")" }),
   num("width", "Width (if not drawn)", 110, { group: L, unit: "m", min: 50, max: 600, step: 1 }),
   num("depth", "Depth (if not drawn)", 90, { group: L, unit: "m", min: 40, max: 600, step: 1 }),
   int("seed", "Variation seed", 0, { group: L, min: 0, max: 9999, advanced: true }),
@@ -582,6 +583,7 @@ const CAMPUS_BLOCK_PARAMS: PrimitiveDef["params"] = [
   choice("role", "Block role", "academic", opts(...CAMPUS_ROLES), { group: B }),
   choice("style", "Architecture", "collegiate", STYLE_OPTS, { group: B }),
   int("floors", "Typical floors", 4, { group: B, min: 2, max: 20 }),
+  text("name", "Campus name", "", { group: B, description: "The university or college the grounds belong to (blank: \"Campus\")" }),
   num("width", "Width (if not drawn)", 110, { group: L, unit: "m", min: 50, max: 600, step: 1 }),
   num("depth", "Depth (if not drawn)", 80, { group: L, unit: "m", min: 40, max: 600, step: 1 }),
   int("seed", "Variation seed", 0, { group: L, min: 0, max: 9999, advanced: true }),
