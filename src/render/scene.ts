@@ -39,6 +39,8 @@ const ALL_PARTS: ChunkPart[] = ["masses", "surfaces", "kerbs", "marks", "areas",
 
 /** a theme colour picker, shared by every datum painted the same way */
 type Tone = (T: Theme) => RGB;
+/** a painted colour (Entity.paint): the same in every theme */
+const fixedTone = (c: RGB): Tone => () => c;
 
 export interface MassDatum {
   id: string;
@@ -421,7 +423,7 @@ export class SceneCache {
     for (const st of g.strips) {
       if (st.ring.length < 3) continue;
       const ped = PED_REALM.has(st.type);
-      const tn = closed && !ped ? T_PLAZA : stripTone(st.type, !!st.bio);
+      const tn = s.paint && !ped ? fixedTone(s.paint) : closed && !ped ? T_PLAZA : stripTone(st.type, !!st.bio);
       (ped ? c.kerbs : c.surfaces).push({ id: s.id, polygon: st.ring, color: rgba(tn(T)), kind: st.type, tone: tn });
     }
     if (!closed) for (const m of g.markings) c.marks.push(this.mark(m));
@@ -434,7 +436,7 @@ export class SceneCache {
   }
 
   private buildArea(c: Chunk, a: Area) {
-    const tn = areaTone(a.type);
+    const tn = a.paint ? fixedTone(a.paint) : areaTone(a.type);
     c.areas.push({ id: a.id, polygon: a.poly, color: rgba(tn(this.theme)), kind: a.type, tone: tn });
   }
 
@@ -442,11 +444,11 @@ export class SceneCache {
     const sp = speciesOf(t.species);
     let hsh = 0;
     for (let i = 0; i < t.id.length; i++) hsh = (hsh * 31 + t.id.charCodeAt(i)) | 0;
-    c.trees.push({ id: t.id, position: [t.p[0], t.p[1], 0], r: t.r, h: t.h, proposed: !!t.createdBy, shape: sp?.shape, color: sp?.color, seed: ((hsh >>> 0) % 1000) / 1000 });
+    c.trees.push({ id: t.id, position: [t.p[0], t.p[1], 0], r: t.r, h: t.h, proposed: !!t.createdBy, shape: sp?.shape, color: t.paint ?? sp?.color, seed: ((hsh >>> 0) % 1000) / 1000 });
   }
 
   private buildPath(c: Chunk, p: FootPath) {
-    const tn = p.type === "cycleway" ? T_CYCLE : T_PATH;
+    const tn = p.paint ? fixedTone(p.paint) : p.type === "cycleway" ? T_CYCLE : T_PATH;
     c.paths.push({ path: p.path, color: rgba(tn(this.theme)), width: p.type === "steps" ? 2 : p.type === "cycleway" ? 2.6 : 2, tone: tn });
   }
 }

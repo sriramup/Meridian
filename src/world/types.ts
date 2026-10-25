@@ -167,6 +167,8 @@ export interface Prop {
   provenance: Provenance;
   createdBy?: string;
   lib?: LibraryRef;
+  /** a colour set by the user or agent (0–255 RGB); drawn instead of the default for its type */
+  paint?: [number, number, number];
 }
 
 export type PropCover = "water" | "paving" | "planting" | "lawn" | "permeable" | "raingarden" | "woodland" | "bare";
@@ -260,6 +262,8 @@ export interface Street {
   path: Vec2[];
   name?: string;
   cls: RoadClass;
+  /** a colour for the roadway surface (0–255 RGB), set by the user or agent; sidewalks keep theirs */
+  paint?: [number, number, number];
   oneway: boolean;
   section: CrossSection;
   /** design speed km/h */
@@ -308,6 +312,8 @@ export interface Area {
   provenance: Provenance;
   /** retention ponds: storage depth (m) */
   depth?: number;
+  /** a colour set by the user or agent (0–255 RGB); drawn instead of the default for its type */
+  paint?: [number, number, number];
   createdBy?: string;
   lib?: LibraryRef;
 }
@@ -324,6 +330,8 @@ export interface Tree {
   source: string;
   provenance: Provenance;
   streetId?: string;
+  /** a colour set by the user or agent (0–255 RGB); drawn instead of the default for its type */
+  paint?: [number, number, number];
   createdBy?: string;
   lib?: LibraryRef;
 }
@@ -404,6 +412,8 @@ export interface Path {
   type: "footway" | "cycleway" | "path" | "steps" | "trail";
   name?: string;
   source: string;
+  /** a colour set by the user or agent (0–255 RGB); drawn instead of the default for its type */
+  paint?: [number, number, number];
   createdBy?: string;
   lib?: LibraryRef;
 }
