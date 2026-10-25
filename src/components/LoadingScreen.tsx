@@ -38,54 +38,56 @@ export function LoadingScreen() {
     <div
       data-testid="loading-card"
       aria-busy={busy}
-      className="absolute inset-0 z-40 grid place-items-center"
+      // over the app: a sheet laid on the map (a blur would cost every frame under it)
+      className={`absolute inset-0 z-40 ${over ? "loading-veil" : "app-backdrop"}`}
       style={{
-        // over the app: a sheet of parchment laid on the map (a blur would cost every frame under it)
-        background: over ? "rgb(241 226 194 / 0.72)" : "var(--parchment), radial-gradient(90% 80% at 50% 40%, #f8eccf 0%, #eedcb5 62%, #d9bd8a 100%)",
         opacity: busy ? 1 : 0,
         transition: "opacity 200ms ease-out",
         animation: "kit-fade-in 160ms ease-out",
       }}
     >
-      <div role="status" aria-live="polite" className="chrome w-[340px] max-w-[calc(100%-32px)] rounded-[14px] px-5 pt-4 pb-4" style={{ animation: "kit-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1)" }}>
-        <div className="flex items-center justify-between">
-          <span className="font-legend text-[12px] leading-none text-ink-3">{error ? "Could not open" : "Opening"}</span>
-          <Wordmark className="origin-right scale-[0.72] opacity-80" />
-        </div>
-        <div className="mt-2.5 flex min-w-0 items-center gap-2">
-          <span className="min-w-0 truncate font-display text-[21px] leading-tight text-ink">{liveName ?? s?.name ?? "Meridian"}</span>
-          {preset && (
-            <Badge variant={s?.base === "sandbox" ? "outline" : "accent"} className="shrink-0">
-              {preset.badge}
-            </Badge>
+      {/* the card is centred on the window, not on the workspace beside the projects pane */}
+      <div className="pointer-events-none fixed inset-0 grid place-items-center">
+        <div role="status" aria-live="polite" className="chrome pointer-events-auto w-[340px] max-w-[calc(100%-32px)] rounded-[14px] px-5 pt-4 pb-4" style={{ animation: "kit-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1)" }}>
+          <div className="flex items-center justify-between">
+            <span className="font-legend text-[12px] leading-none text-ink-3">{error ? "Could not open" : "Opening"}</span>
+            <Wordmark className="origin-right scale-[0.72] opacity-80" />
+          </div>
+          <div className="mt-2.5 flex min-w-0 items-center gap-2">
+            <span className="min-w-0 truncate font-display text-[21px] leading-tight text-ink">{liveName ?? s?.name ?? "Meridian"}</span>
+            {preset && (
+              <Badge variant={s?.base === "sandbox" ? "outline" : "accent"} className="shrink-0">
+                {preset.badge}
+              </Badge>
+            )}
+          </div>
+          {error ? (
+            <>
+              <p className="mt-2 text-[12px] leading-snug text-bad">{error}</p>
+              {s && (
+                <div className="mt-3 flex justify-end">
+                  <Button size="sm" variant="primary" onClick={() => void openProject(s.id, { history: "replace" })}>
+                    Try again
+                  </Button>
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="mt-3.5 h-[7px] w-full overflow-hidden rounded-full border border-line-2 bg-paper-2 shadow-[inset_0_1px_1px_rgb(88_60_28/0.15)]">
+                {/* scaled, not resized: the compositor keeps it moving while the main thread parses */}
+                <div
+                  className="h-full w-full origin-left rounded-full bg-accent transition-transform duration-300 ease-out"
+                  style={{ transform: `scaleX(${Math.max(0.03, progress)})`, backgroundImage: "linear-gradient(180deg, rgb(255 244 220 / 0.45), transparent)" }}
+                />
+              </div>
+              <div className="mt-2 flex h-4 items-center justify-between text-[11px] text-ink-4">
+                <span className="truncate">{s?.label ?? "Opening"}</span>
+                <span className="tabular">{Math.round(progress * 100)}%</span>
+              </div>
+            </>
           )}
         </div>
-        {error ? (
-          <>
-            <p className="mt-2 text-[12px] leading-snug text-bad">{error}</p>
-            {s && (
-              <div className="mt-3 flex justify-end">
-                <Button size="sm" variant="primary" onClick={() => void openProject(s.id, { history: "replace" })}>
-                  Try again
-                </Button>
-              </div>
-            )}
-          </>
-        ) : (
-          <>
-            <div className="mt-3.5 h-[7px] w-full overflow-hidden rounded-full border border-line-2 bg-paper-2 shadow-[inset_0_1px_1px_rgb(88_60_28/0.15)]">
-              {/* scaled, not resized: the compositor keeps it moving while the main thread parses */}
-              <div
-                className="h-full w-full origin-left rounded-full bg-accent transition-transform duration-300 ease-out"
-                style={{ transform: `scaleX(${Math.max(0.03, progress)})`, backgroundImage: "linear-gradient(180deg, rgb(255 244 220 / 0.45), transparent)" }}
-              />
-            </div>
-            <div className="mt-2 flex h-4 items-center justify-between text-[11px] text-ink-4">
-              <span className="truncate">{s?.label ?? "Opening"}</span>
-              <span className="tabular">{Math.round(progress * 100)}%</span>
-            </div>
-          </>
-        )}
       </div>
     </div>
   );

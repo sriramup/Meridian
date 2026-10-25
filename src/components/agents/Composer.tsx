@@ -119,7 +119,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer({ dr
 
   return (
     <div className="shrink-0 px-3 pt-2 pb-3">
-      <div ref={box} className="rounded-[10px] border border-line-2 bg-[#f8eed6]/75 shadow-[inset_0_1px_1px_rgb(88_60_28/0.08)] transition-[border-color,box-shadow] focus-within:border-rose/50 focus-within:ring-2 focus-within:ring-rose/15">
+      <div ref={box} className="rounded-[10px] border border-line-2 bg-field/75 shadow-[inset_0_1px_1px_rgb(88_60_28/0.08)] transition-[border-color,box-shadow] focus-within:border-rose/50 focus-within:ring-2 focus-within:ring-rose/15">
         {selection.length > 0 && (
           <div className="flex flex-wrap items-center gap-1 px-2.5 pt-2">
             <span className="text-[10.5px] text-ink-4">Referring to</span>

@@ -4,6 +4,7 @@ import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./globals.css";
+import { THEME_BOOT } from "@/state/theme";
 
 const cormorant = Cormorant_Garamond({ subsets: ["latin"], weight: ["500", "600", "700"], variable: "--font-cormorant", display: "swap" });
 // an engraver's face for headings and the spaced capitals of map legends
@@ -34,6 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable} ${cormorant.variable} ${fell.variable} ${fellSC.variable} ${fraktur.variable}`} suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
         <script dangerouslySetInnerHTML={{ __html: STRIP_EXTENSION_ATTRS }} />
       </head>
       <body suppressHydrationWarning>{children}</body>

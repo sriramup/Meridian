@@ -14,7 +14,7 @@ export const DialogOverlay = forwardRef<ElementRef<typeof D.Overlay>, ComponentP
   { className, ...props },
   ref,
 ) {
-  return <D.Overlay ref={ref} className={cn("kit-fade fixed inset-0 z-50 bg-[#2e1c0e]/25", className)} {...props} />;
+  return <D.Overlay ref={ref} className={cn("kit-fade fixed inset-0 z-50 bg-scrim", className)} {...props} />;
 });
 
 const sizes = { sm: "max-w-[380px]", md: "max-w-[480px]", lg: "max-w-[640px]", xl: "max-w-[860px]" } as const;

@@ -25,14 +25,14 @@ export const Slider = forwardRef<
       {...props}
     >
       <Sl.Track className="relative h-[4px] w-full grow overflow-hidden rounded-full bg-line shadow-[inset_0_1px_1px_rgb(88_60_28/0.18)] data-[orientation=vertical]:h-full data-[orientation=vertical]:w-[4px]">
-        <Sl.Range className="absolute h-full bg-[#b88c50] data-[orientation=vertical]:w-full" />
+        <Sl.Range className="absolute h-full bg-accent-edge data-[orientation=vertical]:w-full" />
       </Sl.Track>
       {Array.from({ length: count }, (_, i) => (
         <Sl.Thumb
           key={i}
           aria-label={thumbLabels?.[i]}
           className={cn(
-            "block cursor-grab rounded-full border border-[#9c7a48] bg-[#fbf3e1] shadow-[0_1px_2px_rgb(60_36_12/0.35)] transition-[box-shadow] duration-100 outline-none hover:ring-4 hover:ring-accent/30 focus-visible:ring-4 focus-visible:ring-rose/30 active:cursor-grabbing data-[disabled]:pointer-events-none",
+            "block cursor-grab rounded-full border border-accent-edge bg-knob shadow-[0_1px_2px_rgb(60_36_12/0.35)] transition-[box-shadow] duration-100 outline-none hover:ring-4 hover:ring-accent/30 focus-visible:ring-4 focus-visible:ring-rose/30 active:cursor-grabbing data-[disabled]:pointer-events-none",
             size === "md" ? "size-3.5" : "size-3",
           )}
         />

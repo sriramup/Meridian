@@ -198,6 +198,8 @@ export interface ModifyBuildingParams {
   setbacks?: { aboveFloor: number; depth: number };
   greenRoof?: boolean;
   name?: string;
+  /** repaint the walls (0–255 RGB); null restores the default colour. Paint only: no geometry, floor area or occupancy change */
+  color?: [number, number, number] | null;
 }
 
 export function modifyBuildings(world: World, p: ModifyBuildingParams, actor: Actor): OpResult {
@@ -279,6 +281,11 @@ export function modifyBuildings(world: World, p: ModifyBuildingParams, actor: Ac
     } else if (p.program) nb.program = p.program;
     if (p.greenRoof != null) nb.greenRoof = p.greenRoof;
     if (p.name) nb.name = p.name;
+    if (p.color !== undefined) {
+      const { color: _old, ...rest } = cur.style ?? { facade: "concrete" as const };
+      nb.style = p.color ? { ...rest, color: p.color } : cur.style ? rest : undefined;
+      notes.push(p.color ? `walls repainted rgb(${p.color.join(", ")})` : "default colour restored");
+    }
     if (nb.heightSource !== "proposed" && (p.height || p.floors || p.heightScale || p.massing || p.setbacks)) nb.heightSource = "proposed";
     nb = { ...nb, height: Math.max(...nb.masses.map((m) => m.top)), createdBy: nb.createdBy ?? b.tag };
     b.update(nb);

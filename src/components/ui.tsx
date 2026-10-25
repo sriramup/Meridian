@@ -21,7 +21,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IBProps>(function IconBu
   return <KitButton ref={ref} variant="ghost" size={size === "md" ? "icon" : "icon-sm"} active={active} {...p} />;
 });
 
-type BProps = ButtonHTMLAttributes<HTMLButtonElement> & { tone?: "default" | "primary" | "ghost" | "danger"; size?: "sm" | "md" };
+type BProps = ButtonHTMLAttributes<HTMLButtonElement> & { tone?: "default" | "primary" | "ghost" | "danger"; size?: "sm" | "md"; active?: boolean };
 export const Button = forwardRef<HTMLButtonElement, BProps>(function Button({ tone = "default", size = "md", ...p }, ref) {
   return <KitButton ref={ref} variant={tone} size={size} {...p} />;
 });
@@ -65,5 +65,24 @@ export function Provenance({ kind }: { kind: string }) {
     modelled: ["Modelled", "bg-paper-3 text-ink-2"],
   };
   const [l, c] = map[kind] ?? [kind, "bg-paper-3 text-ink-2"];
-  return <span className={cx("inline-flex h-[18px] items-center rounded-[4px] px-1.5 text-[10.5px] font-medium", c)}>{l}</span>;
+  return <span className={cx("inline-flex h-[17px] shrink-0 items-center rounded-full px-1.5 text-[10px] leading-none font-medium", c)}>{l}</span>;
+}
+
+const PROV_DOT: Record<string, [string, string]> = {
+  measured: ["Measured", "bg-good"],
+  mapped: ["Mapped", "bg-rose"],
+  derived: ["Derived", "bg-ink-4"],
+  estimated: ["Estimated", "bg-warn"],
+  proposed: ["Proposed", "bg-proposed"],
+  modelled: ["Modelled", "bg-ink-4"],
+};
+
+/** where a value comes from, as a small coloured dot (hover to read) for dense lists */
+export function ProvenanceDot({ kind }: { kind: string }) {
+  const [l, c] = PROV_DOT[kind] ?? [kind, "bg-ink-4"];
+  return (
+    <Tooltip content={l}>
+      <span aria-label={l} className={cx("inline-block size-1.5 shrink-0 rounded-full", c)} />
+    </Tooltip>
+  );
 }

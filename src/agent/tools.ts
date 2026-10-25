@@ -1,6 +1,9 @@
 // Client-side tool executor: every agent tool maps onto the same world-model
 // operations, simulations and view controls the user drives manually.
 
+import { getPrimitive, hexToRgb, normColor } from "@/library/registry";
+import { instanceOf, reconfigureInstance } from "@/world/ops/library";
+import { SPECIES } from "@/world/species";
 import { carriagewayWidth, describeSection, hasSidewalk, laneCount, sectionWidth } from "@/geometry/crossSection";
 import { circle, convexHull, difference, intersection, isValidPoly, normalizePoly, overlapArea, pointInPoly, polyArea, polyBBox, polyCentroid, rectangle, unionMany, bufferPoly } from "@/geometry/polygon";
 import { closestOnPath, curvatureStats, minRadiusForSpeed, pointAt, polyLength } from "@/geometry/polyline";
@@ -1159,10 +1162,69 @@ export const TOOLS: Record<string, (i: In, ctx: ToolContext) => Promise<ToolOutp
         setbacks: i.setbacks ? { aboveFloor: i.setbacks.above_floor ?? 4, depth: i.setbacks.depth ?? 3 } : undefined,
         greenRoof: i.green_roof,
         name: i.name,
+        color: paint(i.color),
       },
       actor,
     );
     return commit(res, "Modify buildings", ctx);
+  },
+
+  async customize(i, ctx) {
+    // appearance and attributes in place: never a rebuild. Library items go through their own
+    // parameters (so a later reconfigure keeps the change); everything else is edited directly.
+    const w = rt().world;
+    const b = new OpBuilder(w, "agent");
+    const color = paint(i.color);
+    const set: In = i.set && typeof i.set === "object" ? i.set : {};
+    if (color === undefined && !Object.keys(set).length) return err("Customize", "give color and/or set {attribute: value}");
+    const errors: string[] = [];
+    const doneInstances = new Set<string>();
+    let n = 0;
+    for (const id of (Array.isArray(i.ids) ? i.ids : [i.ids]).map(String)) {
+      const e = b.get(id);
+      if (!e) {
+        errors.push(`${id}: no such feature`);
+        continue;
+      }
+      const info = "lib" in e && e.lib ? instanceOf(w, id) : null;
+      const def = info ? getPrimitive(info.def) : undefined;
+      let rest = set;
+      if (info && def) {
+        if (doneInstances.has(info.instance)) continue;
+        doneInstances.add(info.instance);
+        const params: In = {};
+        rest = {};
+        for (const [k, v] of Object.entries(set)) (def.params.some((p) => p.key === k) ? params : rest)[k] = v;
+        const colorParam = color !== undefined ? libraryColorParam(def.params) : undefined;
+        if (colorParam) params[colorParam.key] = color ? rgbHex(color) : colorParam.default;
+        if (Object.keys(params).length) {
+          const r = reconfigureInstance(w, info.instance, params, actor, {}, b);
+          if (!r.ok) {
+            errors.push(`${entityName(e)}: ${r.error}`);
+            continue;
+          }
+          b.summary(`${def.name}: ${Object.keys(params).join(", ")} set`);
+          n++;
+        }
+        // no colour parameter: paint its main feature directly (below)
+        if (colorParam && !Object.keys(rest).length) continue;
+      }
+      const cur = b.get(id);
+      if (!cur) continue;
+      const r = customizeEntity(cur, colorParam(def, color), rest);
+      if (r.error) {
+        errors.push(`${entityName(cur)}: ${r.error}`);
+        continue;
+      }
+      if (r.entity) {
+        b.update(r.entity);
+        b.summary(`${entityName(cur)}: ${r.changed.join(", ")}`);
+        n++;
+      }
+    }
+    if (!n) return err("Customize", errors.join("; ") || "nothing to change");
+    for (const e of errors) b.warn(e);
+    return commit(b.finish(n === 1 ? "Customize feature" : `Customize ${n} features`), "Customize", ctx);
   },
 
   async optimize_massing(i, ctx) {
@@ -2304,3 +2366,99 @@ export async function executeTool(name: string, input: In, ctx: ToolContext): Pr
 }
 
 export { intersection, difference, parcelsUnder, closestOnPath, nearestNode };
+
+/**
+ * A wall colour from the agent: a name ("blue", "burnt orange" falls back to its last word), "#rgb",
+ * "#rrggbb" or [r, g, b]; null restores the default; undefined leaves it.
+ */
+function paint(v: unknown): [number, number, number] | null | undefined {
+  if (v === undefined) return undefined;
+  if (v === null || v === "default" || v === "none") return null;
+  if (Array.isArray(v) && v.length >= 3 && v.every((x) => typeof x === "number")) return [0, 1, 2].map((k) => Math.max(0, Math.min(255, Math.round(v[k])))) as [number, number, number];
+  if (typeof v === "string") {
+    const hex = normColor(v) ?? normColor(v.trim().split(/\s+/).pop() ?? "");
+    if (hex) return hexToRgb(hex);
+  }
+  throw new Error(`color: use a colour name (blue, teal, brick…), "#rrggbb" or [r, g, b]; got ${JSON.stringify(v)}`);
+}
+
+const rgbHex = (c: [number, number, number]) => "#" + c.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
+
+/** a library primitive's main colour parameter: "color", else a wall / facade / body colour, else its first */
+function libraryColorParam(params: { key: string; type: string; default: unknown }[]) {
+  const colors = params.filter((p) => p.type === "color");
+  return colors.find((p) => p.key === "color") ?? colors.find((p) => /wall|facade|body|main|paint|fabric/.test(p.key)) ?? colors[0];
+}
+
+/** the colour to paint directly: undefined when a library item's own colour parameter already took it */
+function colorParam(def: ReturnType<typeof getPrimitive>, color: [number, number, number] | null | undefined) {
+  if (color === undefined || !def) return color;
+  return libraryColorParam(def.params) ? undefined : color;
+}
+
+const PATH_TYPES = ["footway", "cycleway", "path", "steps", "trail"];
+const FACADES = ["glass", "masonry", "concrete", "metal", "timber", "stucco"];
+/** attributes `customize` edits directly, per kind, with how to check a value */
+const EDITABLE: Record<string, Record<string, "string" | "number" | "boolean" | string[]>> = {
+  building: { name: "string", address: "string", notes: "string", historic: "boolean", facade: FACADES },
+  area: { name: "string", depth: "number" },
+  tree: { species: SPECIES.map((x) => x.id), r: "number", h: "number" },
+  path: { name: "string", type: PATH_TYPES },
+  street: { name: "string" },
+  route: { name: "string", ref: "string", headway: "number" },
+  poi: { name: "string" },
+  place: { name: "string" },
+};
+/** attributes that belong to another tool (they move geometry, programme or the network) */
+const OTHER_TOOL: Record<string, string> = {
+  floors: "modify_buildings", height: "modify_buildings", use: "modify_buildings", program: "modify_buildings", greenRoof: "modify_buildings green_roof", green_roof: "modify_buildings green_roof",
+  footprint: "modify_buildings / move_instance", masses: "modify_buildings", poly: "create_area", path: "move_streets / move_instance", p: "move_instance",
+  type: "convert_areas", cls: "set_street_attributes", oneway: "edit_streets", closed: "edit_streets", section: "edit_streets", speed: "set_street_attributes",
+  control: "set_junction", zoning: "set_zone", mode: "create_transit_route", stops: "optimize_stops",
+};
+const LOCKED = new Set(["id", "kind", "source", "provenance", "createdBy", "lib", "ground", "existing", "occupancy"]);
+
+/** one feature's colour and attributes, edited in place (paint only: no geometry or programme change) */
+function customizeEntity(e: Entity, color: [number, number, number] | null | undefined, set: In): { entity?: Entity; changed: string[]; error?: string } {
+  const next = { ...e } as Entity & Record<string, unknown>;
+  const changed: string[] = [];
+  if (color !== undefined) {
+    switch (e.kind) {
+      case "building": {
+        const { color: _c, ...style } = e.style ?? { facade: "concrete" as const };
+        (next as Building).style = color ? { ...style, color } : e.style ? style : undefined;
+        break;
+      }
+      case "route":
+        (next as TransitRoute).color = color ? rgbHex(color) : (e as TransitRoute).color;
+        break;
+      case "area":
+      case "tree":
+      case "path":
+      case "street":
+      case "prop":
+        if (color) next.paint = color;
+        else delete next.paint;
+        break;
+      default:
+        return { changed, error: `a ${e.kind} has no colour of its own` };
+    }
+    changed.push(color ? `colour ${rgbHex(color)}` : "default colour");
+  }
+  const allowed = EDITABLE[e.kind] ?? {};
+  for (const [k, v] of Object.entries(set)) {
+    if (LOCKED.has(k)) return { changed, error: `“${k}” can't be changed` };
+    const rule = allowed[k];
+    if (!rule) {
+      if (OTHER_TOOL[k]) return { changed, error: `“${k}” changes more than an attribute; use ${OTHER_TOOL[k]}` };
+      const keys = Object.keys(allowed);
+      return { changed, error: `a ${e.kind} has no editable “${k}”${keys.length ? ` (editable here: ${keys.join(", ")}, plus color)` : " (only color)"}` };
+    }
+    if (Array.isArray(rule) ? !rule.includes(v as string) : typeof v !== rule) return { changed, error: `“${k}” must be ${Array.isArray(rule) ? `one of ${rule.slice(0, 12).join(", ")}${rule.length > 12 ? "…" : ""}` : `a ${rule}`}` };
+    if (typeof v === "number" && !(v > 0)) return { changed, error: `“${k}” must be positive` };
+    if (e.kind === "building" && k === "facade") (next as Building).style = { ...((next as Building).style ?? {}), facade: v as NonNullable<Building["style"]>["facade"] };
+    else next[k] = v;
+    changed.push(`${k} ${JSON.stringify(v)}`);
+  }
+  return { entity: next, changed };
+}

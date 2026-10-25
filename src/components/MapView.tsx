@@ -2,11 +2,13 @@
 
 import { AmbientLight, LightingEffect, _SunLight as SunLight, type Layer, type PickingInfo } from "@deck.gl/core";
 import { MapboxOverlay } from "@deck.gl/mapbox";
+import { qualityGovernor } from "@/render/adaptiveQuality";
 import maplibregl from "maplibre-gl";
-import { useEffect, useRef } from "react";
+import { memo, useEffect, useRef } from "react";
 import { basemapStyle, setBasemapNight } from "@/render/basemap";
 import { buildLayers, forgetLayers, hoverLayers, stackLayers, zoomBand, type SceneLayers } from "@/render/layers";
-import { MODEL } from "@/render/theme";
+import { dayTheme } from "@/render/theme";
+import { useTheme } from "@/state/theme";
 import { skyFor } from "@/render/sky";
 import { daylight, daylightFor, setDaylight, useNight } from "@/render/daylight";
 import { ChunkLoader } from "@/render/chunkLoader";
@@ -51,7 +53,8 @@ interface Inputs {
   tools: Layer[];
 }
 
-export function MapView() {
+/** memoised: it takes no props, so the workspace re-rendering around it (pane drags) never re-renders it */
+export const MapView = memo(function MapView() {
   const el = useRef<HTMLDivElement>(null);
   const overlayExtra = useExtraLayers();
   // feature modules' layers (zones, library props, street-level cursor…) join the overlay bands
@@ -98,6 +101,8 @@ export function MapView() {
       maxBounds: cityBounds(proj, R.meta.bounds),
       attributionControl: false,
       renderWorldCopies: false,
+      // resizes are handled below, redrawn before the browser paints
+      trackResize: false,
       canvasContextAttributes: { antialias: true },
       fadeDuration: 0,
     });
@@ -128,7 +133,7 @@ export function MapView() {
     const sun = new SunLight({ timestamp: daylight.sunTs, color: daylight.sun.color, intensity: daylight.sun.intensity, _shadow: dbg.get("shadows") === "1" });
     const moon = new SunLight({ timestamp: daylight.moonTs, color: daylight.moon.color, intensity: daylight.moon.intensity });
     const fx = new LightingEffect({ ambient, sun, moon });
-    fx.shadowColor = MODEL.shadow;
+    fx.shadowColor = dayTheme().shadow;
 
     let deckDrew = true;
     const overlay = new MapboxOverlay({
@@ -140,6 +145,10 @@ export function MapView() {
       effects: dbg.get("light") === "0" ? [] : [fx],
       pickingRadius: 3,
       useDevicePixels: Math.min(2, window.devicePixelRatio || 1),
+      // resizing the drawing buffer clears it; draw again at once (this runs inside luma's resize
+      // observer, before the frame is painted) rather than on the next frame, which would show the
+      // city blank for a frame
+      onResize: () => deck?.redraw("Canvas resized"),
       onHover: (info: PickingInfo) => {
         // street level has its own ground cursor; nothing highlights under it
         const st = useApp.getState();
@@ -169,9 +178,22 @@ export function MapView() {
     const deck = (overlay as unknown as { _deck?: DeckInternals })._deck;
     throttleHover(deck);
 
+    // ---- size: MapLibre's own resize tracking redraws a frame after it resizes, so for one painted
+    // frame the canvas is blank (a blink whenever a pane opens or the window resizes). Resize here
+    // and redraw synchronously instead, inside the observer, before the paint.
+    const container = el.current!;
+    const sizeObserver = new ResizeObserver(() => {
+      const c = map.getCanvas();
+      if (c.clientWidth === container.clientWidth && c.clientHeight === container.clientHeight) return;
+      map.resize();
+      if (map.isStyleLoaded()) map.redraw();
+    });
+    sizeObserver.observe(container);
+
     // ---- chunk loading and level of detail follow the camera
     const loader = new ChunkLoader(R.scene, R.context);
     (window as unknown as { __meridianLoader: ChunkLoader }).__meridianLoader = loader;
+    (window as unknown as { __meridianMap: maplibregl.Map }).__meridianMap = map;
     let moving = false;
     let lastMoveAt = 0;
     const updateCamera = () => {
@@ -288,7 +310,7 @@ export function MapView() {
           loader.invalidate();
           if (loader.cam) loader.setCamera(loader.cam, false);
         }
-        scene = buildLayers({ rt: R, theme: MODEL, app: { selection: I.selection, layers: I.layersOn, highlight: I.highlight, cameraMode: I.cameraMode, night: I.night }, zoom: band, loader });
+        scene = buildLayers({ rt: R, theme: dayTheme(), app: { selection: I.selection, layers: I.layersOn, highlight: I.highlight, cameraMode: I.cameraMode, night: I.night }, zoom: band, loader });
       }
       // street-edge lines over raster overlays: in the ground band (so never over buildings,
       // whenever the rasters arrive), faded in as the camera comes down, following chunk visibility
@@ -313,7 +335,7 @@ export function MapView() {
         pinCache.layers = pKey[0] ? impactPins() : [];
       }
       const ground = kerbs.length ? [...I.extra.ground, ...kerbs] : I.extra.ground;
-      const layers = [...stackLayers(scene, { ground, top: I.extra.top }), ...hoverLayers(R, MODEL, I.hover, I.selection), ...pinCache.layers, ...I.tools];
+      const layers = [...stackLayers(scene, { ground, top: I.extra.top }), ...hoverLayers(R, dayTheme(), I.hover, I.selection), ...pinCache.layers, ...I.tools];
       cancelAnimationFrame(trafficRaf);
       if (I.overlay === "traffic" && I.trafficShown && dbg.get("anim") !== "0") {
         // modelled vehicles animate on top of the static scene
@@ -335,6 +357,16 @@ export function MapView() {
     };
     composeRef.current = compose;
     const unImpact = useImpact.subscribe(() => compose());
+    // the interface theme picks the map's day palette (paper or graphite): recolour in place
+    const unTheme = useTheme.subscribe(() => {
+      R.scene.setTheme(dayTheme());
+      fx.shadowColor = dayTheme().shadow;
+      sceneKey = [];
+      baseNight = -1;
+      skyDirty = true;
+      compose();
+      deck?.redraw("theme");
+    });
 
     // ---- the frame loop: fps meter, the clock, the loader's per-frame work, re-stacking and idle
     // work. The loader adds layers only after deck.gl has drawn the previous batch, so tessellation
@@ -345,9 +377,21 @@ export function MapView() {
     let lastAdmit = 0;
     let admitted = false;
     let lastIdle = performance.now();
+    // the 3D layer's pixel density steps down only if moving frames stay slow (render/adaptiveQuality.ts)
+    const quality = qualityGovernor(
+      window.devicePixelRatio || 1,
+      (ratio) => {
+        deck?.setProps({ useDevicePixels: ratio });
+        deck?.redraw("pixel density");
+      },
+      dbg.get("quality") !== "full",
+    );
+    let prevFrame = performance.now();
     const tick = () => {
       frames++;
       const now = performance.now();
+      if (moving && document.visibilityState === "visible") quality.sample(now - prevFrame, now);
+      prevFrame = now;
       if (now - last > 1000) {
         useApp.getState().setFps(Math.round((frames * 1000) / (now - last)));
         frames = 0;
@@ -386,6 +430,8 @@ export function MapView() {
       cancelAnimationFrame(trafficRaf);
       unHour();
       unImpact();
+      unTheme();
+      sizeObserver.disconnect();
       composeRef.current = null;
       map.remove();
       R.map = null;
@@ -402,11 +448,12 @@ export function MapView() {
   });
 
   return (
-    <div className="absolute inset-0">
+    // clips the canvas while a side pane moves (it is pinned at one size then: render/paneTransition.ts)
+    <div className="absolute inset-0 overflow-hidden">
       <div ref={el} className="h-full w-full" />
     </div>
   );
-}
+});
 
 /** analysis overlays and feature slots by band: ground (below buildings) and top */
 function bandsOf(o: { ground: Layer[]; top: Layer[] }, slots: ReturnType<typeof useLayerSlots.getState>["slots"]) {
@@ -416,7 +463,7 @@ function bandsOf(o: { ground: Layer[]; top: Layer[] }, slots: ReturnType<typeof 
 interface DeckInternals {
   _onPointerMove: (ev: { type?: string }) => void;
   redraw: (reason?: string) => void;
-  setProps: (p: { _pickable: boolean }) => void;
+  setProps: (p: { _pickable?: boolean; useDevicePixels?: number }) => void;
   device?: { statsManager?: { getStats: (n: string) => { get: (n: string) => { count: number } | undefined } | undefined } };
 }
 

@@ -4,12 +4,11 @@
 // Click to open (no page load), double-click or F2 to rename, right-click for Rename / Duplicate /
 // Delete, drag (or Alt+↑/↓) to reorder. A new project opens straight away with its name ready to type.
 
-import { Building2, Copy, FolderOpen, ImageUp, PanelLeftClose, Pencil, Plus, SquareDashed, Trash2 } from "lucide-react";
+import { Building2, Copy, FolderOpen, ImageUp, MoreHorizontal, PanelLeftClose, Pencil, Plus, SquareDashed, Trash2 } from "lucide-react";
 import { openSketchStart } from "../sketch/SketchStart";
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent as RPointerEvent } from "react";
 import { confirmAction } from "../ConfirmDialog";
 import {
-  Badge,
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
@@ -20,6 +19,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuTrigger,
   Input,
   Tooltip,
@@ -30,11 +31,11 @@ import { createProject, deleteProject, duplicateProject, openProject, renameProj
 import { relativeTime } from "./time";
 
 /** row height + gap (px): rows are a fixed height so a drag can be laid out by index */
-const ROW = 46;
-const GAP = 2;
+const ROW = 34;
+const GAP = 1;
 const SLOT = ROW + GAP;
 
-export const SIDEBAR_WIDTH = 252;
+export const SIDEBAR_WIDTH = 228;
 /** the shortcut that shows and hides the sidebar (⌘B on a Mac, Ctrl+B elsewhere, as in code editors) */
 export const SIDEBAR_KEY = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘B" : "Ctrl+B";
 
@@ -85,12 +86,15 @@ export function ProjectsSidebar() {
   return (
     <aside
       aria-label="Projects"
-      className="flex h-full w-full flex-col border-r border-line-2"
-      style={{ background: "var(--parchment), linear-gradient(270deg, #d8bd8c 0, #ecdab4 12px, #f4e6c7 60%, #eedcb6 100%)" }}
+      className="sidebar-sheet flex h-full w-full flex-col border-r border-line-2"
     >
-      <div className="flex h-[64px] shrink-0 items-end justify-between px-3 pb-2">
-        <span className="font-legend text-[13px] leading-none text-ink-3">Projects</span>
-        <span className="flex items-center gap-1">
+      {/* level with the top bar beside it */}
+      <div className="flex h-16 shrink-0 items-center justify-between pr-2 pl-3.5">
+        <span className="flex items-baseline gap-1.5">
+          <span className="font-legend text-[13px] leading-none text-ink-2">Projects</span>
+          <span className="tabular text-[11px] leading-none text-ink-4">{list.length}</span>
+        </span>
+        <span className="flex items-center gap-0.5">
           <NewProjectMenu />
           <Tooltip content="Hide projects" kbd={SIDEBAR_KEY} side="bottom">
             <button
@@ -104,7 +108,8 @@ export function ProjectsSidebar() {
           </Tooltip>
         </span>
       </div>
-      <div className="scroll-thin min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+      <div className="mx-3 h-px shrink-0 bg-line" />
+      <div className="scroll-thin min-h-0 flex-1 overflow-y-auto px-1.5 pt-1.5 pb-3">
         <div ref={rows} role="list" aria-label="Projects" className="relative flex flex-col" style={{ gap: GAP }}>
           {list.map((p, i) => (
             <ProjectRow
@@ -132,7 +137,10 @@ export function ProjectsSidebar() {
           ))}
         </div>
       </div>
-      <div className="shrink-0 px-3 pt-1 pb-2.5 text-[10.5px] leading-snug text-ink-4">{durable ? "Saved in this browser as you work" : "This browser blocks storage: export proposals to keep them"}</div>
+      <div className="flex shrink-0 items-center gap-1.5 border-t border-line px-3.5 py-2 text-[10.5px] leading-snug text-ink-4">
+        <span className={cn("size-1.5 shrink-0 rounded-full", durable ? "bg-good" : "bg-warn")} />
+        {durable ? "Saved in this browser" : "Storage blocked: export to keep work"}
+      </div>
       <div aria-live="polite" className="sr-only">
         {announce}
       </div>
@@ -148,8 +156,8 @@ function NewProjectMenu() {
     <DropdownMenu>
       <Tooltip content="New project" side="bottom">
         <DropdownMenuTrigger asChild>
-          <button aria-label="New project" data-testid="new-project" className="flex h-7 items-center gap-1 rounded-[6px] border border-line-2 bg-[#f8eed6]/80 px-2 text-[12px] font-medium text-ink shadow-[0_1px_1px_rgb(88_60_28/0.10)] outline-none hover:bg-paper-2 focus-visible:ring-2 focus-visible:ring-rose/25">
-            <Plus size={13} strokeWidth={2} /> New
+          <button aria-label="New project" data-testid="new-project" className="grid size-7 place-items-center rounded-[6px] text-ink-3 outline-none hover:bg-paper-3 hover:text-ink focus-visible:ring-2 focus-visible:ring-rose/25 data-[state=open]:bg-paper-3 data-[state=open]:text-ink">
+            <Plus size={15} strokeWidth={1.9} />
           </button>
         </DropdownMenuTrigger>
       </Tooltip>
@@ -200,6 +208,8 @@ function ProjectRow({ p, index, count, current, opening, dragging, offset, anima
   const renaming = useProjects((s) => s.renamingId === p.id);
   const press = useRef<{ y: number; id: number; moved: boolean } | null>(null);
   const preset = presetOf(p.base);
+  const Icon = p.base === "sandbox" ? SquareDashed : Building2;
+  const [menuOpen, setMenuOpen] = useState(false);
   const rename = () => useProjects.setState({ renamingId: p.id });
 
   const down = (e: RPointerEvent<HTMLDivElement>) => {
@@ -265,26 +275,28 @@ function ProjectRow({ p, index, count, current, opening, dragging, offset, anima
           onDoubleClick={rename}
           onKeyDown={key}
           className={cn(
-            "group relative flex shrink-0 cursor-default items-center gap-2 rounded-[7px] border px-2.5 outline-none select-none focus-visible:ring-2 focus-visible:ring-rose/25",
-            current ? "border-line-2 bg-[#f8eed6]/85 shadow-[0_1px_1px_rgb(88_60_28/0.10)]" : "border-transparent hover:bg-paper-3/60",
-            dragging && "z-10 border-line-2 bg-[#f8eed6] shadow-[0_8px_18px_-8px_rgb(60_36_12/0.55)]",
+            "group relative flex shrink-0 cursor-default items-center gap-2 rounded-[6px] pr-1 pl-2 outline-none select-none focus-visible:ring-2 focus-visible:ring-rose/25",
+            current ? "bg-accent-2/70" : "hover:bg-paper-3/60",
+            dragging && "z-10 bg-paper-2 shadow-[0_8px_18px_-8px_rgb(0_0_0/0.45)] ring-1 ring-line-2",
           )}
           style={{ height: ROW, transform: offset ? `translateY(${offset}px)` : undefined, transition: animate && !dragging ? "transform 160ms cubic-bezier(.2,.7,.3,1)" : "none" }}
         >
-          {current && <span className="absolute top-2 bottom-2 left-0 w-[3px] rounded-r-full bg-rose" />}
+          <span className={cn("grid size-[22px] shrink-0 place-items-center rounded-[5px] border", current ? "border-accent/60 bg-accent text-on-accent" : "border-line bg-field/60 text-ink-3")}>
+            <Icon size={12} strokeWidth={1.9} />
+          </span>
           <div className="min-w-0 flex-1">
             {renaming ? (
               <RenameField p={p} />
             ) : (
               <div className={cn("truncate text-[12.5px] leading-tight", current ? "font-semibold text-ink" : "font-medium text-ink-2")}>{p.name}</div>
             )}
-            <div className="mt-1 flex items-center gap-1.5 text-[10.5px] leading-none text-ink-4">
-              <Badge variant={p.base === "sandbox" ? "outline" : "accent"} className="h-[15px] px-1 text-[9.5px]">
-                {preset?.badge ?? p.base}
-              </Badge>
-              <span className="truncate">{opening ? "Opening…" : relativeTime(p.updatedAt)}</span>
-            </div>
           </div>
+          {!renaming && (
+            <>
+              <span className={cn("tabular shrink-0 text-[10.5px] text-ink-4 group-focus-within:hidden group-hover:hidden", menuOpen && "hidden")}>{opening ? "Opening…" : shortTime(p.updatedAt)}</span>
+              <RowMenu p={p} current={current} rename={rename} open={menuOpen} onOpenChange={setMenuOpen} />
+            </>
+          )}
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent className="w-48">
@@ -348,5 +360,54 @@ function RenameField({ p }: { p: ProjectMeta }) {
       }}
       onBlur={() => finish(true)}
     />
+  );
+}
+
+/** "now", "5m", "3h", "2d", or a date: short enough to sit at the end of a row */
+function shortTime(t: number): string {
+  const s = Math.max(0, (Date.now() - t) / 1000);
+  if (s < 60) return "now";
+  if (s < 3600) return `${Math.floor(s / 60)}m`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h`;
+  if (s < 7 * 86400) return `${Math.floor(s / 86400)}d`;
+  return new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+/** the ⋯ button a row shows on hover: the same actions as its right-click menu */
+function RowMenu({ p, current, rename, open, onOpenChange }: { p: ProjectMeta; current: boolean; rename: () => void; open: boolean; onOpenChange: (o: boolean) => void }) {
+  return (
+    <DropdownMenu open={open} onOpenChange={onOpenChange}>
+      <DropdownMenuTrigger asChild>
+        <button
+          aria-label={`Actions for ${p.name}`}
+          onPointerDown={(e) => e.stopPropagation()}
+          onPointerUp={(e) => e.stopPropagation()}
+          onDoubleClick={(e) => e.stopPropagation()}
+          className={cn(
+            "grid size-6 shrink-0 place-items-center rounded-[5px] text-ink-3 outline-none hover:bg-paper-3 hover:text-ink focus-visible:ring-2 focus-visible:ring-rose/25",
+            open ? "grid bg-paper-3 text-ink" : "hidden group-focus-within:grid group-hover:grid",
+          )}
+        >
+          <MoreHorizontal size={14} />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" side="right" className="w-44" onCloseAutoFocus={(e) => e.preventDefault()}>
+        {!current && (
+          <DropdownMenuItem onSelect={() => void openProject(p.id)}>
+            <FolderOpen /> Open
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem onSelect={() => setTimeout(rename, 0)}>
+          <Pencil /> Rename <DropdownMenuShortcut>F2</DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => void duplicateProject(p.id)}>
+          <Copy /> Duplicate
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem variant="danger" onSelect={() => void askDeleteProject(p)}>
+          <Trash2 /> Delete…
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

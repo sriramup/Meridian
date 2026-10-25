@@ -13,7 +13,7 @@ export const Switch = forwardRef<ElementRef<typeof Sw.Root>, ComponentPropsWitho
       ref={ref}
       className={cn(
         "peer inline-flex shrink-0 cursor-default items-center rounded-full border border-line-2 bg-paper-3 p-px shadow-[inset_0_1px_2px_rgb(88_60_28/0.18)] transition-colors duration-150",
-        "aria-checked:border-[#a67b42] aria-checked:bg-accent disabled:cursor-not-allowed disabled:opacity-45",
+        "aria-checked:border-accent-edge aria-checked:bg-accent disabled:cursor-not-allowed disabled:opacity-45",
         size === "md" ? "h-[18px] w-8" : "h-4 w-7",
         focusRing,
         className,
@@ -22,7 +22,7 @@ export const Switch = forwardRef<ElementRef<typeof Sw.Root>, ComponentPropsWitho
     >
       <Sw.Thumb
         className={cn(
-          "pointer-events-none block rounded-full bg-[#fbf3e1] shadow-[0_1px_2px_rgb(60_36_12/0.35)] ring-1 ring-[#9c7a48]/40 transition-transform duration-150 data-[state=unchecked]:translate-x-0",
+          "pointer-events-none block rounded-full bg-knob shadow-[0_1px_2px_rgb(60_36_12/0.35)] ring-1 ring-accent-edge/40 transition-transform duration-150 data-[state=unchecked]:translate-x-0",
           size === "md" ? "size-3.5 data-[state=checked]:translate-x-[14px]" : "size-3 data-[state=checked]:translate-x-3",
         )}
       />

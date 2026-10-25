@@ -54,7 +54,9 @@ export function Toolbar() {
         <span className="mx-1.5 my-1 h-px bg-line" />
         <GridControl />
       </div>
-      {draw.pending ? <ConfirmCard /> : tool === "library" ? <LibraryPanel /> : tool === "tree" ? <PlantingPalette /> : tool === "street" ? <StreetPalette /> : tool === "building" ? <BuildingPalette /> : tool === "area" ? <AreaPalette /> : tool === "district" ? <DistrictPalette /> : tool === "transit" ? <TransitPalette /> : null}
+      <div key={draw.pending ? "confirm" : tool} className="panel-in-left">
+        {draw.pending ? <ConfirmCard /> : tool === "library" ? <LibraryPanel /> : tool === "tree" ? <PlantingPalette /> : tool === "street" ? <StreetPalette /> : tool === "building" ? <BuildingPalette /> : tool === "area" ? <AreaPalette /> : tool === "district" ? <DistrictPalette /> : tool === "transit" ? <TransitPalette /> : null}
+      </div>
     </div>
   );
 }

@@ -28,6 +28,7 @@ import { StartCard } from "./StartCard";
 import { LibraryRuntime } from "./library/LibraryRuntime";
 import { openLibrary } from "./library/libraryStore";
 import { MapView } from "./MapView";
+import { SidePanel, usePaneWidth } from "./SidePanel";
 import { Annotations, ChangeReport, Toasts } from "./Overlays";
 import { Toolbar } from "./Toolbar";
 import { DiscoveredPlaces } from "./serp/DiscoveredPlaces";
@@ -37,16 +38,17 @@ export function Shell() {
   const agentOpen = useApp((s) => s.agentOpen);
   const sidebarOpen = useProjects((s) => s.sidebarOpen);
   // side panels stop above the analysis dock, whose height follows the open overlay and the width
+  // (a CSS variable set straight on the element: the dock's height animates, and React state would
+  // re-render the whole workspace every frame of it)
   const dock = useRef<HTMLDivElement>(null);
-  const [dockH, setDockH] = useState(52);
+  const root = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const ro = new ResizeObserver(() => dock.current && setDockH(dock.current.offsetHeight));
+    const ro = new ResizeObserver(() => dock.current && root.current?.style.setProperty("--dock-clear", `${dock.current.offsetHeight + 20}px`));
     if (dock.current) ro.observe(dock.current);
     return () => ro.disconnect();
   }, []);
-  const clearDock = { bottom: dockH + 20 };
-  const [width, setWidth] = useState(420);
-  const drag = useRef(false);
+  const clearDock = { bottom: "var(--dock-clear, 72px)" };
+  const [width, setWidth] = usePaneWidth("meridian.agentWidth", 420, 380, 720);
   useShortcuts();
   useAgentShortcuts();
   useMapInteractions();
@@ -63,28 +65,10 @@ export function Shell() {
     import("@/agent/sessions").then((m) => ((window as unknown as { __meridianAgent: unknown }).__meridianAgent = { ...m.agentsApi, agents: m.useAgents, sessions: m }));
     initSimWorker().catch((e) => useApp.getState().notify(`Simulation worker failed: ${(e as Error).message}`, "error"));
   }, []);
-  useEffect(() => {
-    const move = (e: PointerEvent) => {
-      if (!drag.current) return;
-      setWidth(Math.max(340, Math.min(640, window.innerWidth - e.clientX)));
-    };
-    const up = () => (drag.current = false);
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
-    return () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-    };
-  }, []);
-  // keep the map sized to its container when the agent panel changes
-  useEffect(() => {
-    const t = setTimeout(() => rt().map?.resize(), 0);
-    return () => clearTimeout(t);
-  }, [agentOpen, width, sidebarOpen]);
 
   return (
     <TooltipPrimitive.Provider>
-      <div className="absolute inset-0 flex">
+      <div ref={root} className="absolute inset-0 flex">
         <div className="@container relative min-w-0 flex-1">
           <MapView />
           <LibraryRuntime />
@@ -117,19 +101,17 @@ export function Shell() {
             <div className="absolute top-16 left-1/2 -translate-x-1/2">
               <Toasts />
             </div>
-            <div className="absolute inset-0 grid place-items-center">
+            {/* centred on the window, not the map area (which the projects and agent panes narrow) */}
+            <div className="fixed inset-0 grid place-items-center">
               <StartCard />
             </div>
             <Attribution />
             <HelpDialog />
           </div>
         </div>
-        {agentOpen && (
-          <div className="relative h-full shrink-0" style={{ width }}>
-            <div className="absolute top-0 bottom-0 -left-1 z-10 w-2 cursor-col-resize" onPointerDown={() => (drag.current = true)} />
-            <AgentsPane onClose={() => useApp.getState().setAgentOpen(false)} />
-          </div>
-        )}
+        <SidePanel open={agentOpen} side="right" width={width} onResize={setWidth} label="agents">
+          <AgentsPane onClose={() => useApp.getState().setAgentOpen(false)} />
+        </SidePanel>
       </div>
     </TooltipPrimitive.Provider>
   );

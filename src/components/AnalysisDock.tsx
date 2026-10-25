@@ -1,8 +1,9 @@
 "use client";
 
 import * as DM from "@radix-ui/react-dropdown-menu";
-import { Bike, Car, Check, ChevronUp, CloudRain, Droplets, Ellipsis, Footprints, LayoutGrid, LoaderCircle, Pause, Play, RefreshCw, Sun, Thermometer, TramFront, TrendingUp, Users } from "lucide-react";
+import { Bike, Car, Check, ChevronUp, PanelBottomClose, PanelBottomOpen, CloudRain, Droplets, Ellipsis, Footprints, LayoutGrid, LoaderCircle, Pause, Play, RefreshCw, Sun, Thermometer, TramFront, TrendingUp, Users } from "lucide-react";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { create } from "zustand";
 import { runSim, useSims, type SimRecord } from "@/sim/client";
 import { DIVERGE, cssGradient } from "@/render/palettes";
 import { growthSnapshot, legendFor, overlayState } from "@/render/overlays";
@@ -39,6 +40,25 @@ const LIVE: ReadonlySet<SimKind> = new Set(["heat", "sun", "runoff"]);
 const NEEDS_DATA = new Set<OverlayId>(["zoning", "growth", "flood"]);
 
 /** the analyses this city can run: the blank canvas has no zoning, parcels or terrain for capacity, growth and flood screening */
+const DETAILS_KEY = "meridian.analysisDetails";
+/** whether the analysis card (legend, month, figures) shows above the bottom bar; on unless hidden, kept per browser */
+const useDetails = create<{ open: boolean }>(() => {
+  try {
+    return { open: localStorage.getItem(DETAILS_KEY) !== "0" };
+  } catch {
+    return { open: true };
+  }
+});
+function toggleDetails() {
+  const open = !useDetails.getState().open;
+  useDetails.setState({ open });
+  try {
+    localStorage.setItem(DETAILS_KEY, open ? "1" : "0");
+  } catch {
+    // storage blocked: the choice lasts for this page
+  }
+}
+
 export function availableOverlays() {
   return CHIPS.filter((c) => !rt().meta.sandbox || !NEEDS_DATA.has(c.id));
 }
@@ -122,6 +142,7 @@ export function AnalysisDock() {
     return () => cancelAnimationFrame(raf);
   }, [playing, setHour]);
 
+  const detailsOpen = useDetails((s) => s.open);
   const legend = legendFor(overlay);
   const scenarios = [...R.scenarios.scenarios.values()];
   const cmpRec = chip?.sim ? records.find((r) => r.id === compare[chip.sim!]) : undefined;
@@ -130,7 +151,15 @@ export function AnalysisDock() {
   return (
     <div className="pointer-events-none flex w-full flex-col items-center gap-2 px-3">
       {overlay && (
-        // one row on a wide map; on a narrow one the legend and KPIs share the top row, controls below
+        // folds away (height and fade) when hidden from the bottom bar
+        <div
+          className="grid w-full max-w-[min(1000px,calc(100cqw-24px))] transition-[grid-template-rows,opacity,translate] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]"
+          style={{ gridTemplateRows: detailsOpen ? "1fr" : "0fr", opacity: detailsOpen ? 1 : 0, translate: detailsOpen ? "0 0" : "0 8px" }}
+          aria-hidden={!detailsOpen || undefined}
+          inert={!detailsOpen || undefined}
+        >
+        <div className="-mx-1 min-h-0 overflow-hidden px-1">
+        {/* one row on a wide map; on a narrow one the legend and KPIs share the top row, controls below */}
         <div className="chrome grid w-full max-w-[min(1000px,calc(100cqw-24px))] grid-cols-[220px_minmax(0,1fr)_auto] @max-[860px]:grid-cols-[minmax(0,1fr)_auto]">
           {/* legend */}
           <div className="min-w-0 px-3 py-2.5">
@@ -207,6 +236,8 @@ export function AnalysisDock() {
           </div>
           {/* KPIs */}
           {rec?.kind === "heat" ? <HeatKpiBlock rec={rec.status === "done" ? rec : undefined} /> : rec?.kind === "traffic" ? <TrafficKpiBlock rec={rec.status === "done" ? rec : undefined} /> : <KpiGrid kpis={kpisStatic} />}
+        </div>
+        </div>
         </div>
       )}
       <PlanImpactSync />
@@ -555,19 +586,46 @@ const ChipBar = memo(function ChipBar({ overlay, busy }: { overlay: OverlayId | 
           </button>
         </DM.Trigger>
         <DM.Portal>
-          <DM.Content side="top" align="end" sideOffset={8} className="chrome z-50 w-60 p-1">
-            <div className="px-2 pt-1.5 pb-1 font-legend text-[12.5px] leading-none text-ink-3">Other analyses</div>
+          <DM.Content side="top" align="end" sideOffset={8} collisionPadding={8} className="kit-surface kit-pop z-50 w-72 p-1">
+            <div className="px-2 pt-1.5 pb-1.5 font-legend text-[11px] leading-4 font-medium text-ink-3">Other analyses</div>
             {extra.map((c) => (
-              <DM.Item key={c.id} onSelect={() => setOverlay(overlay === c.id ? null : c.id)} className="flex cursor-default items-center gap-2 rounded-[5px] px-2 py-1.5 text-[12.5px] text-ink outline-none data-[highlighted]:bg-paper-3">
-                <c.icon size={13} strokeWidth={1.8} className="text-ink-3" />
-                <span className="flex-1">{c.label}</span>
-                <span className="truncate text-[10.5px] text-ink-4">{c.hint}</span>
-                {overlay === c.id && <Check size={13} className="shrink-0 text-rose" />}
+              <DM.Item key={c.id} onSelect={() => setOverlay(overlay === c.id ? null : c.id)} className="flex cursor-default items-center gap-2.5 rounded-[6px] px-2 py-1.5 outline-none data-[highlighted]:bg-paper-3">
+                <span className={cx("grid size-7 shrink-0 place-items-center rounded-[6px] border", overlay === c.id ? "border-accent/50 bg-accent text-on-accent" : "border-line bg-paper-2 text-ink-3")}>
+                  <c.icon size={14} strokeWidth={1.8} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[12.5px] leading-4 font-medium text-ink">{c.label}</span>
+                  <span className="block truncate text-[11px] leading-4 text-ink-4">{c.hint}</span>
+                </span>
+                {overlay === c.id && <Check size={14} className="shrink-0 text-rose" />}
               </DM.Item>
             ))}
           </DM.Content>
         </DM.Portal>
       </DM.Root>
+      {overlay && <DetailsToggle />}
     </div>
   );
 });
+
+/** shows and hides the analysis card above the bar */
+function DetailsToggle() {
+  const open = useDetails((s) => s.open);
+  const Icon = open ? PanelBottomClose : PanelBottomOpen;
+  return (
+    <>
+      <span className="mx-0.5 h-5 w-px bg-line" />
+      <Tip label={open ? "Hide analysis details" : "Show analysis details"} side="top">
+        <button
+          onClick={toggleDetails}
+          aria-pressed={open}
+          aria-label={open ? "Hide analysis details" : "Show analysis details"}
+          data-testid="analysis-details-toggle"
+          className={cx("grid size-8 place-items-center rounded-[6px] transition-colors outline-none", open ? "text-ink-2 hover:bg-paper-3 hover:text-ink" : "bg-paper-3 text-ink hover:bg-line")}
+        >
+          <Icon size={15} strokeWidth={1.7} />
+        </button>
+      </Tip>
+    </>
+  );
+}

@@ -10,8 +10,8 @@ export const Checkbox = forwardRef<ElementRef<typeof Cb.Root>, ComponentPropsWit
     <Cb.Root
       ref={ref}
       className={cn(
-        "peer inline-flex size-[15px] shrink-0 cursor-default items-center justify-center rounded-[4px] border border-line-2 bg-[#f8eed6] text-on-accent shadow-[inset_0_1px_1px_rgb(88_60_28/0.1)] transition-colors duration-100 hover:border-ink-4",
-        "aria-checked:border-[#a67b42] aria-checked:bg-accent aria-[checked=mixed]:border-[#a67b42] aria-[checked=mixed]:bg-accent disabled:cursor-not-allowed disabled:opacity-45",
+        "peer inline-flex size-[15px] shrink-0 cursor-default items-center justify-center rounded-[4px] border border-line-2 bg-field text-on-accent shadow-[inset_0_1px_1px_rgb(88_60_28/0.1)] transition-colors duration-100 hover:border-ink-4",
+        "aria-checked:border-accent-edge aria-checked:bg-accent aria-[checked=mixed]:border-accent-edge aria-[checked=mixed]:bg-accent disabled:cursor-not-allowed disabled:opacity-45",
         focusRing,
         className,
       )}
