@@ -15,6 +15,6 @@ Workflow
 Composition tips
 - Build the frame first (streets), then buildings and sites, then landscape, then street furniture and details.
 - Parameters are validated: unknown keys or invalid values fail that item with the reason (fix and retry); out-of-range numbers are clamped and reported.
-- Conflicts are resolved, not ignored: buildings are cut out of street right-of-way and water; on_conflict "carve" (default) keeps existing buildings, "refuse" fails instead, "replace" demolishes (never historic ones). Trees need room for their crowns; objects stay off carriageways, buildings, water and each other unless designed for it. Skipped positions are reported — read the summary and adjust spacing or location.
+- Conflicts are resolved, not ignored: buildings are cut out of street right-of-way and water; solid things never overlap: by default (on_conflict "safe") a building that would collide fails with the nearest free spot (use it, or move), "carve" cuts the new one around what is there, "replace" demolishes (never historic ones). Trees need room for their crowns; objects stay off carriageways, buildings, water and each other unless designed for it. Skipped positions are reported — read the summary and adjust spacing or location.
 - Stated occupancy (homes, jobs) and use mix on buildings feed traffic, access, heat, runoff and the metrics; shade-casting objects (canopies, shade sails, trees) and ground covers (water, planting, paving) feed the heat, sun and runoff models.
 - Use dry_run:true to preview a large composition before committing it.`;

@@ -8,7 +8,7 @@ const polygon = { type: "array", items: point, minItems: 3, description: "outer 
 const location = { description: "[x,y] point, a feature id, a place name or 'A Street & B Street'", anyOf: [point, { type: "string" }] };
 const area = { description: "polygon ring, place / feature id, or {center:[x,y], radius}", anyOf: [polygon, { type: "string" }, { type: "object", properties: { center: point, radius: { type: "number" } }, required: ["center", "radius"] }] };
 const ids = { type: "array", items: { type: "string" }, description: "library instance ids (lib:…) or ids of any feature of an instance" };
-const onConflict = { type: "string", enum: ["carve", "refuse", "replace"], description: "Existing buildings in the way: carve (default; keep them, cut the new one around them), refuse (fail instead), replace (demolish them; historic buildings are always kept)." };
+const onConflict = { type: "string", enum: ["safe", "carve", "refuse", "replace"], description: "Existing buildings / solid objects in the way: safe (default; never overlap: a main building that would collide fails with the nearest free spot, a composite's colliding extras are skipped), refuse (fail on any collision), carve (keep them, cut the new one around them), replace (demolish them; historic buildings are always kept)." };
 const dryRun = { type: "boolean", description: "Preview the change and its cascade without applying it." };
 
 const layout = {

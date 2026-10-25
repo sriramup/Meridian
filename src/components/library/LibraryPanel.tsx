@@ -15,8 +15,8 @@ import { useLibrary } from "./libraryStore";
 import { ParamForm } from "./ParamForm";
 
 const HOW: Record<PrimitiveDef["placement"], string> = {
-  point: "Click to place · drag to aim · [ ] turn",
-  rect: "Drag a rectangle · or click for the set size",
+  point: "Click to place · drag to aim · R or [ ] turn",
+  rect: "Drag a rectangle · or click for the set size · R turn",
   polygon: "Click the corners · Enter or click the first to finish",
   path: "Click along the line · Enter or double-click to finish",
 };
