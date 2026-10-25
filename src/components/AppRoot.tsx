@@ -3,7 +3,7 @@
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
-import { initProjects, useProjects } from "@/state/projects";
+import { initProjects, toggleSidebar, useProjects } from "@/state/projects";
 import { useApp } from "@/state/store";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { LoadingScreen } from "./LoadingScreen";
@@ -26,6 +26,15 @@ export function AppRoot() {
   useEffect(() => {
     setMounted(true);
     initProjects().catch((e: Error) => useApp.setState({ status: "error", error: e.message }));
+    // ⌘B / Ctrl+B shows and hides the projects sidebar from anywhere (text fields have no bold here)
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey || e.key.toLowerCase() !== "b") return;
+      if ((e.target as HTMLElement | null)?.closest("[contenteditable]")) return;
+      e.preventDefault();
+      toggleSidebar();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
   return (
     <main className="fixed inset-0 flex overflow-hidden bg-paper" style={{ backgroundImage: "var(--parchment), radial-gradient(90% 80% at 50% 40%, #f8eccf 0%, #eedcb5 62%, #d9bd8a 100%)" }}>

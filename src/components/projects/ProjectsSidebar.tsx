@@ -4,7 +4,7 @@
 // Click to open (no page load), double-click or F2 to rename, right-click for Rename / Duplicate /
 // Delete, drag (or Alt+↑/↓) to reorder. A new project opens straight away with its name ready to type.
 
-import { Building2, Copy, FolderOpen, Pencil, Plus, SquareDashed, Trash2 } from "lucide-react";
+import { Building2, Copy, FolderOpen, PanelLeftClose, Pencil, Plus, SquareDashed, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent as RPointerEvent } from "react";
 import { confirmAction } from "../ConfirmDialog";
 import {
@@ -25,7 +25,7 @@ import {
   cn,
 } from "../ui/kit";
 import { presetOf } from "@/state/cities";
-import { createProject, deleteProject, duplicateProject, openProject, renameProject, reorderProject, TEMPLATES, useProjects, type ProjectMeta } from "@/state/projects";
+import { createProject, deleteProject, duplicateProject, openProject, renameProject, reorderProject, setSidebarOpen, TEMPLATES, useProjects, type ProjectMeta } from "@/state/projects";
 import { relativeTime } from "./time";
 
 /** row height + gap (px): rows are a fixed height so a drag can be laid out by index */
@@ -34,6 +34,8 @@ const GAP = 2;
 const SLOT = ROW + GAP;
 
 export const SIDEBAR_WIDTH = 252;
+/** the shortcut that shows and hides the sidebar (⌘B on a Mac, Ctrl+B elsewhere, as in code editors) */
+export const SIDEBAR_KEY = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘B" : "Ctrl+B";
 
 /** start a project from a template and put its name up for editing */
 export async function newProject(base: string) {
@@ -87,7 +89,19 @@ export function ProjectsSidebar() {
     >
       <div className="flex h-[64px] shrink-0 items-end justify-between px-3 pb-2">
         <span className="font-legend text-[13px] leading-none text-ink-3">Projects</span>
-        <NewProjectMenu />
+        <span className="flex items-center gap-1">
+          <NewProjectMenu />
+          <Tooltip content="Hide projects" kbd={SIDEBAR_KEY} side="bottom">
+            <button
+              aria-label="Hide projects"
+              data-testid="sidebar-collapse"
+              onClick={() => setSidebarOpen(false)}
+              className="grid size-7 place-items-center rounded-[6px] text-ink-3 outline-none hover:bg-paper-3 hover:text-ink focus-visible:ring-2 focus-visible:ring-rose/25"
+            >
+              <PanelLeftClose size={15} strokeWidth={1.7} />
+            </button>
+          </Tooltip>
+        </span>
       </div>
       <div className="scroll-thin min-h-0 flex-1 overflow-y-auto px-2 pb-3">
         <div ref={rows} role="list" aria-label="Projects" className="relative flex flex-col" style={{ gap: GAP }}>
