@@ -10,7 +10,7 @@ import { ensureLibrary, getPrimitive, listPrimitives, searchPrimitives, type Cat
 import { rt } from "@/state/runtime";
 import { useApp } from "@/state/store";
 import { IconButton } from "../ui";
-import { CATEGORY, CATEGORY_ORDER, PrimitiveIcon } from "./icons";
+import { CATEGORY, CATEGORY_ORDER, PrimitiveIcon, PrimitiveThumb } from "./icons";
 import { useLibrary } from "./libraryStore";
 import { ParamForm } from "./ParamForm";
 
@@ -42,7 +42,7 @@ export function LibraryPanel() {
   const moving = useLibrary((s) => s.moving);
   ensureLibrary();
   const def = defId ? getPrimitive(defId) : undefined;
-  return <div className="chrome flex max-h-[calc(100vh-190px)] w-[300px] flex-col overflow-hidden">{moving ? <Moving id={moving} /> : def ? <Configure def={def} /> : <Browse />}</div>;
+  return <div className="chrome flex max-h-[calc(100vh-190px)] w-[340px] flex-col overflow-hidden">{moving ? <Moving id={moving} /> : def ? <Configure def={def} /> : <Browse />}</div>;
 }
 
 /** while an instance is picked up: what is moving and how to put it down */
@@ -68,6 +68,9 @@ function Moving({ id }: { id: string }) {
     </div>
   );
 }
+
+/** the cards sit two to a row */
+const GRID = "[&_[cmdk-group-items]]:grid [&_[cmdk-group-items]]:grid-cols-2 [&_[cmdk-group-items]]:gap-1.5 [&_[cmdk-group-items]]:px-1 [&_[cmdk-group-items]]:pb-2";
 
 function Browse() {
   const query = useLibrary((s) => s.query);
@@ -107,14 +110,15 @@ function Browse() {
     if (list.current) list.current.scrollTop = 0;
   }, [query, category, first]);
   const item = (d: PrimitiveDef) => (
-    <CommandItem key={d.id} value={d.id} onSelect={() => arm(d.id)} className="items-start gap-2.5 py-1.5">
-      <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-[5px] border border-line bg-paper">
-        <PrimitiveIcon def={d} size={14} className="text-rose" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-[12.5px] font-medium text-ink">{d.name}</span>
-        <span className="block truncate text-[11px] leading-snug text-ink-4">{d.description}</span>
-      </span>
+    <CommandItem
+      key={d.id}
+      value={d.id}
+      onSelect={() => arm(d.id)}
+      title={d.description}
+      className="group flex-col items-stretch gap-0 rounded-[8px] border border-line bg-paper-2/40 p-1 data-[selected=true]:border-accent/70 data-[selected=true]:bg-accent-2/40"
+    >
+      <PrimitiveThumb def={d} width={150} height={84} className="rounded-[6px] bg-gradient-to-b from-paper-3/40 to-paper-2/20" />
+      <span className="line-clamp-2 min-h-[30px] px-1 pt-1 pb-0.5 text-[11.5px] leading-[1.25] font-medium text-ink">{d.name}</span>
     </CommandItem>
   );
   return (
@@ -146,35 +150,50 @@ function Browse() {
           </span>
         }
       />
-      {/* categories: one compact row of icons; the active one names itself */}
-      <div className="flex flex-wrap gap-0.5 border-b border-line px-2 py-1.5" role="group" aria-label="Categories">
+      {/* categories: a scrolling row of labelled chips (the wheel scrolls it sideways) */}
+      <div
+        className="kit-scroll flex shrink-0 gap-1 overflow-x-auto border-b border-line px-2 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        role="group"
+        aria-label="Categories"
+        onWheel={(e) => {
+          if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) e.currentTarget.scrollLeft += e.deltaY;
+        }}
+      >
+        <button
+          aria-pressed={!category}
+          onClick={() => setCategory(null)}
+          className={cn("h-7 shrink-0 rounded-full border px-2.5 text-[11.5px] font-medium transition-colors", !category ? "border-accent bg-accent text-on-accent" : "border-line text-ink-2 hover:border-line-2 hover:bg-paper-3")}
+        >
+          All
+        </button>
         {CATEGORY_ORDER.filter((c) => counts.has(c)).map((c) => {
           const Icon = CATEGORY[c].icon;
           const on = category === c;
           return (
-            <Tooltip key={c} content={`${CATEGORY[c].label} · ${counts.get(c)}`}>
-              <button
-                aria-pressed={on}
-                aria-label={CATEGORY[c].label}
-                onClick={() => setCategory(on ? null : c)}
-                className={cn("flex h-7 items-center gap-1 rounded-[5px] px-1.5 text-[11.5px] transition-colors", on ? "bg-accent text-on-accent" : "text-ink-3 hover:bg-paper-3 hover:text-ink")}
-              >
-                <Icon size={14} strokeWidth={1.7} />
-                {on && <span className="font-medium">{CATEGORY[c].label}</span>}
-              </button>
-            </Tooltip>
+            <button
+              key={c}
+              aria-pressed={on}
+              onClick={() => setCategory(on ? null : c)}
+              className={cn("flex h-7 shrink-0 items-center gap-1.5 rounded-full border pr-2.5 pl-2 text-[11.5px] font-medium whitespace-nowrap transition-colors", on ? "border-accent bg-accent text-on-accent" : "border-line text-ink-2 hover:border-line-2 hover:bg-paper-3")}
+            >
+              <Icon size={13} strokeWidth={1.8} />
+              {CATEGORY[c].label}
+              <span className={cn("tabular text-[10.5px]", on ? "opacity-80" : "text-ink-4")}>{counts.get(c)}</span>
+            </button>
           );
         })}
       </div>
-      <CommandList ref={list} className="max-h-none min-h-0 flex-1">
+      <CommandList ref={list} className="max-h-none min-h-0 flex-1 px-1 pt-0">
         <CommandEmpty>{total ? `Nothing matches “${query}”.` : "The library is loading…"}</CommandEmpty>
         {groups.map((g) =>
           g.cat && !category ? (
-            <CommandGroup key={g.cat} heading={CATEGORY[g.cat].label}>
+            <CommandGroup key={g.cat} heading={CATEGORY[g.cat].label} className={GRID}>
               {g.defs.map(item)}
             </CommandGroup>
           ) : (
-            <CommandGroup key="results">{g.defs.map(item)}</CommandGroup>
+            <CommandGroup key="results" className={GRID}>
+              {g.defs.map(item)}
+            </CommandGroup>
           ),
         )}
       </CommandList>
@@ -209,6 +228,9 @@ function Configure({ def }: { def: PrimitiveDef }) {
         <CloseButton />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div className="mx-3 mt-3 rounded-[10px] border border-line bg-gradient-to-b from-paper-3/50 to-paper-2/30 py-2">
+          <PrimitiveThumb def={def} width={300} height={150} params={values} iconSize={32} />
+        </div>
         <ParamForm def={def} values={values} onChange={(v) => setParams(def.id, v)} onReset={() => resetParams(def.id)} />
       </div>
       <div className="border-t border-line px-3 py-1.5 text-[10.5px] leading-snug text-ink-4">
