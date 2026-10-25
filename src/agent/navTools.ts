@@ -9,7 +9,7 @@ import { useApp } from "@/state/store";
 import { flyTo, pedestrianAt } from "@/render/camera";
 import { LocalProjection } from "@/world/projection";
 import type { Street, Vec2 } from "@/world/types";
-import { searchPlaces } from "@/search";
+import { searchPlaces, type PlaceResult } from "@/search";
 import { flyToPlace } from "@/search/fly";
 import { looseScore, polyOf, resolvePlace, type PlaceMatch } from "./resolve";
 import type { ToolContext, ToolOutput } from "./tools";
@@ -77,6 +77,14 @@ export function frame(bb: BBox, zoomOverride?: number) {
   flyTo(c, { zoom, pitch: 55 });
 }
 
+/** what a search hit is, in the agent's terms: an area's own type (park, plaza…), else the hit's kind */
+function typeOf(r: PlaceResult): string {
+  const e = r.ids.length ? rtMaybe()?.world.get(r.ids[0]) : undefined;
+  if (e?.kind === "area") return e.type;
+  if ((r.kind === "design" || r.kind === "area") && e) return e.kind;
+  return r.kind;
+}
+
 export const NAV_TOOLS: Record<string, (i: In, ctx: ToolContext) => Promise<ToolOutput>> = {
   async go_to(i) {
     const R = rtMaybe();
@@ -121,7 +129,7 @@ export const NAV_TOOLS: Record<string, (i: In, ctx: ToolContext) => Promise<Tool
       const streets = (junction ? hl : best.ids).filter((id) => R.world.get(id)?.kind === "street");
       return {
         content: {
-          went_to: { name: best.label, type: junction ? "junction" : best.kind, what: best.detail, at: pt(best.point), id: junction || best.ids.length === 1 ? best.ids[0] : undefined, street_ids: streets.length ? streets.slice(0, 40) : undefined, extent_ft: size > 40 ? Math.round(size * 3.28084) : undefined },
+          went_to: { name: best.label, type: junction ? "junction" : typeOf(best), what: best.detail, at: pt(best.point), id: junction || best.ids.length === 1 ? best.ids[0] : undefined, street_ids: streets.length ? streets.slice(0, 40) : undefined, extent_ft: size > 40 ? Math.round(size * 3.28084) : undefined },
           alternatives: alternatives.length ? alternatives : undefined,
           exact: best.score >= 1 || undefined,
         },
