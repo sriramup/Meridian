@@ -313,7 +313,8 @@ export function buildSketch(world: World, plan: SketchPlan, placement: Placement
       demolished++;
     } else standing.push(bld);
   }
-  const policy = opts.replaceExisting || !standing.length ? "demolish" : "report";
+  // never bulldoze unasked: new rights-of-way only report the buildings they would hit
+  const policy = opts.replaceExisting ? "demolish" : "report";
 
   // ---- 1. water
   const waterPolys: Polygon[] = [];
@@ -327,7 +328,7 @@ export function buildSketch(world: World, plan: SketchPlan, placement: Placement
       poly = isValidPoly(band) ? (clip(band, F.outline, 20).sort((x, y) => polyArea(y) - polyArea(x))[0] ?? null) : null;
     }
     if (!poly) continue;
-    const r = createArea(world, { type: "water", poly, name: a.name }, actor, b);
+    const r = createArea(world, { type: "water", poly, name: a.name, buildings: opts.replaceExisting ? "demolish" : "keep" }, actor, b);
     if (r.ok) waterPolys.push(poly);
   }
 
@@ -477,7 +478,7 @@ export function buildSketch(world: World, plan: SketchPlan, placement: Placement
       sub((sb) => {
         let r;
         if (o.kind === "plaza") r = placePrimitive(world, { def: "parks.plaza", params: { centre: "fountain", treeSpacing: 9 }, site: q, name: o.name ?? "Town Square", onConflict: "safe", lenient: true }, actor, sb);
-        else if (o.kind === "parking") r = createArea(world, { type: "parking", poly: q, name: o.name }, actor, sb);
+        else if (o.kind === "parking") r = createArea(world, { type: "parking", poly: q, name: o.name, buildings: "keep" }, actor, sb);
         else if (o.kind === "forest") r = placePrimitive(world, { def: "flora.woodland", site: q, name: o.name, onConflict: "safe", lenient: true }, actor, sb);
         else r = placePrimitive(world, { def: "parks.park", params: { paths: "both", playground: polyArea(q) > 6000, benches: Math.min(16, Math.round(polyArea(q) / 1500) + 2), pavilion: polyArea(q) > 15000, flowerBeds: 3, treeSpacing: 14, treeCover: o.kind === "green" ? 35 : 60, seed: brng.int(1, 9999) }, site: q, name: o.name, onConflict: "safe", lenient: true }, actor, sb);
         if (!r.ok) addArea(sb, o.kind === "plaza" ? "plaza" : o.kind === "parking" ? "parking" : "park", q, o.name);
