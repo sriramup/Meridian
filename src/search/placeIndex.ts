@@ -7,6 +7,7 @@
 // renamed street or a newly placed building is findable right away without a rebuild.
 
 import { pathBBox, polyLength } from "@/geometry/polyline";
+import { fmtLen } from "@/lib/units";
 import { pointInPoly, polyArea, polyBBox, polyCentroid } from "@/geometry/polygon";
 import type { BBox } from "@/world/spatialIndex";
 import type { Entity, Place, Poi, Street, Vec2 } from "@/world/types";
@@ -188,12 +189,8 @@ const USE_WHAT: Record<string, string> = {
 
 const STOP_WHAT: Record<string, string> = { bus: "Bus stop", rapid: "Rapid bus stop", rail: "Rail station", tram: "Tram stop", brt: "BRT station" };
 
-const M_PER_MI = 1609.344;
-/** "1.2 mi", "0.3 mi", "450 ft" */
-export function fmtLength(m: number): string {
-  if (m < 0.1 * M_PER_MI) return `${Math.max(10, Math.round((m * 3.28084) / 10) * 10)} ft`;
-  return `${(m / M_PER_MI).toFixed(m < 10 * M_PER_MI ? 1 : 0)} mi`;
-}
+/** "450 ft", "1.2 mi" (the app's imperial length format) */
+export const fmtLength = (m: number) => fmtLen(m);
 
 /** street segments of one name farther apart than this are separate streets */
 const GROUP_GAP = 400;

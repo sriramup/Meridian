@@ -42,7 +42,7 @@ import {
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { rtMaybe } from "@/state/runtime";
 import { useApp } from "@/state/store";
-import { intersectionOf, placeIndexFor, resolvePlace, searchPlaces, type PlaceResult } from "@/search";
+import { intersectionOf, placeIndexFor, bestPlace, searchPlaces, type PlaceResult } from "@/search";
 import { flyToPlace } from "@/search/fly";
 import { GEOCODER_ATTRIBUTION, geocode } from "@/search/geocode";
 import { highlightShapes, useSearchHighlight } from "@/search/highlight";
@@ -167,7 +167,7 @@ export function PlaceSearch() {
   useEffect(() => {
     const w = window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (h: number) => void };
     const h = w.requestIdleCallback ? w.requestIdleCallback(() => placeIndexFor(), { timeout: 4000 }) : window.setTimeout(() => placeIndexFor(), 1500);
-    (window as unknown as { __meridianSearch: unknown }).__meridianSearch = { search: searchPlaces, resolve: resolvePlace, intersection: intersectionOf, highlight: useSearchHighlight };
+    (window as unknown as { __meridianSearch: unknown }).__meridianSearch = { search: searchPlaces, resolve: bestPlace, intersection: intersectionOf, highlight: useSearchHighlight };
     return () => (w.cancelIdleCallback ? w.cancelIdleCallback(h) : clearTimeout(h));
   }, [R?.world]);
 

@@ -74,8 +74,10 @@ export function flyToPlace(r: Pick<PlaceResult, "kind" | "point" | "bbox"> & { i
     };
     map.on("moveend", finish);
     map.flyTo({ center, zoom, pitch, bearing, curve: 1.42, speed: 1.3, maxDuration: 3000, essential: true });
-    // a flight that goes nowhere fires no moveend
-    setTimeout(finish, 3400);
+    // a flight that goes nowhere fires no moveend (a slow one still will)
+    setTimeout(() => {
+      if (!map.isMoving()) finish();
+    }, 3400);
   });
 }
 
