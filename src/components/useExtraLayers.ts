@@ -14,7 +14,6 @@ export function useExtraLayers(): { ground: Layer[]; top: Layer[] } {
   const overlay = useApp((s) => s.overlay);
   const overlayVersion = useApp((s) => s.overlayVersion);
   const hour = useApp((s) => s.hour);
-  const theme = useApp((s) => s.theme);
   const worldVersion = useApp((s) => s.worldVersion);
   const shown = useSims((s) => s.shown);
   const compare = useSims((s) => s.compare);
@@ -22,9 +21,9 @@ export function useExtraLayers(): { ground: Layer[]; top: Layer[] } {
   // heat cross-fades between modelled hours: follow the clock in 3-minute steps
   const h = overlay === "traffic" ? Math.floor(hour) : overlay === "heat" ? Math.round(hour * 20) / 20 : 0;
   return useMemo(() => {
-    return overlayLayers(overlay, h, theme);
+    return overlayLayers(overlay, h, "model");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [overlay, overlayVersion, h, theme, worldVersion, shown, compare]);
+  }, [overlay, overlayVersion, h, worldVersion, shown, compare]);
 }
 
 /** drawing / placement previews; kept out of the scene layers so cursor moves don't rebuild the city */

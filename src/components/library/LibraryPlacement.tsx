@@ -25,6 +25,7 @@ import { SolidInstances, solidLayers, type PackedLayer } from "@/render/solids";
 import { rt } from "@/state/runtime";
 import { useSnap } from "@/state/snap";
 import { useApp } from "@/state/store";
+import { useNight } from "@/render/daylight";
 import { LocalProjection } from "@/world/projection";
 import type { Building, Entity, Prop, Street, Tree, Vec2 } from "@/world/types";
 import { useLibrary } from "./libraryStore";
@@ -374,7 +375,8 @@ function previewLayers(pv: Preview | null, defPlacement: string | undefined, nig
 export function LibraryPlacement() {
   useMapPointer();
   const tool = useApp((s) => s.tool);
-  const theme = useApp((s) => s.theme);
+  // night looks (glowing lamps) switch with the clock (render/daylight.ts)
+  const theme = useNight((s) => (s.night ? "night" : "model"));
   const tick = useLibrary((s) => s.tick);
   const defId = useLibrary((s) => s.defId);
   const movingId = useLibrary((s) => s.moving);

@@ -1,11 +1,12 @@
 import type { Map as MapLibreMap, StyleSpecification } from "maplibre-gl";
+import { basemapColors } from "./daylight";
 
-/** Muted context basemap from OpenFreeMap vector tiles (OpenMapTiles schema). The study area itself is drawn by deck.gl from the world model. */
-export function basemapStyle(theme: "model" | "night", plain = false): StyleSpecification {
-  const night = theme === "night";
-  const c = night
-    ? { bg: "#14161a", water: "#121c25", park: "#18211b", road: "#24272c", major: "#2b2f35", label: "#7c8088", halo: "#14161a" }
-    : { bg: "#e8d6b1", water: "#b4cac8", park: "#d3d4b0", road: "#d8c39d", major: "#cdb488", label: "#6e5234", halo: "#f1e3c3" };
+/**
+ * Muted context basemap from OpenFreeMap vector tiles (OpenMapTiles schema). The study area itself
+ * is drawn by deck.gl from the world model. `night` (0 day … 1 night, daylight.ts) blends its colours.
+ */
+export function basemapStyle(night: number, plain = false): StyleSpecification {
+  const c = basemapColors(night);
   // the blank canvas has no real place under it: just the backdrop (the climate city's tiles would show through)
   if (plain) return { version: 8, sources: {}, layers: [{ id: "bg", type: "background", paint: { "background-color": c.bg } }] };
   return {
@@ -46,12 +47,25 @@ export function basemapStyle(theme: "model" | "night", plain = false): StyleSpec
   };
 }
 
-/** switch day / night by recolouring the loaded style in place: tiles and the sky stay as they are */
-export function setBasemapTheme(map: MapLibreMap, theme: "model" | "night", plain = false) {
+/**
+ * Follow the clock by recolouring the loaded style in place (tiles and the sky stay as they are).
+ * Only colour properties that changed are set, so a step of the hour costs a few paint updates.
+ */
+const applied = new WeakMap<MapLibreMap, Map<string, unknown>>();
+export function setBasemapNight(map: MapLibreMap, night: number, plain = false) {
   if (!map.isStyleLoaded()) {
-    map.once("load", () => setBasemapTheme(map, theme, plain));
+    map.once("load", () => setBasemapNight(map, night, plain));
     return;
   }
-  for (const l of basemapStyle(theme, plain).layers)
-    if ("paint" in l && l.paint && map.getLayer(l.id)) for (const [k, v] of Object.entries(l.paint)) map.setPaintProperty(l.id, k, v);
+  let seen = applied.get(map);
+  if (!seen) applied.set(map, (seen = new Map()));
+  for (const l of basemapStyle(night, plain).layers)
+    if ("paint" in l && l.paint && map.getLayer(l.id))
+      for (const [k, v] of Object.entries(l.paint)) {
+        if (!k.endsWith("color")) continue;
+        const key = `${l.id}|${k}`;
+        if (seen.get(key) === v) continue;
+        seen.set(key, v);
+        map.setPaintProperty(l.id, k, v);
+      }
 }

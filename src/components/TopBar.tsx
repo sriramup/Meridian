@@ -1,7 +1,7 @@
 "use client";
 
 import * as DM from "@radix-ui/react-dropdown-menu";
-import { Check, ChevronDown, CircleHelp, Download, FileJson, FileSpreadsheet, GitCompare, LoaderCircle, Footprints, GitBranch, Layers, Moon, PanelLeftClose, PanelLeftOpen, Pencil, Plus, Redo2, Sparkles, Sun, Undo2, Upload, Trash2 } from "lucide-react";
+import { Check, ChevronDown, CircleHelp, Download, FileJson, FileSpreadsheet, GitCompare, LoaderCircle, Footprints, GitBranch, Layers, PanelLeftClose, PanelLeftOpen, Pencil, Plus, Redo2, Sparkles, Undo2, Upload, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { rt, rtMaybe } from "@/state/runtime";
 import { useApp } from "@/state/store";
@@ -9,7 +9,7 @@ import { useSims } from "@/sim/client";
 import { compareWith } from "./ImpactPanel";
 import { defaultParams } from "./AnalysisDock";
 import { faceNorth, orbitDrag, overview } from "@/render/camera";
-import { toggleNight, togglePedestrian } from "@/state/view";
+import { togglePedestrian } from "@/state/view";
 import { Wordmark } from "./LoadingScreen";
 import { renameProject, toggleSidebar, useProjects } from "@/state/projects";
 import { exportableScenarios } from "@/state/proposalIO";
@@ -316,9 +316,8 @@ export function ViewControls({ agentOpen }: { agentOpen: boolean }) {
   );
 }
 
-/** what the map shows: day or night, change highlighting, and the layers */
+/** what the map shows: change highlighting and the layers (day and night follow the clock) */
 function ViewMenu() {
-  const theme = useApp((s) => s.theme);
   const showChanges = useApp((s) => s.showChanges);
   const layers = useApp((s) => s.layers);
   const toggle = useApp((s) => s.toggleLayer);
@@ -335,11 +334,6 @@ function ViewMenu() {
       </Tip>
       <DM.Portal>
         <DM.Content sideOffset={6} align="end" className="chrome z-50 w-60 p-1">
-          <DM.Item className={item} onSelect={(e) => (e.preventDefault(), toggleNight())}>
-            {theme === "night" ? <Sun size={13} className="text-ink-3" /> : <Moon size={13} className="text-ink-3" />}
-            <span className="flex-1">{theme === "night" ? "Daytime" : "Night time"}</span>
-            <kbd className="font-mono text-[10px] text-ink-4">N</kbd>
-          </DM.Item>
           <DM.CheckboxItem checked={showChanges} onSelect={(e) => e.preventDefault()} onCheckedChange={() => useApp.getState().setShowChanges(!showChanges)} className={item}>
             {box(showChanges)}
             Highlight what the plan changes
@@ -373,14 +367,15 @@ function ViewMenu() {
  * click to face north, and again to switch between plan view and 3D.
  */
 function Compass() {
-  const [view, setView] = useState({ bearing: 0, pitch: 0 });
+  // the needle follows the camera by writing its transform directly: no React render per frame
+  const needle = useRef<SVGSVGElement>(null);
   const moved = useRef(false);
   useEffect(() => {
     let map = rtMaybe()?.map;
     let raf = 0;
     const read = () => {
       raf = 0;
-      if (map) setView({ bearing: map.getBearing(), pitch: map.getPitch() });
+      if (map && needle.current) needle.current.style.transform = `rotateX(${map.getPitch() * 0.7}deg) rotate(${-map.getBearing()}deg)`;
     };
     const on = () => (raf ||= requestAnimationFrame(read));
     let tries = 0;
@@ -423,7 +418,7 @@ function Compass() {
   return (
     <Tip label="Drag to rotate & tilt · click to face north" kbd="Q E · ⇧↑↓">
       <IconButton size="sm" onPointerDown={down} onClick={() => !moved.current && faceNorth()} className="cursor-grab touch-none active:cursor-grabbing" aria-label="Compass: drag to rotate and tilt, click to face north">
-        <svg width="18" height="18" viewBox="-9 -9 18 18" aria-hidden style={{ transform: `rotateX(${view.pitch * 0.7}deg) rotate(${-view.bearing}deg)` }}>
+        <svg ref={needle} width="18" height="18" viewBox="-9 -9 18 18" aria-hidden>
           <circle r="8" fill="none" stroke="currentColor" strokeOpacity="0.35" strokeWidth="1" />
           <path d="M0 -6.5 2.6 0H-2.6Z" fill="var(--color-bad, #e5484d)" />
           <path d="M0 6.5 2.6 0H-2.6Z" fill="currentColor" fillOpacity="0.55" />

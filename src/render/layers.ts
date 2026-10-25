@@ -7,12 +7,14 @@ import type { Runtime } from "@/state/runtime";
 import type { AppState } from "@/state/store";
 import type { Entity, Street, TransitRoute } from "@/world/types";
 import { FacadeLayer } from "./FacadeLayer";
+import { NIGHT_TONE } from "./daylight";
+import { duskProps } from "./dusk";
 import { fadedGround } from "./edge";
 import { coneMesh, crownMesh, cylinderMesh, sphereMesh } from "./meshes";
 import { outlineFor, type Chunk, type MarkDatum, type MassDatum, type SurfaceDatum, type TreeDatum } from "./scene";
 import type { ChunkLoader, ChunkView } from "./chunkLoader";
 import { FAR, MID, NEAR } from "./lod";
-import type { RGBA, Theme } from "./theme";
+import { NIGHT, type RGBA, type Theme } from "./theme";
 
 /** tree crowns by tier: clustered lobes near (~450 vertices), a sphere at mid range, a blob far */
 const CROWN = crownMesh();
@@ -42,6 +44,7 @@ function canopyLayer(id: string, mesh: unknown, data: TreeDatum[], shown: boolea
       getColor: color,
       pickable: true,
       material: TREE_MATERIAL,
+      ...duskProps(NIGHT_TONE.tree),
     }),
   );
 }
@@ -52,7 +55,10 @@ const FLAT = { depthWriteEnabled: false, depthCompare: "always" } as const;
 export interface LayerContext {
   rt: Runtime;
   theme: Theme;
-  app: Pick<AppState, "selection" | "layers" | "highlight" | "theme" | "cameraMode">;
+  app: Pick<AppState, "selection" | "layers" | "highlight" | "cameraMode"> & {
+    /** night enough for light-on-dark street names (daylight.ts: useNight) */
+    night: boolean;
+  };
   /** zoom band (zoomBand) */
   zoom: number;
   /** which chunks are built, which of their layers exist, and each chunk's tier and visibility */
@@ -96,6 +102,11 @@ function keep<L extends Layer>(id: string, sig: unknown[], make: () => L): L {
   const layer = make();
   kept.set(id, { sig, layer });
   return layer;
+}
+
+/** drop kept layers (their data was released, e.g. under the memory cap) so they are rebuilt fresh */
+export function forgetLayers(ids: string[]) {
+  for (const id of ids) kept.delete(id);
 }
 
 /** a chunk's areas followed by its street surfaces, kept while neither array changed */
@@ -174,6 +185,8 @@ function streetLabels(rt: Runtime) {
   return data;
 }
 
+let outlineCache: { sig: unknown[]; layers: Layer[] } | null = null;
+
 let plantedCache: { all: TreeDatum[]; out: TreeDatum[] } | null = null;
 function plantedTrees(all: TreeDatum[]) {
   if (plantedCache?.all !== all) plantedCache = { all, out: all.filter((t) => t.proposed) };
@@ -218,6 +231,7 @@ export function buildLayers(ctx: LayerContext): SceneLayers {
   if (keptFor !== rt) {
     kept.clear();
     treeCache = null;
+    outlineCache = null;
     keptFor = rt;
   }
   const origin = [rt.meta.origin.lon, rt.meta.origin.lat, 0] as [number, number, number];
@@ -248,6 +262,7 @@ export function buildLayers(ctx: LayerContext): SceneLayers {
         getFillColor: (d) => [...T.land, 255 * d.alpha] as RGBA,
         updateTriggers: { getFillColor: [T.id] },
         parameters: FLAT,
+        ...duskProps(NIGHT_TONE.land),
       }),
     ),
   );
@@ -264,6 +279,7 @@ export function buildLayers(ctx: LayerContext): SceneLayers {
           getFillColor: (d: { type: string; fade: number }) => [...(T.area[d.type as keyof Theme["area"]] ?? T.context), 200 * d.fade] as RGBA,
           updateTriggers: { getFillColor: [T.id] },
           parameters: FLAT,
+          ...duskProps(NIGHT_TONE.area),
         }),
       ),
       keep("ctx-roads", [T.id, lay.context], () =>
@@ -280,6 +296,7 @@ export function buildLayers(ctx: LayerContext): SceneLayers {
           jointRounded: true,
           capRounded: true,
           parameters: FLAT,
+          ...duskProps(NIGHT_TONE.road),
         }),
       ),
     );
@@ -303,6 +320,7 @@ export function buildLayers(ctx: LayerContext): SceneLayers {
             updateTriggers: { getFillColor: paint },
             pickable: true,
             parameters: FLAT,
+            ...duskProps(NIGHT_TONE.surface),
           }),
         ),
       );
@@ -324,6 +342,7 @@ export function buildLayers(ctx: LayerContext): SceneLayers {
             widthUnits: "meters",
             widthMinPixels: 1,
             parameters: FLAT,
+            ...duskProps(NIGHT_TONE.path),
           }),
         ),
       );
@@ -347,7 +366,7 @@ export function buildLayers(ctx: LayerContext): SceneLayers {
             updateTriggers: { getColor: paint },
             dashJustified: false,
             capRounded: false,
-            extensions: [dashExt],
+            ...duskProps(NIGHT_TONE.mark, dashExt),
             parameters: FLAT,
           }),
         ),
@@ -371,6 +390,7 @@ export function buildLayers(ctx: LayerContext): SceneLayers {
             getElevation: (d) => (d.kind === "island" ? 0.25 : 0.15),
             pickable: true,
             material: KERB_MATERIAL,
+            ...duskProps(NIGHT_TONE.kerb),
           }),
         ),
       );
@@ -387,7 +407,7 @@ export function buildLayers(ctx: LayerContext): SceneLayers {
     if (v.parts.has("masses") && c.masses.length) {
       const detail = v.tier === FAR ? 0 : 1;
       layers.push(
-        keep(`bld-${c.key}`, [c.masses, paint, v.visible, detail, T.night], () =>
+        keep(`bld-${c.key}`, [c.masses, paint, v.visible, detail], () =>
           new FacadeLayer<MassDatum>({
             id: `bld-${c.key}`,
             ...common,
@@ -399,7 +419,7 @@ export function buildLayers(ctx: LayerContext): SceneLayers {
             updateTriggers: { getFillColor: paint },
             extruded: true,
             pickable: true,
-            night: T.night,
+            nightTone: NIGHT_TONE.building,
             detail,
             material: BUILDING_MATERIAL,
           }),
@@ -423,7 +443,7 @@ export function buildLayers(ctx: LayerContext): SceneLayers {
               getFillColor: (d) => T.contextBuilding.map((c, i) => T.land[i] + (c - T.land[i]) * d.fade).concat(251) as RGBA,
               updateTriggers: { getFillColor: [T.id] },
               extruded: true,
-              night: T.night,
+              nightTone: NIGHT_TONE.context,
               detail: 0,
               material: CONTEXT_MATERIAL,
             }),
@@ -470,6 +490,7 @@ export function buildLayers(ctx: LayerContext): SceneLayers {
           getPosition: (d) => d.position,
           getScale: (d) => (d.shape === "conical" ? [0.25 + d.r * 0.04, 0.25 + d.r * 0.04, d.h * 0.3] : [0.22 + d.r * 0.03, 0.22 + d.r * 0.03, Math.max(1.5, d.h - d.r * squash(d) * 1.6)]),
           getColor: trunk,
+          ...duskProps(NIGHT_TONE.trunk),
         }),
       ),
       canopyLayer("tree-canopies-near", CROWN, sets.near, shown, green, common),
@@ -487,18 +508,24 @@ export function buildLayers(ctx: LayerContext): SceneLayers {
           getColor: green,
           pickable: true,
           material: TREE_MATERIAL,
+          ...duskProps(NIGHT_TONE.tree),
         }),
       ),
     );
   }
 
-  layers.push(...outlineLayers("outlines", common, rt, outlined));
+  // outlines are rebuilt only when the selection, the highlight or the world changes (not when
+  // chunks stream in or the camera changes tiers)
+  const oSig = [app.selection, app.highlight, rt.world.version, T];
+  if (!outlineCache || outlineCache.sig.some((v, i) => v !== oSig[i])) outlineCache = { sig: oSig, layers: outlineLayers("outlines", common, rt, outlined) };
+  layers.push(...outlineCache.layers);
 
   // ---- transit
   if (app.layers.transit) {
     const routes = rt.world.all("route") as TransitRoute[];
+    const tv = rt.world.version;
     layers.push(
-      new PathLayer<TransitRoute>({
+      keep("transit-routes", [tv], () => new PathLayer<TransitRoute>({
         id: "transit-routes",
         ...common,
         data: routes,
@@ -512,9 +539,10 @@ export function buildLayers(ctx: LayerContext): SceneLayers {
         widthMinPixels: 1.5,
         pickable: true,
         jointRounded: true,
-        parameters: { depthCompare: "always", depthWriteEnabled: false },
-      }),
-      new ScatterplotLayer({
+        // depth-tested: a route passes behind buildings, never over them
+        parameters: { depthCompare: "less-equal", depthWriteEnabled: false },
+      })),
+      keep("transit-stops", [tv], () => new ScatterplotLayer({
         id: "transit-stops",
         ...common,
         data: rt.world.all("stop"),
@@ -527,8 +555,8 @@ export function buildLayers(ctx: LayerContext): SceneLayers {
         lineWidthMinPixels: 1.2,
         stroked: true,
         pickable: true,
-        parameters: { depthCompare: "always", depthWriteEnabled: false },
-      }),
+        parameters: { depthCompare: "less-equal", depthWriteEnabled: false },
+      })),
     );
   }
 
@@ -539,8 +567,9 @@ export function buildLayers(ctx: LayerContext): SceneLayers {
   if (loader.globals.has("labels")) {
     const visible = lay.labels && ctx.zoom >= 14.8;
     const data = streetLabels(rt);
+    const ink = app.night ? NIGHT : T;
     layers.push(
-      keep("street-labels", [data, visible, T.id], () =>
+      keep("street-labels", [data, visible, ink], () =>
         new TextLayer({
           id: "street-labels",
           ...common,
@@ -550,18 +579,20 @@ export function buildLayers(ctx: LayerContext): SceneLayers {
           getPosition: (d: { position: Position }) => d.position,
           getAngle: (d: { angle: number }) => d.angle,
           getSize: (d: { size: number }) => d.size,
-          getColor: T.text,
+          getColor: ink.text,
           fontFamily: "Geist, Inter, system-ui, sans-serif",
           fontWeight: 600,
           characterSet: "auto",
           billboard: false,
           sizeUnits: "pixels",
           outlineWidth: 3,
-          outlineColor: T.textHalo,
+          outlineColor: ink.textHalo,
           fontSettings: { sdf: true, fontSize: 48, buffer: 6 },
           getTextAnchor: "middle",
           getAlignmentBaseline: "center",
-          parameters: { depthCompare: "always", depthWriteEnabled: false },
+          // names lie on the street (0.5 m up, above kerbs) and are depth-tested: a building in
+          // front of a street hides its name instead of the name printing over the building
+          parameters: { depthCompare: "less-equal", depthWriteEnabled: false },
         }),
       ),
     );

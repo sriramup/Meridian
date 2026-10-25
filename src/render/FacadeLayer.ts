@@ -9,6 +9,7 @@
 
 import { SolidPolygonLayer, type SolidPolygonLayerProps } from "@deck.gl/layers";
 import type { ShaderModule } from "@luma.gl/shadertools";
+import { daylight } from "./daylight";
 
 export const FACADE = { glass: 0, masonry: 1, concrete: 2, metal: 3, timber: 4, stucco: 5, parking: 6, proposed: 7 } as const;
 export const facadeAlpha = (t: number) => 250 - t;
@@ -17,16 +18,17 @@ const uniformBlock = /* glsl */ `
 layout(std140) uniform facadeUniforms {
   float night;
   float detail;
+  vec3 tone;
 } facade;
 `;
 
-type FacadeProps = { night: number; detail: number };
+type FacadeProps = { night: number; detail: number; tone: [number, number, number] };
 
 const facadeModule = {
   name: "facade",
   vs: uniformBlock,
   fs: uniformBlock,
-  uniformTypes: { night: "f32", detail: "f32" },
+  uniformTypes: { night: "f32", detail: "f32", tone: "vec3<f32>" },
 } as const satisfies ShaderModule<FacadeProps>;
 
 const fsCode = /* glsl */ `
@@ -132,11 +134,16 @@ vec3 fac_apply(vec3 base, vec3 pos, vec3 nrm, float type, vec2 d) {
 }
 `;
 
-export type FacadeLayerProps<D> = SolidPolygonLayerProps<D> & { night?: number; detail?: number };
+/**
+ * night: 0..1, or -1 (default) to follow the clock (daylight.night, read at draw time, so the hour
+ * changing never changes props). nightTone: what the walls keep of their day colour at full night.
+ */
+type ExtraProps = { night?: number; detail?: number; nightTone?: [number, number, number] };
+export type FacadeLayerProps<D> = SolidPolygonLayerProps<D> & ExtraProps;
 
-export class FacadeLayer<D = unknown> extends SolidPolygonLayer<D, { night?: number; detail?: number }> {
+export class FacadeLayer<D = unknown> extends SolidPolygonLayer<D, ExtraProps> {
   static layerName = "FacadeLayer";
-  static defaultProps = { ...SolidPolygonLayer.defaultProps, night: 0, detail: 1 };
+  static defaultProps = { ...SolidPolygonLayer.defaultProps, night: -1, detail: 1, nightTone: [0.35, 0.37, 0.41] };
 
   getShaders(type: "top" | "side") {
     const shaders = super.getShaders(type);
@@ -158,6 +165,8 @@ export class FacadeLayer<D = unknown> extends SolidPolygonLayer<D, { night?: num
           vec2 facD = vec2(length(fwidth(vFacPos.xy)), fwidth(vFacPos.z));
           // some rasterisers return zero derivatives on parts of a quad; never let that disable the fade
           facD = max(facD, vec2(vFacMpp));
+          // night grade: walls and roofs keep the layer's night tone of their day colour
+          color.rgb *= mix(vec3(1.0), facade.tone, facade.night);
           if (vFacType >= 242.5 && vFacType <= 251.5) {
             float ftype = floor(250.5 - vFacType); // integral type id; never compare a raw float with ==
             color.rgb = fac_apply(color.rgb, vFacPos, vFacNormal, ftype, facD);
@@ -170,7 +179,9 @@ export class FacadeLayer<D = unknown> extends SolidPolygonLayer<D, { night?: num
 
   draw(opts: Parameters<SolidPolygonLayer<D>["draw"]>[0]) {
     const p = this.props as unknown as FacadeLayerProps<D>;
-    for (const model of this.getModels()) model.shaderInputs.setProps({ facade: { night: p.night ?? 0, detail: p.detail ?? 1 } });
+    const night = p.night === undefined || p.night < 0 ? daylight.night : p.night;
+    const tone = p.nightTone ?? [0.35, 0.37, 0.41];
+    for (const model of this.getModels()) model.shaderInputs.setProps({ facade: { night, detail: p.detail ?? 1, tone } });
     super.draw(opts);
   }
 }

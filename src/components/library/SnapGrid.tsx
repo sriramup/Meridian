@@ -13,6 +13,7 @@ import { MODEL, NIGHT } from "@/render/theme";
 import { rtMaybe } from "@/state/runtime";
 import { gridOn, useSnap } from "@/state/snap";
 import { useApp } from "@/state/store";
+import { useNight } from "@/render/daylight";
 import { FT } from "@/world/ops/snap";
 
 const FLAT = { depthCompare: "always", depthWriteEnabled: false } as const;
@@ -85,7 +86,8 @@ export function SnapGrid() {
   useModifierKeys();
   const snap = useSnap();
   const on = gridOn(snap);
-  const theme = useApp((s) => s.theme);
+  // the grid follows the clock: light lines on dark ground at night (render/daylight.ts)
+  const theme = useNight((s) => (s.night ? "night" : "model"));
   const status = useApp((s) => s.status);
   const mpp = useMapScale();
   const layers = useMemo((): Layer[] | null => {

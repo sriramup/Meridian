@@ -47,9 +47,6 @@ export interface AppState {
   palette: Palette;
   setPalette: <K extends keyof Palette>(k: K, p: Partial<Palette[K]>) => void;
 
-  theme: "model" | "night";
-  setTheme: (t: "model" | "night") => void;
-
   cameraMode: CameraMode;
   setCameraMode: (m: CameraMode) => void;
 
@@ -144,9 +141,6 @@ export const useApp = create<AppState>((set, get) => ({
     transit: { mode: "bus", headway: 10 },
   },
   setPalette: (k, p) => set((s) => ({ palette: { ...s.palette, [k]: { ...s.palette[k], ...p } } })),
-
-  theme: "model",
-  setTheme: (theme) => set({ theme }),
 
   cameraMode: "orbit",
   setCameraMode: (cameraMode) => set({ cameraMode }),
