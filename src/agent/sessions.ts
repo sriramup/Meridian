@@ -48,6 +48,8 @@ export interface AgentsState {
   configured: boolean | null;
   /** models per tier reported by the server */
   models: Partial<Record<Tier, string>>;
+  /** server spend ledger (USD) when last checked */
+  spend?: { total_usd: number; cap_usd: number | null; remaining_usd: number | null };
 }
 
 /** per-session runtime state that is not rendered */
@@ -187,7 +189,7 @@ export async function checkAgent() {
   try {
     const r = await fetch("/api/agent");
     const j = await r.json();
-    useAgents.setState({ configured: !!j.configured, models: j.models ?? { standard: j.model } });
+    useAgents.setState({ configured: !!j.configured, models: j.models ?? { standard: j.model }, spend: j.spend });
   } catch {
     useAgents.setState({ configured: false });
   }
@@ -195,7 +197,7 @@ export async function checkAgent() {
 
 // ---------------------------------------------------------------- transport
 
-export type StreamEvent = { t: "text" | "thinking"; d: string } | { t: "tool"; id: string; name: string } | { t: "final"; message: Anthropic.Beta.BetaMessage } | { t: "route"; model: string; effort: string } | { t: "error"; message: string };
+export type StreamEvent = { t: "text" | "thinking"; d: string } | { t: "tool"; id: string; name: string } | { t: "final"; message: Anthropic.Beta.BetaMessage; cost?: { usd: number; total_usd: number; cap_usd: number | null } } | { t: "route"; model: string; effort: string } | { t: "error"; message: string };
 export type Transport = (body: { messages: MsgParam[]; tier: Tier; city: string }, signal: AbortSignal) => AsyncIterable<StreamEvent>;
 
 async function* fetchTransport(body: { messages: MsgParam[]; tier: Tier; city: string }, signal: AbortSignal): AsyncIterable<StreamEvent> {
@@ -367,11 +369,12 @@ function toolCtx(sessionId: string, signal: AbortSignal): ToolContext {
   };
 }
 
-async function streamTurn(sessionId: string, itemId: string, tier: Tier, signal: AbortSignal, onFirst: () => void): Promise<{ msg: Anthropic.Beta.BetaMessage | null; model?: string }> {
+async function streamTurn(sessionId: string, itemId: string, tier: Tier, signal: AbortSignal, onFirst: () => void): Promise<{ msg: Anthropic.Beta.BetaMessage | null; model?: string; usd?: number }> {
   const r = rtOf(sessionId);
   let final: Anthropic.Beta.BetaMessage | null = null;
   let model: string | undefined;
   let firstSeen = false;
+  let usd: number | undefined;
   const append = (type: "thinking" | "text", d: string) =>
     patchItem(sessionId, itemId, (it) => {
       if (it.kind !== "assistant") return it;
@@ -391,10 +394,13 @@ async function streamTurn(sessionId: string, itemId: string, tier: Tier, signal:
     else if (ev.t === "thinking") append("thinking", ev.d);
     else if (ev.t === "tool") patchItem(sessionId, itemId, (it) => (it.kind === "assistant" ? { ...it, segments: [...it.segments, { type: "tool", call: { id: ev.id, name: ev.name, status: "streaming", startedAt: Date.now() } }] } : it));
     else if (ev.t === "route") model = ev.model;
-    else if (ev.t === "final") final = ev.message;
+    else if (ev.t === "final") {
+      final = ev.message;
+      usd = ev.cost?.usd;
+    }
     else if (ev.t === "error") throw new Error(ev.message);
   }
-  return { msg: final, model };
+  return { msg: final, model, usd };
 }
 
 const asView = (d: ToolOutput["display"]): ToolCallView["display"] => d;
@@ -486,6 +492,7 @@ export async function send(id: string, text: string, opts: { mode?: AgentMode; z
   let tools = 0;
   let firstMs: number | undefined;
   let model: string | undefined;
+  let cost = 0;
   try {
     const maxSteps = MAX_STEPS[route.tier];
     for (let step = 0; step < maxSteps; step++) {
@@ -499,6 +506,7 @@ export async function send(id: string, text: string, opts: { mode?: AgentMode; z
       pushItem(id, { kind: "assistant", id: itemId, segments: [], done: false, startedAt: ts });
       const turn = await streamTurn(id, itemId, route.tier, signal, () => (firstMs ??= Date.now() - t0));
       model = turn.model ?? model;
+      cost += turn.usd ?? 0;
       const msg = turn.msg;
       if (!msg) throw new Error("The model stream ended without a message");
       r.messages.push({ role: "assistant", content: msg.content } as unknown as MsgParam);
@@ -531,7 +539,7 @@ export async function send(id: string, text: string, opts: { mode?: AgentMode; z
     patch(id, (x) => ({
       status: "idle",
       items: signal.aborted ? [...x.items, { kind: "notice", id: nid("n"), tone: "info", text: "Stopped." }] : x.items,
-      lastRun: { ...x.lastRun!, model, ms: Date.now() - t0, firstTokenMs: firstMs, tools },
+      lastRun: { ...x.lastRun!, model, ms: Date.now() - t0, firstTokenMs: firstMs, tools, costUsd: cost },
     }));
   } catch (e) {
     const err = e as Error;
@@ -546,7 +554,7 @@ export async function send(id: string, text: string, opts: { mode?: AgentMode; z
       status: aborted ? "idle" : "error",
       error: aborted ? undefined : err.message,
       items: [...x.items.map((it) => (it.kind === "assistant" && !it.done ? { ...it, done: true } : it)), { kind: "notice", id: nid("n"), tone: aborted ? "info" : "error", text: aborted ? "Stopped." : err.message }],
-      lastRun: x.lastRun ? { ...x.lastRun, model, ms: Date.now() - t0, firstTokenMs: firstMs, tools } : undefined,
+      lastRun: x.lastRun ? { ...x.lastRun, model, ms: Date.now() - t0, firstTokenMs: firstMs, tools, costUsd: cost } : undefined,
     }));
   } finally {
     r.abort = null;
