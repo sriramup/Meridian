@@ -5,7 +5,6 @@ In fairytales, kings and queens are best remembered not by the crowns they wore,
 But we are not living in the past. Now, it is our turn to *shape our world*.
 
 Introducing **Meridian**, an agentic workspace for designing and simulating real cities.
-
 ---
 
 ![Inspiration](https://meridian-assets-tawny.vercel.app/inspiration-torn.webp)
