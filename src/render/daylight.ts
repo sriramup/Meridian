@@ -22,8 +22,14 @@ export interface Daylight {
   hour: number;
   /** sun altitude (degrees) */
   alt: number;
-  /** 0 full day … 1 full night (civil twilight is most of the way) */
+  /** 0 full day … 1 full night (civil twilight is most of the way): lit windows, lamps, labels */
   night: number;
+  /**
+   * 0 … 1: how far surfaces are graded towards their night tone. Starts earlier than `night`
+   * (as the sun gets low), so unlit ground dims together with roofs that the low sun no longer
+   * reaches, instead of staying bright while the buildings go dark.
+   */
+  dim: number;
   sun: { intensity: number; color: RGB };
   moon: { intensity: number; color: RGB };
   ambient: { intensity: number; color: RGB };
@@ -36,6 +42,7 @@ const DAY_AMBIENT = 0.62;
 const NIGHT_AMBIENT = 0.36;
 const DAY_SUN = 1.9;
 const MOON = 0.42;
+const TWILIGHT = 0.8;
 
 const smooth = (a: number, b: number, x: number) => {
   const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
@@ -49,16 +56,20 @@ export function nightAt(altDeg: number): number {
 }
 
 /** the lighting state for a sun altitude (pure; timestamps are filled in by daylightFor) */
-export function lightsAt(altDeg: number): Pick<Daylight, "night" | "sun" | "moon" | "ambient"> {
+export function lightsAt(altDeg: number): Pick<Daylight, "night" | "dim" | "sun" | "moon" | "ambient"> {
   const night = nightAt(altDeg);
+  const dim = 1 - smooth(-10, 16, altDeg);
   // the sun fades out as it touches the horizon and is golden near it
   const up = smooth(-1.5, 10, altDeg);
   const warm = 1 - smooth(2, 22, altDeg);
+  // twilight: the sky still lights the city after the sun is gone (skylight makes up the sun's loss)
+  const sky = TWILIGHT * (1 - up) * (1 - night);
   return {
     night,
+    dim,
     sun: { intensity: DAY_SUN * up, color: mixRGB([255, 248, 236], [255, 178, 112], warm) },
     moon: { intensity: MOON * night, color: [150, 162, 205] },
-    ambient: { intensity: DAY_AMBIENT + (NIGHT_AMBIENT - DAY_AMBIENT) * night, color: mixRGB([255, 255, 255], [196, 206, 236], night) },
+    ambient: { intensity: DAY_AMBIENT + (NIGHT_AMBIENT - DAY_AMBIENT) * night + sky, color: mixRGB(mixRGB([255, 255, 255], [255, 222, 206], sky / TWILIGHT), [196, 206, 236], night) },
   };
 }
 

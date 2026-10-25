@@ -39,7 +39,7 @@ export class DuskExtension extends LayerExtension {
 
   draw(this: Layer<DuskExtensionProps>) {
     const tone = (this.props.duskTone ?? [0.2, 0.22, 0.26]) as [number, number, number];
-    this.setShaderModuleProps({ dusk: { night: daylight.night, tone } });
+    this.setShaderModuleProps({ dusk: { night: daylight.dim, tone } });
   }
 }
 

@@ -18,17 +18,18 @@ const uniformBlock = /* glsl */ `
 layout(std140) uniform facadeUniforms {
   float night;
   float detail;
+  float dim;
   vec3 tone;
 } facade;
 `;
 
-type FacadeProps = { night: number; detail: number; tone: [number, number, number] };
+type FacadeProps = { night: number; detail: number; dim: number; tone: [number, number, number] };
 
 const facadeModule = {
   name: "facade",
   vs: uniformBlock,
   fs: uniformBlock,
-  uniformTypes: { night: "f32", detail: "f32", tone: "vec3<f32>" },
+  uniformTypes: { night: "f32", detail: "f32", dim: "f32", tone: "vec3<f32>" },
 } as const satisfies ShaderModule<FacadeProps>;
 
 const fsCode = /* glsl */ `
@@ -166,7 +167,7 @@ export class FacadeLayer<D = unknown> extends SolidPolygonLayer<D, ExtraProps> {
           // some rasterisers return zero derivatives on parts of a quad; never let that disable the fade
           facD = max(facD, vec2(vFacMpp));
           // night grade: walls and roofs keep the layer's night tone of their day colour
-          color.rgb *= mix(vec3(1.0), facade.tone, facade.night);
+          color.rgb *= mix(vec3(1.0), facade.tone, facade.dim);
           if (vFacType >= 242.5 && vFacType <= 251.5) {
             float ftype = floor(250.5 - vFacType); // integral type id; never compare a raw float with ==
             color.rgb = fac_apply(color.rgb, vFacPos, vFacNormal, ftype, facD);
@@ -179,9 +180,11 @@ export class FacadeLayer<D = unknown> extends SolidPolygonLayer<D, ExtraProps> {
 
   draw(opts: Parameters<SolidPolygonLayer<D>["draw"]>[0]) {
     const p = this.props as unknown as FacadeLayerProps<D>;
-    const night = p.night === undefined || p.night < 0 ? daylight.night : p.night;
+    const follow = p.night === undefined || p.night < 0;
+    const night = follow ? daylight.night : (p.night as number);
+    const dim = follow ? daylight.dim : night;
     const tone = p.nightTone ?? [0.35, 0.37, 0.41];
-    for (const model of this.getModels()) model.shaderInputs.setProps({ facade: { night, detail: p.detail ?? 1, tone } });
+    for (const model of this.getModels()) model.shaderInputs.setProps({ facade: { night, detail: p.detail ?? 1, dim, tone } });
     super.draw(opts);
   }
 }
