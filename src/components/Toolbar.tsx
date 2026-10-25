@@ -2,7 +2,7 @@
 
 import { Building2, Grid3x3, LibraryBig, LayoutGrid, MousePointer2, Ruler, Spline, Square, TramFront, TreeDeciduous } from "lucide-react";
 import { Fragment, useEffect, type ReactNode } from "react";
-import { TYPOLOGIES } from "@/geometry/massing";
+import { TYPOLOGIES, type Typology } from "@/geometry/massing";
 import { MODEL } from "@/render/theme";
 import { createDrawn, paletteStreetWidth } from "@/state/create";
 import { draw, resetDraw } from "@/state/drawing";
@@ -10,6 +10,7 @@ import { useApp, type Palette, type Tool } from "@/state/store";
 import { SPECIES } from "@/world/species";
 import type { Vec2 } from "@/world/types";
 import { LibraryPanel } from "./library/LibraryPanel";
+import { DistrictPlan, MassingPreview, SpeciesThumb, StreetSection, SurfaceThumb, TransitDiagram } from "./paletteArt";
 import { Kbd, NumberField, Popover, PopoverContent, PopoverTrigger, Segmented, SelectField, Slider, Switch } from "@/components/ui/kit";
 import { gridOn, useSnap } from "@/state/snap";
 import { GRID_SIZES_FT, type GridFt } from "@/world/ops/snap";
@@ -123,7 +124,7 @@ function PlantingPalette() {
         {SPECIES.map((x) => (
           <Choice key={x.id} on={x.id === pl.species} onClick={() => set({ species: x.id })} title={x.note}>
             <span className="flex items-center gap-1.5 whitespace-nowrap">
-              <span className="block shrink-0 rounded-full" style={{ width: 4 + x.r * 1.6, height: 4 + x.r * 1.6, background: `rgb(${x.color.join(",")})` }} />
+              <SpeciesThumb species={x.id} size={30} />
               <span className="font-medium">{x.name}</span>
             </span>
           </Choice>
@@ -148,10 +149,11 @@ function PlantingPalette() {
 }
 
 /** a palette: title, the element's options, and how to draw it */
-function Panel({ title, children, hint }: { title: string; children: ReactNode; hint: string }) {
+function Panel({ title, children, hint, picture }: { title: string; children: ReactNode; hint: string; picture?: ReactNode }) {
   return (
-    <div className="chrome w-[272px] p-3">
+    <div className="chrome w-[292px] p-3">
       <div className="font-display text-[17px] leading-none font-semibold text-ink">{title}</div>
+      {picture && <div className="mt-2.5 overflow-hidden rounded-[8px] border border-line bg-gradient-to-b from-paper-3/50 to-paper-2/30 px-2 py-2">{picture}</div>}
       <div className="mt-2.5 space-y-2.5">{children}</div>
       <p className="mt-3 border-t border-line pt-2 text-[11px] leading-snug text-ink-4">{hint}</p>
     </div>
@@ -188,10 +190,17 @@ function StreetPalette() {
   const p = useApp((s) => s.palette.street);
   const set = useApp((s) => s.setPalette);
   return (
-    <Panel title="Street" hint={`≈ ${Math.round(paletteStreetWidth(p) / 0.3048)} ft right-of-way. Click to place points, then click the last point or press Enter. Crossings become junctions.`}>
+    <Panel
+      title="Street"
+      hint={`≈ ${Math.round(paletteStreetWidth(p) / 0.3048)} ft right-of-way. Click to place points, then click the last point or press Enter. Crossings become junctions.`}
+      picture={<StreetSection cls={p.cls} bike={p.bike} trees={p.trees} />}
+    >
       <div className="grid grid-cols-2 gap-1">
         {STREETS.map((x) => (
           <Choice key={x.cls} on={p.cls === x.cls} onClick={() => set("street", { cls: x.cls })}>
+            <span className="mb-1 block w-full opacity-90">
+              <StreetSection cls={x.cls} bike="none" trees height={26} labels={false} />
+            </span>
             <span className="font-medium">{x.name}</span>
             <span className="text-[10.5px] text-ink-4">{x.note}</span>
           </Choice>
@@ -234,7 +243,7 @@ function BuildingPalette() {
   const p = useApp((s) => s.palette.building);
   const set = useApp((s) => s.setPalette);
   return (
-    <Panel title="Building" hint="Outline the footprint; click the first corner to finish. Floors, form and roof can be changed afterwards.">
+    <Panel title="Building" hint="Outline the footprint; click the first corner to finish. Floors, form and roof can be changed afterwards." picture={<MassingPreview typology={p.typology as Typology} floors={p.floors} use={p.use === "fire_station" ? "civic" : p.use} />}>
       <div className="grid grid-cols-3 gap-1">
         {USES.map((x) => (
           <Choice key={x.use} on={p.use === x.use} onClick={() => set("building", { use: x.use, ...(x.use === "fire_station" ? { floors: 2, typology: "block" } : {}) })}>
@@ -273,7 +282,9 @@ function AreaPalette() {
       <div className="grid grid-cols-3 gap-1">
         {AREAS.map((x) => (
           <Choice key={x.type} on={p.type === x.type} onClick={() => set("area", { type: x.type })}>
-            <span className="mb-1 block h-2.5 w-full rounded-[2px]" style={{ background: `rgb(${(MODEL.area[x.type] ?? [200, 200, 200]).join(",")})` }} />
+            <span className="mb-1 block w-full">
+              <SurfaceThumb type={x.type} />
+            </span>
             {x.name}
           </Choice>
         ))}
@@ -300,6 +311,9 @@ function DistrictPalette() {
       <div className="grid grid-cols-2 gap-1">
         {STYLES.map((x) => (
           <Choice key={x.style} on={p.style === x.style} onClick={() => set("district", { style: x.style })}>
+            <span className="mb-1.5 block w-full">
+              <DistrictPlan style={x.style} />
+            </span>
             <span className="font-medium">{x.name}</span>
             <span className="text-[10.5px] text-ink-4">{x.note}</span>
           </Choice>
@@ -325,7 +339,11 @@ function TransitPalette() {
   const p = useApp((s) => s.palette.transit);
   const set = useApp((s) => s.setPalette);
   return (
-    <Panel title="Transit line" hint="Click along existing streets from one end to the other, then click the last point or press Enter. The line follows the streets; stops are spaced 350–550 m. Rapid bus and tram get their own lanes.">
+    <Panel
+      title="Transit line"
+      hint="Click along existing streets from one end to the other, then click the last point or press Enter. The line follows the streets; stops are spaced 350–550 m. Rapid bus and tram get their own lanes."
+      picture={<TransitDiagram mode={p.mode} headway={p.headway} />}
+    >
       <Segmented
         size="xs"
         value={p.mode}
