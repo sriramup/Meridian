@@ -13,6 +13,10 @@
 // - Preserving: once created, a layer is kept (same id and data, so its GPU buffers stay); leaving
 //   the view or a tier only flips `visible`. Layers are dropped only under memory pressure (far,
 //   hidden detail first).
+// - Moving: the camera's ground velocity predicts where it will be in LOOKAHEAD seconds; chunks
+//   that will be on screen there are loaded right after the visible ones (prefetch in the
+//   direction of motion). While the camera moves only visible and upcoming chunks are worked on;
+//   preparing hidden detail and the rest of the city waits until it is still.
 
 import type { Position } from "@deck.gl/core";
 import type { Chunk, ChunkPart, SceneCache } from "./scene";
@@ -31,6 +35,10 @@ const PREPARE = 1.7;
 /** above this much GPU buffer memory (bytes), hidden far detail is released */
 const MEMORY_BUDGET = 768 * 2 ** 20;
 
+/** how far ahead (s) the camera's motion is extrapolated for prefetching, and the cap on that lead (m) */
+const LOOKAHEAD = 0.8;
+const LEAD_MAX = 1600;
+
 /** every chunk's layers ("surfaces" is one flat layer with the chunk's areas) */
 const BASE: ChunkPart[] = ["surfaces", "kerbs", "masses", "paths"];
 
@@ -38,6 +46,8 @@ export interface ChunkView {
   tier: Tier;
   visible: boolean;
   dist: number;
+  /** on screen where the camera is heading (prefetch) */
+  ahead?: boolean;
   /** parts whose layers exist */
   parts: Set<ChunkPart>;
 }
@@ -81,6 +91,11 @@ export class ChunkLoader {
   vertexBudget = VERTEX_START;
   private lastVerts = 0;
   private orderDirty = true;
+  /** the camera is moving: only visible and upcoming chunks are worked on */
+  moving = false;
+  /** smoothed ground velocity of the view centre (m/s) */
+  velocity: [number, number] = [0, 0];
+  private lastCam: { x: number; y: number; t: number } | null = null;
   /** layers added and data built, for diagnostics */
   stats = { admitted: 0, frames: 0, firstFrameAt: 0, completeAt: 0 };
 
@@ -130,11 +145,13 @@ export class ChunkLoader {
     this.cam = cam;
     let changed = false;
     const { near } = lodThresholds(cam);
+    const ahead = this.predict(cam);
     for (const c of this.scene.all()) {
       const v = this.view(c.key);
       const d = eyeDistance(cam, c.box, c.top);
       const tier = tierAt(d, v.tier === undefined ? undefined : v.tier, cam);
       const visible = inFrustum(cam, c.box, -2, c.top + 4);
+      v.ahead = !!ahead && !visible && inFrustum(ahead, c.box, -2, c.top + 4);
       if (tier !== v.tier || visible !== v.visible) changed = true;
       // detail about to be needed: let the work loop prepare it
       if (d < near * PREPARE && !v.parts.has("marks") && c.ids.size) this.pending = true;
@@ -161,12 +178,38 @@ export class ChunkLoader {
     return changed;
   }
 
+  /** the camera LOOKAHEAD seconds on at its current ground velocity, or null when (nearly) still */
+  private predict(cam: LodCamera): LodCamera | null {
+    const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+    const last = this.lastCam;
+    this.lastCam = { x: cam.center[0], y: cam.center[1], t: now };
+    if (!last) return null;
+    const dt = (now - last.t) / 1000;
+    if (dt <= 0) return null;
+    if (dt > 0.25) {
+      // a jump, or the first move after a pause: no velocity yet
+      this.velocity = [0, 0];
+      return null;
+    }
+    const k = Math.min(1, dt / 0.15);
+    this.velocity = [this.velocity[0] + ((cam.center[0] - last.x) / dt - this.velocity[0]) * k, this.velocity[1] + ((cam.center[1] - last.y) / dt - this.velocity[1]) * k];
+    let dx = this.velocity[0] * LOOKAHEAD,
+      dy = this.velocity[1] * LOOKAHEAD;
+    const lead = Math.hypot(dx, dy);
+    if (lead < 20) return null;
+    if (lead > LEAD_MAX) {
+      dx *= LEAD_MAX / lead;
+      dy *= LEAD_MAX / lead;
+    }
+    return { ...cam, center: [cam.center[0] + dx, cam.center[1] + dy], eye: [cam.eye[0] + dx, cam.eye[1] + dy, cam.eye[2]] };
+  }
+
   private sorted(): Chunk[] {
     if (this.orderDirty) {
       this.order = [...this.scene.all()].filter((c) => c.ids.size);
       const rank = (c: Chunk) => {
         const v = this.view(c.key);
-        return (v.visible ? 0 : 1e7) + v.dist;
+        return (v.visible ? 0 : v.ahead ? 5e6 : 1e7) + v.dist;
       };
       this.order.sort((a, b) => rank(a) - rank(b));
       this.orderDirty = false;
@@ -211,6 +254,9 @@ export class ChunkLoader {
       const v = this.view(c.key);
       const parts = [...BASE, "marks" as ChunkPart].filter((p) => !v.parts.has(p) && this.wants(c, v, p));
       if (!parts.length) continue;
+      // moving: off-screen chunks the camera isn't heading for wait until it stops
+      // (the final check below keeps the loader pending for them)
+      if (this.moving && !v.visible && !v.ahead) continue;
       if (!this.scene.isCurrent(c)) {
         if (performance.now() - t0 > BUILD_BUDGET && added) {
           remaining = true;
@@ -241,7 +287,7 @@ export class ChunkLoader {
             this.globals.add(g);
             added = true;
           }
-        const cells = this.cells.filter((c) => !c.admitted).sort((a, b) => (a.visible ? 0 : 1e7) + a.dist - ((b.visible ? 0 : 1e7) + b.dist));
+        const cells = this.cells.filter((c) => !c.admitted && (c.visible || !this.moving)).sort((a, b) => (a.visible ? 0 : 1e7) + a.dist - ((b.visible ? 0 : 1e7) + b.dist));
         for (const c of cells) {
           const n = c.buildings.reduce((s, b) => s + b.polygon.length * 3, 0);
           if (verts > 0 && verts + n > VERTEX_BUDGET) {
@@ -256,6 +302,7 @@ export class ChunkLoader {
     }
     // anything still wanted beyond this frame?
     if (!remaining) remaining = order.some((c) => [...BASE, "marks" as ChunkPart].some((p) => !this.view(c.key).parts.has(p) && this.wants(c, this.view(c.key), p)));
+    if (!remaining) remaining = this.cells.some((c) => !c.admitted);
     this.pending = remaining;
     this.lastVerts = verts;
     this.stats.frames++;
@@ -265,16 +312,19 @@ export class ChunkLoader {
     return added || published;
   }
 
-  /** under memory pressure, forget hidden far markings (they are rebuilt if the chunk comes near) */
-  trim(bufferBytes: number): boolean {
-    if (bufferBytes < MEMORY_BUDGET) return false;
-    let dropped = false;
-    const far = [...this.views.entries()].filter(([, v]) => v.parts.has("marks") && v.tier !== NEAR).sort((a, b) => b[1].dist - a[1].dist);
-    for (const [, v] of far.slice(0, Math.max(1, far.length >> 1))) {
+  /**
+   * Under memory pressure, forget hidden or far markings (they are rebuilt if the chunk comes
+   * near). Returns the keys of the chunks whose markings were dropped.
+   */
+  trim(bufferBytes: number, budget = MEMORY_BUDGET): string[] {
+    if (bufferBytes < budget) return [];
+    const far = [...this.views.entries()].filter(([, v]) => v.parts.has("marks") && (v.tier !== NEAR || !v.visible)).sort((a, b) => b[1].dist - a[1].dist);
+    const out: string[] = [];
+    for (const [k, v] of far.slice(0, Math.max(1, far.length >> 1))) {
       v.parts.delete("marks");
-      dropped = true;
+      out.push(k);
     }
-    return dropped;
+    return out;
   }
 }
 

@@ -75,13 +75,14 @@ export function HelpDialog() {
               <Row k={<Keys>G</Keys>}>Pick up the selected item and move it</Row>
               <Row k={<><Keys>Enter</Keys><Keys>click last point</Keys></>}>Finish a shape</Row>
               <Row k={<Keys>Esc</Keys>}>Cancel, or put the tool down</Row>
+              <Row k={<Keys>{"'"}</Keys>}>Grid &amp; snapping</Row>
               <Row k={<Keys>Delete</Keys>}>Remove what is selected</Row>
               <Row k={<><Keys>⌘Z</Keys><Keys>⇧⌘Z</Keys></>}>Undo and redo</Row>
             </Section>
             <Section title="Finding things">
               <Row k={<><Keys>/</Keys><Keys>⌘K</Keys></>}>Search for a place, street or address</Row>
               <Row k={<Keys>⌘J</Keys>}>Ask the agent</Row>
-              <Row k={<Keys>N</Keys>}>Day or night</Row>
+              <Row k={<Keys>C</Keys>}>New agent</Row>
               <Row k={<Keys>?</Keys>}>This guide</Row>
             </Section>
           </div>

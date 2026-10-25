@@ -3,12 +3,12 @@
 import { AmbientLight, LightingEffect, _SunLight as SunLight, type Layer, type PickingInfo } from "@deck.gl/core";
 import { MapboxOverlay } from "@deck.gl/mapbox";
 import maplibregl from "maplibre-gl";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { basemapStyle, setBasemapTheme } from "@/render/basemap";
-import { buildLayers, hoverLayers, stackLayers, zoomBand } from "@/render/layers";
-import { MODEL, NIGHT } from "@/render/theme";
-import { localTimestamp, sunAltAz } from "@/lib/sun";
-import { LIGHTING_DATE, skyFor } from "@/render/sky";
+import { useEffect, useRef } from "react";
+import { basemapStyle, setBasemapNight } from "@/render/basemap";
+import { buildLayers, forgetLayers, hoverLayers, stackLayers, zoomBand, type SceneLayers } from "@/render/layers";
+import { MODEL } from "@/render/theme";
+import { skyFor } from "@/render/sky";
+import { daylight, daylightFor, setDaylight, useNight } from "@/render/daylight";
 import { ChunkLoader } from "@/render/chunkLoader";
 import { cameraOf, setLodCamera, useLod } from "@/render/lod";
 import { cityRadius } from "@/render/edge";
@@ -16,47 +16,77 @@ import { isOrbitDrag, orbitDrag } from "@/render/camera";
 import { LocalProjection } from "@/world/projection";
 import { rt } from "@/state/runtime";
 import { useApp } from "@/state/store";
-import { useExtraLayers, useImpactLayers, useKerbLayers, useToolLayers } from "./useExtraLayers";
+import { useExtraLayers, useToolLayers } from "./useExtraLayers";
 import { usePedestrianControls } from "./usePedestrian";
-import { trafficTrips, tripsLayer } from "@/render/overlays";
+import { RASTER_OVERLAYS, impactPins, kerbLines, trafficTrips, tripsLayer } from "@/render/overlays";
+import { useImpact } from "@/sim/impact";
 import { useSims } from "@/sim/client";
 import { slotLayers, useLayerSlots } from "@/render/layerSlots";
 
+/** hover picking (a GPU pass over every pickable layer, read back) at most this often (ms) */
+const HOVER_MS = 70;
+/** how long the camera must have been still before idle work (the memory cap) runs (ms) */
+const IDLE_MS = 400;
+
+type AppState = ReturnType<typeof useApp.getState>;
+
+/**
+ * Inputs that come from React (user actions: selection, the layers menu, overlays, tools…). The
+ * camera never goes through React: chunk visibility, detail tiers and zoom bands are read from the
+ * chunk loader and the map inside the frame loop, which re-stacks the layers itself, so moving
+ * around causes no React renders or commits.
+ */
+interface Inputs {
+  worldVersion: number;
+  selection: string[];
+  hover: string | null;
+  layersOn: AppState["layers"];
+  highlight: AppState["highlight"];
+  cameraMode: AppState["cameraMode"];
+  showChanges: boolean;
+  overlay: AppState["overlay"];
+  trafficShown: boolean;
+  night: boolean;
+  extra: { ground: Layer[]; top: Layer[] };
+  tools: Layer[];
+}
+
 export function MapView() {
   const el = useRef<HTMLDivElement>(null);
-  const [ready, setReady] = useState(false);
-  const [zoom, setZoom] = useState(15.5);
-  const worldVersion = useApp((s) => s.worldVersion);
-  const selection = useApp((s) => s.selection);
-  const hover = useApp((s) => s.hover);
-  const layersOn = useApp((s) => s.layers);
-  const theme = useApp((s) => s.theme);
-  // lighting and sky follow the clock in 3-minute steps (not every animation frame). They depend on
-  // the hour only: the month changes the modelled surface temperatures, never how the city is lit
-  const hour = useApp((s) => Math.round(s.hour * 20) / 20);
-  const lodVersion = useLod((s) => s.version);
-  const loaderRef = useRef<ChunkLoader | null>(null);
-  const highlight = useApp((s) => s.highlight);
-  const cameraMode = useApp((s) => s.cameraMode);
-  const showChanges = useApp((s) => s.showChanges);
   const overlayExtra = useExtraLayers();
   // feature modules' layers (zones, library props, street-level cursor…) join the overlay bands
   const slots = useLayerSlots((s) => s.slots);
-  const extra = useMemo(
-    () => ({ ground: [...overlayExtra.ground, ...slotLayers(slots, "ground")], top: [...slotLayers(slots, "solid"), ...overlayExtra.top, ...slotLayers(slots, "top")] }),
-    [overlayExtra, slots],
-  );
-  const toolL = useToolLayers();
-  const pinL = useImpactLayers(zoom);
-  const kerbL = useKerbLayers(zoom);
+  const merged = useRef({ overlayExtra, slots, bands: bandsOf(overlayExtra, slots) });
+  if (merged.current.overlayExtra !== overlayExtra || merged.current.slots !== slots) merged.current = { overlayExtra, slots, bands: bandsOf(overlayExtra, slots) };
+  const inputs: Inputs = {
+    worldVersion: useApp((s) => s.worldVersion),
+    selection: useApp((s) => s.selection),
+    hover: useApp((s) => s.hover),
+    layersOn: useApp((s) => s.layers),
+    highlight: useApp((s) => s.highlight),
+    cameraMode: useApp((s) => s.cameraMode),
+    showChanges: useApp((s) => s.showChanges),
+    overlay: useApp((s) => s.overlay),
+    trafficShown: useSims((s) => !!s.shown.traffic),
+    night: useNight((s) => s.night),
+    extra: merged.current.bands,
+    tools: useToolLayers(),
+  };
+  const inputsRef = useRef(inputs);
+  inputsRef.current = inputs;
+  const composeRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const R = rt();
     const proj = new LocalProjection(R.meta.origin.lon, R.meta.origin.lat);
     const iv = R.startView ?? R.meta.initialView;
+    const place = { lat: R.meta.origin.lat, lon: R.meta.origin.lon, timezone: R.meta.timezone };
+    setDaylight(daylightFor(useApp.getState().hour, place));
+    const plain = !!R.meta.sandbox;
+    const dbg = new URLSearchParams(window.location.search);
     const map = new maplibregl.Map({
       container: el.current!,
-      style: basemapStyle(useApp.getState().theme, !!R.meta.sandbox),
+      style: basemapStyle(daylight.night, plain),
       center: proj.toLonLat(iv.center),
       zoom: iv.zoom,
       pitch: iv.pitch,
@@ -91,6 +121,15 @@ export function MapView() {
       window.addEventListener("mousemove", mm);
       window.addEventListener("mouseup", mu);
     });
+
+    // ---- lighting: one effect for the session; the clock moves its lights in place (uniforms only).
+    // The moon (opposite the sun) is always present, at zero intensity by day, so the shader never changes.
+    const ambient = new AmbientLight({ color: [255, 255, 255], intensity: daylight.ambient.intensity });
+    const sun = new SunLight({ timestamp: daylight.sunTs, color: daylight.sun.color, intensity: daylight.sun.intensity, _shadow: dbg.get("shadows") === "1" });
+    const moon = new SunLight({ timestamp: daylight.moonTs, color: daylight.moon.color, intensity: daylight.moon.intensity });
+    const fx = new LightingEffect({ ambient, sun, moon });
+    fx.shadowColor = MODEL.shadow;
+
     let deckDrew = true;
     const overlay = new MapboxOverlay({
       interleaved: false,
@@ -98,13 +137,16 @@ export function MapView() {
         deckDrew = true;
       },
       layers: [],
+      effects: dbg.get("light") === "0" ? [] : [fx],
       pickingRadius: 3,
       useDevicePixels: Math.min(2, window.devicePixelRatio || 1),
       onHover: (info: PickingInfo) => {
         // street level has its own ground cursor; nothing highlights under it
-        if (useApp.getState().cameraMode === "pedestrian") return;
+        const st = useApp.getState();
+        if (st.cameraMode === "pedestrian") return;
         const o = info.object as { id?: string } | undefined;
-        useApp.getState().setHover(o?.id && typeof o.id === "string" ? o.id : null);
+        const id = o?.id && typeof o.id === "string" ? o.id : null;
+        if (st.hover !== id) st.setHover(id);
       },
       onClick: (info: PickingInfo, ev) => {
         const st = useApp.getState();
@@ -124,10 +166,14 @@ export function MapView() {
     map.addControl(overlay as unknown as maplibregl.IControl);
     R.map = map;
     R.overlay = overlay;
-    // chunk loading and level of detail follow the camera
+    const deck = (overlay as unknown as { _deck?: DeckInternals })._deck;
+    throttleHover(deck);
+
+    // ---- chunk loading and level of detail follow the camera
     const loader = new ChunkLoader(R.scene, R.context);
-    loaderRef.current = loader;
     (window as unknown as { __meridianLoader: ChunkLoader }).__meridianLoader = loader;
+    let moving = false;
+    let lastMoveAt = 0;
     const updateCamera = () => {
       const c = map.getCenter();
       const canvas = map.getCanvas();
@@ -136,21 +182,20 @@ export function MapView() {
       loader.setCamera(cam);
     };
     updateCamera();
-    let lastZoom = map.getZoom();
-    const onMove = () => {
+    map.on("move", () => {
+      lastMoveAt = performance.now();
       updateCamera();
-      const z = map.getZoom();
-      if (Math.abs(z - lastZoom) > 0.2) {
-        lastZoom = z;
-        setZoom(Math.round(z * 5) / 5);
-      }
-    };
-    map.on("move", onMove);
+    });
     map.on("resize", updateCamera);
     // no hover picking (a GPU read-back) while the camera moves; clicks after it settles still pick
-    map.on("movestart", () => overlay.setProps({ _pickable: false } as never));
-    map.on("moveend", () => overlay.setProps({ _pickable: true } as never));
-    map.on("load", () => setReady(true));
+    map.on("movestart", () => {
+      moving = loader.moving = true;
+      overlay.setProps({ _pickable: false } as never);
+    });
+    map.on("moveend", () => {
+      moving = loader.moving = false;
+      overlay.setProps({ _pickable: true } as never);
+    });
     // tilt opens up as the camera comes down: from 60° over the whole city to 85° near the street,
     // so a zoomed-out view can't be tipped into a horizon of sky and grazing roofs. Fly-throughs
     // and street level (which set their own pitch) run unlimited.
@@ -173,13 +218,132 @@ export function MapView() {
     map.on("zoom", () => {
       if (!map.isEasing()) applyPitchLimit();
     });
-    // fps meter, and the chunk loader's per-frame work: it adds layers only after deck.gl has drawn
-    // the previous batch, so tessellation and uploads stay spread over frames
+
+    // ---- day and night follow the clock: lights, shader uniforms, sky and basemap colours.
+    // At most once a frame, and no layer props change (nothing is re-tessellated or re-uploaded).
+    let hourDirty = false;
+    let skyDirty = true;
+    let skyKey = "";
+    let baseNight = Math.round(daylight.night * 40) / 40;
+    const applyHour = () => {
+      hourDirty = false;
+      const d = daylightFor(useApp.getState().hour, place);
+      setDaylight(d);
+      ambient.intensity = d.ambient.intensity;
+      ambient.color = d.ambient.color;
+      sun.timestamp = d.sunTs;
+      sun.intensity = d.sun.intensity;
+      sun.color = d.sun.color;
+      moon.timestamp = d.moonTs;
+      moon.intensity = d.moon.intensity;
+      skyDirty = true;
+      deck?.redraw("daylight");
+    };
+    const applySky = () => {
+      if (!map.isStyleLoaded()) return;
+      skyDirty = false;
+      const sky = skyFor(daylight.alt);
+      const key = JSON.stringify(sky);
+      if (key !== skyKey) {
+        skyKey = key;
+        map.setSky(sky);
+      }
+      // the basemap in 1/40 steps of night (imperceptible), so style updates stay rare
+      const n = Math.round(daylight.night * 40) / 40;
+      if (n !== baseNight) {
+        baseNight = n;
+        setBasemapNight(map, n, plain);
+      }
+    };
+    const unHour = useApp.subscribe((s, p) => {
+      if (s.hour !== p.hour) hourDirty = true;
+    });
+    map.on("styledata", () => (skyDirty = true));
+
+    // ---- layer composition, outside React
+    let sceneKey: unknown[] = [];
+    let scene: SceneLayers = { ground: [], solid: [], labels: [] };
+    let pushed: Layer[] = [];
+    let lodSeen = -1;
+    let bandSeen = -1;
+    let trafficRaf = 0;
+    let trafficT0 = -1;
+    const kerbCache = { key: "", layers: [] as Layer[] };
+    const pinCache = { key: [] as unknown[], layers: [] as Layer[] };
+    const compose = () => {
+      const I = inputsRef.current;
+      const zoom = map.getZoom();
+      const band = zoomBand(zoom);
+      const lodVersion = useLod.getState().version;
+      lodSeen = lodVersion;
+      bandSeen = band;
+      // the scene's layers change only when the world, the view options, the detail band or chunk
+      // tiers / visibility do; hover and smooth zooming don't rebuild them
+      const key = [I.worldVersion, I.selection, I.layersOn, I.highlight, I.cameraMode, I.showChanges, I.night, band, lodVersion];
+      if (key.length !== sceneKey.length || key.some((v, i) => v !== sceneKey[i])) {
+        sceneKey = key;
+        R.scene.setShowChanges(I.showChanges);
+        if (R.scene.sync()) {
+          loader.invalidate();
+          if (loader.cam) loader.setCamera(loader.cam, false);
+        }
+        scene = buildLayers({ rt: R, theme: MODEL, app: { selection: I.selection, layers: I.layersOn, highlight: I.highlight, cameraMode: I.cameraMode, night: I.night }, zoom: band, loader });
+      }
+      // street-edge lines over raster overlays: in the ground band (so never over buildings,
+      // whenever the rasters arrive), faded in as the camera comes down, following chunk visibility
+      const t = Math.max(0, Math.min(1, (zoom - 14.4) / 1.6));
+      const opacity = Math.round(t * t * (3 - 2 * t) * 10) / 10;
+      const kerbOn = !!I.overlay && RASTER_OVERLAYS.has(I.overlay) && opacity > 0;
+      const kKey = kerbOn ? `${I.overlay}|${opacity}|${I.worldVersion}|${useLod.getState().loaded}` : "";
+      if (kKey !== kerbCache.key) {
+        kerbCache.key = kKey;
+        kerbCache.layers = kerbOn ? kerbLines(opacity) : [];
+      }
+      const kerbs = kerbCache.layers.map((l) => {
+        const v = loader.views.get(l.id.slice("kerb-lines-".length));
+        const visible = !v || v.visible;
+        return l.props.visible === visible ? l : l.clone({ visible });
+      });
+      kerbCache.layers = kerbs;
+      // degrees-saved pins per edit: only when zoomed in far enough for them to sit on their street
+      const pKey = [I.overlay === "heat" && zoom >= 15, useImpact.getState().impact];
+      if (pKey[0] !== pinCache.key[0] || pKey[1] !== pinCache.key[1]) {
+        pinCache.key = pKey;
+        pinCache.layers = pKey[0] ? impactPins() : [];
+      }
+      const ground = kerbs.length ? [...I.extra.ground, ...kerbs] : I.extra.ground;
+      const layers = [...stackLayers(scene, { ground, top: I.extra.top }), ...hoverLayers(R, MODEL, I.hover, I.selection), ...pinCache.layers, ...I.tools];
+      cancelAnimationFrame(trafficRaf);
+      if (I.overlay === "traffic" && I.trafficShown && dbg.get("anim") !== "0") {
+        // modelled vehicles animate on top of the static scene
+        if (trafficT0 < 0) trafficT0 = performance.now();
+        const loop = () => {
+          const data = trafficTrips(useApp.getState().hour);
+          overlay.setProps({ layers: [...layers, tripsLayer((performance.now() - trafficT0) / 1000, data)] });
+          trafficRaf = requestAnimationFrame(loop);
+        };
+        pushed = [];
+        loop();
+        return;
+      }
+      trafficT0 = -1;
+      // nothing changed (e.g. a camera step inside one band): no setProps, so deck.gl doesn't diff
+      if (layers.length === pushed.length && layers.every((l, i) => l === pushed[i])) return;
+      pushed = layers;
+      overlay.setProps({ layers });
+    };
+    composeRef.current = compose;
+    const unImpact = useImpact.subscribe(() => compose());
+
+    // ---- the frame loop: fps meter, the clock, the loader's per-frame work, re-stacking and idle
+    // work. The loader adds layers only after deck.gl has drawn the previous batch, so tessellation
+    // and uploads stay spread over frames.
     let frames = 0;
     let last = performance.now();
     let raf = 0;
     let lastAdmit = 0;
     let admitted = false;
+    let lastIdle = performance.now();
     const tick = () => {
       frames++;
       const now = performance.now();
@@ -188,6 +352,8 @@ export function MapView() {
         frames = 0;
         last = now;
       }
+      if (hourDirty) applyHour();
+      if (skyDirty) applySky();
       if (admitted && deckDrew) {
         // the frame that initialised the last batch has been drawn: let the loader fit its budget
         loader.noteFrame(now - lastAdmit);
@@ -199,121 +365,40 @@ export function MapView() {
         lastAdmit = now;
         useLod.setState((s) => ({ version: s.version + 1 }));
       }
+      if (useLod.getState().version !== lodSeen || zoomBand(map.getZoom()) !== bandSeen) compose();
+      else if (!moving && now - lastMoveAt > IDLE_MS && now - lastIdle > 5000) {
+        // idle: keep GPU buffer memory under the cap (hidden far detail goes first)
+        lastIdle = now;
+        const bytes = deck?.device?.statsManager?.getStats("GPU Time and Memory")?.get("Buffer Memory")?.count ?? 0;
+        const dropped = loader.trim(bytes);
+        if (dropped.length) {
+          forgetLayers(dropped.map((k) => `marks-${k}`));
+          useLod.setState((s) => ({ version: s.version + 1 }));
+        }
+      }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
-    setReady(true);
+    compose();
     return () => {
       cancelAnimationFrame(raf);
+      cancelAnimationFrame(trafficRaf);
+      unHour();
+      unImpact();
+      composeRef.current = null;
       map.remove();
       R.map = null;
       R.overlay = null;
-      loaderRef.current = null;
     };
   }, []);
 
-  usePedestrianControls(cameraMode);
+  usePedestrianControls(inputs.cameraMode);
 
-  // sky follows the sun for the hour (on the fixed lighting date)
+  // a React input changed (selection, layers, overlays, tools…): re-stack now (a no-op when the
+  // resulting layers are the same)
   useEffect(() => {
-    const R = rt();
-    const map = R.map;
-    if (!map) return;
-    const alt = (sunAltAz(new Date(localTimestamp(LIGHTING_DATE, hour, R.meta.timezone)), R.meta.origin.lat, R.meta.origin.lon).alt * 180) / Math.PI;
-    const apply = () => map.setSky(skyFor(theme === "night" ? Math.min(alt, -14) : alt));
-    if (map.isStyleLoaded()) apply();
-    else map.once("styledata", apply);
-  }, [hour, theme, ready]);
-
-  // theme switch recolours the basemap (the scene repaints itself in the layer build below)
-  const firstTheme = useRef(theme);
-  useEffect(() => {
-    const R = rt();
-    if (R.map && theme !== firstTheme.current) setBasemapTheme(R.map, theme, !!R.meta.sandbox);
-    firstTheme.current = theme;
-  }, [theme]);
-
-  // one lighting effect for the session: the hour and theme update its lights in place (no new
-  // effect, no shader or pass churn), then deck.gl redraws
-  const lighting = useMemo(() => {
-    const dbg = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
-    if (dbg?.get("light") === "0") return null;
-    const ambient = new AmbientLight({ color: [255, 255, 255], intensity: MODEL.ambient });
-    const sun = new SunLight({ timestamp: Date.now(), color: [255, 248, 236], intensity: MODEL.sun, _shadow: dbg?.get("shadows") === "1" });
-    return { ambient, sun, fx: new LightingEffect({ ambient, sun }) };
-  }, []);
-  const effects = useMemo(() => (lighting ? [lighting.fx] : []), [lighting]);
-  useEffect(() => {
-    if (!lighting) return;
-    const R = rt();
-    const T = theme === "night" ? NIGHT : MODEL;
-    lighting.ambient.intensity = T.ambient;
-    lighting.sun.timestamp = localTimestamp(LIGHTING_DATE, hour, R.meta.timezone);
-    lighting.sun.color = theme === "night" ? [150, 160, 200] : [255, 248, 236];
-    lighting.sun.intensity = T.sun;
-    lighting.fx.shadowColor = T.shadow;
-    (R.overlay as unknown as { _deck?: { redraw: (r: string) => void } } | null)?._deck?.redraw("lighting");
-  }, [lighting, hour, theme, ready]);
-
-  // the scene's layers change only when the world, the view options or the detail band do;
-  // hover and smooth zooming don't rebuild them
-  const band = zoomBand(zoom);
-  const scene = useMemo(() => {
-    const loader = loaderRef.current;
-    if (!ready || !loader) return { ground: [], solid: [], labels: [] };
-    const R = rt();
-    const T = theme === "night" ? NIGHT : MODEL;
-    // theme and change highlighting repaint colours in place (no re-tessellation)
-    R.scene.setTheme(T);
-    R.scene.setShowChanges(showChanges);
-    if (R.scene.sync()) {
-      loader.invalidate();
-      if (loader.cam) loader.setCamera(loader.cam, false);
-    }
-    return buildLayers({
-      rt: R,
-      theme: T,
-      app: { selection, layers: layersOn, highlight, theme, cameraMode },
-      zoom: band,
-      loader,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, worldVersion, selection, layersOn, theme, highlight, band, cameraMode, showChanges, lodVersion]);
-  // street-edge lines over raster overlays follow their chunk's visibility
-  const kerbShown = useMemo(() => {
-    const loader = loaderRef.current;
-    if (!loader || !kerbL.length) return kerbL;
-    return kerbL.map((l) => {
-      const v = loader.views.get(l.id.slice("kerb-lines-".length));
-      const visible = !v || v.visible;
-      return l.props.visible === visible ? l : l.clone({ visible });
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kerbL, lodVersion]);
-  const layers: Layer[] = useMemo(() => stackLayers(scene, extra), [scene, extra]);
-  const hoverL = useMemo(() => (ready ? hoverLayers(rt(), theme === "night" ? NIGHT : MODEL, hover, selection) : []), [ready, hover, selection, theme, worldVersion]);
-
-  const overlay = useApp((s) => s.overlay);
-  const trafficShown = useSims((s) => s.shown.traffic);
-  useEffect(() => {
-    const R = rt();
-    const noAnim = new URLSearchParams(window.location.search).get("anim") === "0";
-    if (overlay !== "traffic" || !trafficShown || noAnim) {
-      R.overlay?.setProps({ layers: [...withKerbs(layers, kerbShown), ...hoverL, ...pinL, ...toolL], effects });
-      return;
-    }
-    // animate modelled vehicles on top of the static scene
-    let raf = 0;
-    const t0 = performance.now();
-    const loop = () => {
-      const data = trafficTrips(useApp.getState().hour);
-      const t = (performance.now() - t0) / 1000;
-      R.overlay?.setProps({ layers: [...withKerbs(layers, kerbShown), ...hoverL, tripsLayer(t * 1.0, data), ...pinL, ...toolL], effects });
-      raf = requestAnimationFrame(loop);
-    };
-    raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
-  }, [layers, kerbShown, hoverL, pinL, toolL, effects, overlay, trafficShown]);
+    composeRef.current?.();
+  });
 
   return (
     <div className="absolute inset-0">
@@ -322,14 +407,52 @@ export function MapView() {
   );
 }
 
-/** street-edge lines go right after the analysis rasters (below buildings) */
-function withKerbs(layers: Layer[], kerbs: Layer[]): Layer[] {
-  if (!kerbs.length) return layers;
-  let at = -1;
-  layers.forEach((l, i) => {
-    if (/^(heat|heatctx|sun|sunctx|runoff|runoffctx|flood)/.test(l.id)) at = i;
-  });
-  return at < 0 ? [...layers, ...kerbs] : [...layers.slice(0, at + 1), ...kerbs, ...layers.slice(at + 1)];
+/** analysis overlays and feature slots by band: ground (below buildings) and top */
+function bandsOf(o: { ground: Layer[]; top: Layer[] }, slots: ReturnType<typeof useLayerSlots.getState>["slots"]) {
+  return { ground: [...o.ground, ...slotLayers(slots, "ground")], top: [...slotLayers(slots, "solid"), ...o.top, ...slotLayers(slots, "top")] };
+}
+
+interface DeckInternals {
+  _onPointerMove: (ev: { type?: string }) => void;
+  redraw: (reason?: string) => void;
+  device?: { statsManager?: { getStats: (n: string) => { get: (n: string) => { count: number } | undefined } | undefined } };
+}
+
+/**
+ * Hover picking renders every pickable layer into the picking buffer and reads it back. deck.gl
+ * does that on every frame the pointer moves; once per HOVER_MS (the last position always picked)
+ * looks the same and leaves the frame budget to drawing.
+ */
+function throttleHover(deck: DeckInternals | undefined) {
+  if (!deck || typeof deck._onPointerMove !== "function") return;
+  const pick = deck._onPointerMove.bind(deck);
+  let last = 0;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let pending: { type?: string } | null = null;
+  deck._onPointerMove = (ev) => {
+    if (ev.type === "pointerleave") {
+      if (timer) clearTimeout(timer);
+      timer = null;
+      pending = null;
+      return pick(ev);
+    }
+    const now = performance.now();
+    if (now - last >= HOVER_MS) {
+      last = now;
+      pending = null;
+      return pick(ev);
+    }
+    pending = ev;
+    if (!timer)
+      timer = setTimeout(() => {
+        timer = null;
+        if (!pending) return;
+        last = performance.now();
+        const e = pending;
+        pending = null;
+        pick(e);
+      }, HOVER_MS - (now - last));
+  };
 }
 
 /** lon/lat box around the fully drawn part of the city */

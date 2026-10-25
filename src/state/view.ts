@@ -19,8 +19,3 @@ export function togglePedestrian() {
     st.setCameraMode("pedestrian");
   }
 }
-
-export function toggleNight() {
-  const st = useApp.getState();
-  st.setTheme(st.theme === "model" ? "night" : "model");
-}

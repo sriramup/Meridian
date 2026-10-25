@@ -13,6 +13,7 @@ import { chunkKeyAt, chunkTiers, eyeDistance, inFrustum, lodCamera, tierAt, type
 import { SolidInstances, defaultCellKey, solidLayers, type CellBounds, type CellState, type PackedLayer } from "@/render/solids";
 import { rt } from "@/state/runtime";
 import { useApp } from "@/state/store";
+import { useNight } from "@/render/daylight";
 import type { Entity } from "@/world/types";
 
 function* propsAndBuildings(): Iterable<Entity> {
@@ -43,7 +44,8 @@ const disabled = () => typeof window !== "undefined" && new URLSearchParams(wind
 
 export function LibrarySolids() {
   const worldVersion = useApp((s) => s.worldVersion);
-  const theme = useApp((s) => s.theme);
+  // night looks (glowing lamps) switch with the clock (render/daylight.ts)
+  const theme = useNight((s) => (s.night ? "night" : "model"));
   const cache = useRef<SolidInstances | null>(null);
   const [packed, setPacked] = useState<PackedLayer[]>([]);
   // a new array (same buffer objects) whenever visibility or buffers change

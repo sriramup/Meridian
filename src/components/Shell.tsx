@@ -4,7 +4,7 @@ import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { useEffect, useRef, useState } from "react";
 import { initSimWorker } from "@/sim/client";
 import { addPoint, draw, finishDrawing, finishPoint, resetDraw, setCursor } from "@/state/drawing";
-import { toggleNight, togglePedestrian } from "@/state/view";
+import { togglePedestrian } from "@/state/view";
 import { applyOp } from "@/state/actions";
 import { rt } from "@/state/runtime";
 import { useApp, type Tool, type OverlayId } from "@/state/store";
@@ -243,7 +243,6 @@ function useShortcuts() {
         resetDraw();
         openLibrary(LIBRARY_KEYS[k]);
       } else if (OVERLAY_KEYS[k]) st.setOverlay(st.overlay === OVERLAY_KEYS[k] ? null : OVERLAY_KEYS[k]);
-      else if (k === "n") toggleNight();
       else if (k === "p") togglePedestrian();
       else if (k === "?") st.setHelpOpen(!st.helpOpen);
     };

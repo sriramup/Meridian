@@ -12,9 +12,11 @@ import { cx } from "./ui";
 export function Annotations() {
   const notes = useApp((s) => s.annotations);
   const [, tick] = useState(0);
+  // follow the camera only while there are callouts: no React render per frame of motion otherwise
+  const any = notes.length > 0;
   useEffect(() => {
     const map = rtMaybe()?.map;
-    if (!map) return;
+    if (!map || !any) return;
     let raf = 0;
     const on = () => {
       cancelAnimationFrame(raf);
@@ -25,7 +27,7 @@ export function Annotations() {
       map.off("move", on);
       cancelAnimationFrame(raf);
     };
-  }, []);
+  }, [any]);
   const R = rtMaybe();
   if (!R?.map || !notes.length) return null;
   const proj = new LocalProjection(R.meta.origin.lon, R.meta.origin.lat);
