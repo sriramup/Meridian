@@ -1,186 +1,238 @@
-# Meridian
+![Meridian](https://meridian-assets-tawny.vercel.app/meridian-banner-unroll.webp)
 
-**An AI-native 3D planning and simulation workspace for real cities.** Meridian opens on a measured, editable model of central Austin (about 17 km²: downtown, East Austin, UT, Rainey, Bouldin), with 10,800 buildings, the street network with full cross-sections, parcels and zoning, and drainage and transit; a blank canvas lets you design a city from scratch. You can edit it directly or through a planning agent. Every edit cascades through the physical model, and traffic, heat, stormwater, flood, access and capacity models re-run on the edited world.
+In fairytales, kings and queens are best remembered not by the crowns they wore, but by the kingdoms they built. 
 
-```
-npm install
-npm run dev            # http://localhost:3000 opens an Austin project (your last one, or a new one on a first visit) in the current month at 3 PM; ?project=… opens a given project
-```
+But we are not living in the past. Now, it is our turn to *shape our world*.
 
-Work is organised in **projects**, listed in the sidebar on the left (click the Meridian wordmark at the far left of the top bar to show or hide it). *New* starts a project from a blank canvas or from the Austin template; click a project to open it, double-click (or F2) to rename it, right-click for Rename / Duplicate / Delete, and drag it (or Alt+↑/↓) to reorder. Every project, Austin-based ones included, is saved in the browser as you work: every proposal with its full undo history, and the last camera view. Opening a project never reloads the page: the next one is built under a short loading card and swapped in (`src/state/projects.ts`), and the address follows it (`?project=…`, so Back returns to the previous project). The single blank-canvas design saved by earlier versions becomes a project called *My design* on first start.
-
-The Austin data pack ships prebuilt in `public/data/austin/` (≈ 30 MB), so no API keys or downloads are needed to explore, edit, or simulate.
-
-### Enabling the planning agent
-
-Agents live in the side pane on the right (⌘J). Each agent is its own task with its own conversation; several can run at once, and every edit they make shows on the map as it happens. The pane lists every agent (search, running / needs input / recent); open one to follow it, and go back to the list at any time.
-
-- **Plan or Edit.** In Plan mode an agent investigates and proposes: edits run only as previews. In Edit mode it changes the plan.
-- **Zones.** By default an agent works anywhere. Give it a zone in the composer — draw a rectangle or polygon on the map, use the selection, or describe it in words ("between 5th and 7th from Congress to Lavaca", "the block at Lamar & 6th", "within 300 m of Republic Square") — and its edits stay inside; the zone carries over to its later requests until you change it. Agents only undo their own edits.
-- **Sketches and photos.** Attach a bird's-eye sketch, whiteboard photo or map to a message (the image button in the composer: upload, camera, paste or drop onto the pane), or start a project with *New ▸ From a sketch or photo…* / the Start card. One vision call reads it into a structured plan — streets by class, blocks with use and density, parks, plazas and water, labelled facilities, rail lines, an estimated scale (`src/app/api/vision/route.ts`, model `MERIDIAN_MODEL_VISION`, default the standard tier's) — and the agent builds it as one undoable step with `build_sketch`: streets spliced into the network, library parks and facilities (a SCHOOL box becomes a school), every block filled with the design generator's fabric. On a canvas it lands in free space; in a city, in the agent's zone or the view (`src/sketch/`).
-- **Fast answers.** Questions about what's on screen ("what is the current scenario?") go to a fast model and are answered from a live snapshot without tool calls; edits and analyses go to the main model, masterplans and optimisation at higher effort (`src/agent/router.ts`).
-
-Agents call Claude through the server route `src/app/api/agent/route.ts`. It needs an Anthropic API key in the server environment:
-
-```
-# .env.local (git-ignored)
-ANTHROPIC_API_KEY=sk-ant-…
-```
-
-### Live search with SerpApi
-
-Agents can reach beyond the city data with live Google and Google Maps results from [SerpApi](https://serpapi.com):
-
-- **Research with sources.** `web_search` finds a real city's population, household size, rents, rainfall, ordinances, transit facts, news or research; answers cite numbered sources with their domains. Use it to ground a design ("size it for Austin's household size").
-- **Amenity and walkability audits.** "Are there groceries within a 10-minute walk of Republic Square?" runs `find_places`: Google Maps results become numbered pins with walking times over the street network. On request, `import_places` (or the card's **Add as destinations**) adds them as points of interest so the walk-access model counts current places. It is one change, and undo removes it.
-- **Local discovery.** "Restaurants near Congress & 6th" gives pins and cards with ratings, reviews and open now. The top-bar search also offers **Search Google Maps for "…" nearby** on real-city projects. A search is spent only when you choose that row.
-- The composer's **Search** toggle (globe) asks a run to ground its answer with these tools. The pane's footnote shows the search budget.
-
-The key stays on the server (`src/app/api/serp/route.ts`, `src/serp/server.ts`). Repeated searches are cached in `.cache/serpapi/` for 7 days. A credit ledger in `.telemetry/serpapi.json` refuses searches past the cap.
-
-```
-# .env.local
-SERPAPI_API_KEY=…
-MERIDIAN_SERP_CAP=200                         # searches this server may spend ("off" disables the cap)
-MERIDIAN_SERP_FIXTURES=tests/fixtures/serpapi # answer from recorded responses: no network, no credits (tests, demos)
-```
+Introducing **Meridian**, an agentic workspace for designing and simulating real cities.
 
 ---
 
-## What you can do
+![Inspiration](https://meridian-assets-tawny.vercel.app/inspiration-torn.webp)
 
-| | |
+If you have ever walked down Speedway in Austin in August, you know the feeling. You are constantly hopping between patches of shade under the trees, trying to avoid the Texas sun for just a little bit longer.
+
+While this sounds like a small problem, it reveals a lot. The way we design our cities affects how hot our streets get, how easily water drains after a storm, how long it takes to get to class, and whether people can reach the places they need. Trees, building layouts, parks, and transportation all play a role in shaping these experiences.
+
+We realized that many of these problems could be improved through better city planning. The challenge is that planning a city is complicated. Additionally, the stakes are massive:
+- Approximately 45% of the world's 8.2 billion people lived in cities in 2025, according to [UN DESA's *World Urbanization Prospects 2025*](https://www.un.org/development/desa/pd/world-urbanization-prospects-2025).
+- Nearly half of the local government respondents in [LGC's 2025 Confidence Survey](https://www.lgcplus.com/politics/service-reform/the-state-of-it-leaving-behind-the-legacy-29-01-2025/) identified outdated legacy systems as a barrier to adopting and using technology.
+- The size of the US urban planning software market is estimated to be $3.9 billion, according to [IBISWorld's 2025 market research](https://www.ibisworld.com/united-states/market-research-reports/?entid=953).
+
+![3.7B people live in cities · 49% of officials say legacy systems hold them back · $3.9B US urban planning market](https://meridian-assets-tawny.vercel.app/stats-v2.webp)
+
+We wanted to make the planning process more visual, interactive, and accessible. Instead of manually jumping between mapping software, spreadsheets, engineering models, and design tools, what if we could make a change to a city, simulate its consequences, and explore alternatives in one workspace? What if we could describe a planning problem in plain English and have AI agents help us solve it?
+
+That idea became **Meridian**, an agentic city planning and designing workspace.
+
+---
+
+![Features](https://meridian-assets-tawny.vercel.app/features-torn.webp)
+
+Meridian is a 3D planning and simulation workspace for real cities. It allows you to explore a measured digital model of a city, redesign it by hand or with AI agents, and see how those changes affect the surrounding city.
+
+### The Austin Model
+
+Meridian starts with approximately 17 km² of central Austin, covering Downtown, the Capitol, UT Austin, East Austin, Rainey, Bouldin, and both banks of Lady Bird Lake.
+
+**Our model includes:**
+- 10,800 buildings, with LiDAR-derived heights for 93% of them.
+- The street network with lane-by-lane cross-sections, intersections, and sidewalks.
+- Building parcels, zoning rules, floor-area ratios, height limits, and Capitol View Corridors.
+- Tree canopy, impervious surfaces, storm drains, and FEMA floodplains.
+- Capital Metro routes and stops, along with the city's sidewalk and curb-ramp inventory.
+- Census population, housing, employment, traffic counts, terrain, and weather data.
+
+You can orbit around the city, fly to landmarks, explore streets at ground level, search for locations, and move through a day and night cycle with changing sunlight and illuminated windows.
+
+We also built a blank 3 × 3 km sandbox, so you can experiment with an entirely new city instead of being limited to Austin.
+
+### Manual and Agentic Design
+
+You can redesign streets one component at a time, adding bike lanes, bus lanes, medians, rain gardens, wider sidewalks, and more. Meridian regenerates related street geometry and checks how the changes affect nearby buildings, parcels, trees, drainage infrastructure, and transit stops.
+
+Buildings are just as flexible. We can create different architectural forms, add green roofs and setbacks, combine structures, and generate new buildings that respect zoning constraints.
+
+For more complex projects, Meridian includes a library of **220+ configurable objects and design primitives**. These range from buildings, homes, schools, and utilities to parks, trees, sports fields, street furniture, and entire subdivision layouts.
+
+You can also generate complete neighborhoods from a planning brief. By specifying population, housing, jobs, density, and facilities, we can lay out streets, civic spaces, blocks, and buildings in a single operation. The result can then be evaluated for things like connectivity, park access, school access, block size, and street standards.
+
+One of the coolest features is sketch-to-city, which allows you to upload a photo of a bird's-eye sketch, a whiteboard drawing, or even an ingenious architectural plan you scribbled on a napkin. Our vision workflow converts the drawing into a structured plan that Meridian uses to construct a real district.
+
+### Simulate the Consequences
+
+Meridian is more than a city builder thanks to its simulation abilities. You can run various models against the edited city to explore how a design performs.
+
+| Simulation | What we can investigate |
 |---|---|
-| **Inspect** | Click any building, street, junction, parcel, park or tree for measured attributes and provenance. Each value is labelled *measured* (LiDAR, survey), *mapped* (OSM), *estimated* (Census/LODES allocation) or *proposed*. |
-| **Edit streets** | Change a cross-section strip by strip: lanes, bike lanes and two-way cycle tracks, bus and tram lanes, parking, medians, planting, rain gardens (bioretention, counted as storage in the runoff model), sidewalks. Kerbs, crossings, corner radii, stop bars and junctions regenerate. Buildings in a widened right-of-way are trimmed or flagged. Parcels lose ROW strips. Trees, kerb inlets and bus stops follow the kerb. Measured sidewalk gaps, poor-condition or narrow sidewalks and missing curb ramps can be found and fixed directly. |
-| **Route** | Find walk, bike or drive routes (shortest, quiet, arterial, low-stress) and get their street segments, so a corridor can be edited as a unit. |
-| **Edit networks** | Draw streets that splice into the network (crossings become junctions), shift streets with their connections re-attached, add roundabouts sized by HCM capacity, add transit signal priority at a junction or along a whole bus route, search automatically for small junction fixes that cut network delay, search for the fewest changes that bring more residents within the 4-minute fire/EMS standard (signal preemption on first-due routes, emergency access through car-free streets, two-way conversions, fire lanes at dead ends), realign curves to an AASHTO design radius, pedestrianise, close bridges. |
-| **Edit buildings** | Use 13 procedural typologies (tower + podium, courtyard, U/L, stepped tower, rowhouses…). Massing is checked against zoning height, FAR and Capitol View Corridors. You can merge buildings with podiums and sky-bridges, regenerate a slimmer tower while holding floor area (capped by the height limit), add setbacks, and add green roofs. |
-| **Masterplan** | Generate districts (European, grid, mid-rise, towers, TOD, civic, infill). Infill can redevelop only underused private lots (buildings worth less than half their land), most underused first, to hit a net housing target. New streets subdivide blocks, open space is allocated, historic buildings are preserved, and floors are solved to hit a unit or population target under a storey cap. |
-| **Simulate** | Run traffic (AM and PM peak assignments, followed hour by hour through the day), bicycle level of traffic stress with low-stress connectivity, heat exposure, sun hours, stormwater runoff, flood inundation, walk access, fire/EMS response, development capacity, a lot-by-lot residential growth scenario with 5-year snapshots, and scenario metrics. Results show as map overlays with legends. The time of day is always at hand in the analysis dock (play the day, or open the slider); the heat and traffic maps and their figures follow it. The heat map shows surface temperature, blended between modelled hours on the GPU; beside it, feels-like on foot, mean ground-surface temperature, air temperature and the share of shaded paths are given for the area in view at the hour shown. Traffic gives trips, average speed, congested length and delay for the hour shown. |
-| **Compare** | Scenario branches with exact undo/redo. Compare any two branches with KPI deltas and difference maps. Borrow changes from one branch into another. |
-| **Navigate** | Orbit, cinematic fly-to, flyovers, a street-level view modelled on Street View (P: click the ground or a facade to walk there, click the arrows to step along the street, double-click to jump, drag to look around, scroll or pinch to zoom, Esc to come back up), and day and night that follow the clock: the time-of-day control lights the city for the hour on a fixed reference day, the September equinox (sun, sky, basemap, and at night dimmed streets, a moon and lit windows, blended smoothly through dawn and dusk; the month changes modelled temperatures, never how buildings or trees look). The city streams in around the camera, nearest first, with less detail in the distance. |
+| Traffic | Congestion, traffic flow, intersection capacity, and changes throughout the day |
+| Urban heat | Surface temperatures, building and tree shadows, pedestrian heat exposure, and shaded walking routes |
+| Stormwater | Runoff from design storms and the benefits of rain gardens, green roofs, and retention features |
+| Flooding | Potential inundation based on the city's terrain and connected low-lying areas |
+| Cycling | Bike-stress levels, low-stress routes, and gaps in bicycle connectivity |
+| Accessibility | Walking times to parks, groceries, schools, frequent transit, and other amenities |
+| Emergency access | Fire and EMS response times relative to a four-minute response benchmark |
+| Capacity and growth | Development potential under zoning rules and modeled redevelopment scenarios |
 
-Keyboard: `/` or `⌘K` search for a place, street, intersection or address · `?` controls guide · `V` select · `L` library (`B` buildings, `A` parks, `T` trees) · `S` street · `D` district · `R` transit line · `M` measure · `Delete` remove the selection · `1–0` overlays · `P` street level · `⌘Z / ⇧⌘Z` undo/redo · `⌘J` agent.
+![Build the Platform Behind the Agent Track](https://meridian-assets-tawny.vercel.app/track-northmark-anim.webp)
+### Our Agent
 
-Camera: drag to pan; right-drag, `Ctrl`-, `Shift`-, `Alt`/`⌥`- or middle-drag to rotate and tilt (or drag the compass, top right; click it to face north). `Q / E` turn, `⇧↑ / ⇧↓` tilt. The `?` button lists every control.
+Instead of creating an AI chatbot that just suggests ideas about cities, we wanted agents that can actually do things. Our Agent feature is able to work on a city, use tools, inspect the results, and make real changes to the selected city design.
 
-Everything shown is in US units: feet and miles, square feet and acres, mph, °F, gallons and cubic feet (`src/lib/units.ts`). The models work in SI (metres, °C); the agent's tool results carry both.
+Meridian's agent workspace is built around a reusable execution platform. Rather than creating a completely separate implementation for every new AI capability, we give agents access to a shared world model and a registry of tools.
 
-## Blank canvas (sandbox)
+The platform supports:
 
-The default view is an empty 3 × 3 km site with a faint 100 m grid. There is no basemap, measured data or existing city under it. You design the city from scratch with the same elements and operations used on Austin:
+- **Multiple concurrent agents:** Each session has its own conversation, history, mode, working region, approval flow, and ability to stop a run. Agents can investigate different planning questions while working with the same city.
+- **Plan mode and Edit mode:** In Plan mode, editing tools only run as previews and return reports explaining the expected changes. In Edit mode, agents can commit approved changes.
+- **Geographic work zones:** We can ask an agent to work within a specific block, district, intersection, or radius. Its changes are checked against that region before they are committed.
+- **Coordinated editing:** Changes are serialized, tracked by session, and scoped so that one agent does not accidentally undo another agent's work. Agents are also warned by city changes since their last inspection.
+- **Human approval:** Potentially destructive actions, such as demolishing historic buildings or removing more than 25 buildings, require approval.
 
-- **The library.** Everything a city has is a configurable building block (`L`, or the library in the left rail): 220+ primitives — buildings of any plan shape, height, storeys, roof, facade and programme; homes, apartments, shops, restaurants, offices, civic buildings, schools and campuses; parks, sports fields and playgrounds; benches, lamps and all street furniture; 30+ tree species, shrubs, hedges and meadows; animals; water features; utilities and landmarks; and composites such as a college campus or a subdivision with its own streets. Search by name or synonym, set any parameter (each one has units and limits), and place it by clicking, dragging a rectangle, outlining a site or drawing a line. Select anything you placed to change any parameter later; the agent can set every one of them too (`src/library/`).
-- **Draw tools.** Choosing a tool opens a small palette for that element. Streets come in six classes (local, collector, avenue, boulevard, living street, pedestrian), with optional bike lanes and street trees. Buildings have a use, a form (13 massing typologies) and a number of floors. Areas cover parks, plazas, water, woodland, lawn, rain gardens, permeable paving, retention ponds and parking (drawn bare: trees are planted by hand). Trees go one at a time or along a line, spaced a crown apart; a tree needs room for its whole crown, so it can't be planted where its leaves would overlap another tree or a building. A district has a style, a homes target, a height cap, and optional new local streets. A transit line can be a bus, rapid bus or tram, with a headway.
-- **Placing elements.** Finishing a shape creates the element straight away and selects it, so you can fine-tune it in the inspector. The inspector lets you rename, edit floors and form, edit the street cross-section, set junction control, or remove the element. Shapes that run into something (a street through buildings, a footprint over another building) ask first.
-- **Hidden overlays.** The heat, shade, stormwater, traffic, density, walk-access, bike and transit models all run on what you draw. Capacity, growth and flood screening are hidden, because there are no parcels, zoning or terrain to work on.
-- **How models treat a drawn city:**
-  - Open ends of collectors, avenues and boulevards are the town's connections to the wider region in the traffic model.
-  - School and clinic floor space become walk-access destinations.
-  - A building drawn as a fire station counts as a fire/EMS station.
-- **Climate.** Sun path, time zone and typical weather come from a climate city (Austin) so the environmental models have real inputs. The canvas uses 2.5 persons per household.
-- **Saving.** Each canvas is a project in the sidebar, saved in the browser as you work (every proposal, with full undo history). Start another with *New ▸ Blank canvas*; the *Start a city* card closes with its ×.
+We designed the platform so that its core tools operate directly on Meridian's world model rather than requiring a separate external service for every action. We can also test the full agent execution pipeline without model credentials or search credits by using a mock streaming model API and recorded search fixtures. Live model inference and live search still use their configured providers.
 
-### Exporting and importing proposals
+The result is a platform where new agents and capabilities can be added without reinventing the entire system, while edits remain inspectable, constrained, and reversible.
 
-The proposal menu (the coloured dot with the proposal's name) switches proposals, renames them, starts a *New proposal…* from the base or a *Branch from “…”…* of the current one (each asks for a name), deletes one, and has **Export ▸ JSON / CSV** and **Import…**, on the blank canvas and on Austin alike.
+---
 
-- **JSON** (`"format": "meridian-proposal", "version": 1`) is lossless. It holds the city (id, name, climate), the coordinate reference (local metres from an origin lon/lat), and per proposal: a summary (features added / modified / removed by kind, change in homes, jobs and floor area), the edit history, a readable GeoJSON `FeatureCollection` of the changed features in lon/lat with their key attributes (kind, name, use/type, floors, height, area, units, jobs, library definition and parameters, which attributes changed), and the exact changesets. Importing it replays the changesets as a new branch, entity for entity; it refuses files from another city or a newer version. *Export ▸ All designs* puts every branch in one file. Older blank-canvas design files are still imported (each branch becomes a design).
-- **CSV** has one row per changed feature: `proposal, city, action, kind, id, name, use_type, floors, height_m, area_m2, units, jobs, lon, lat, geometry_wkt` (WKT in lon/lat), `library_def, library_params` (JSON), `library_instance, library_placement` (JSON, lon/lat), `changed`; RFC 4180 quoting. Importing it re-creates what the columns carry as a new branch: buildings (one extruded footprint), areas, trees, paths, junction controls, street centrelines and classes, removals, and library primitives (placed again from definition + parameters). It cannot carry street cross-sections (re-created streets get their class default), building massing detail (setbacks, roofs, facade), the shapes of props without a known definition, or transit routes; the import lists what it could not carry. Use JSON for an exact copy.
-- **The agent** gets a canvas-specific system prompt: build the network first, generate districts, and don't run models that need measured data.
+![Design](https://meridian-assets-tawny.vercel.app/design-torn.webp)
 
-## The 100-prompt acceptance suite
+We built Meridian as a single-page, browser-based application with a shared city model underneath the editor, simulations, and AI agents. Our biggest architectural decision was to make all of them operate on the same underlying data and changesets. We broke the implementation into a handful of major systems: city data and geometry, rendering, simulation, agent execution, and live search.
 
-The spec's 100 example prompts are encoded as a behavioural suite in `scripts/acceptance/`. Each case drives the **same tool executor the agent uses** headlessly against the Austin pack. It composes tools the way a planning agent would and checks that the consequences happened: geometry changed, cascades resolved, and models re-ran on the edited world.
+![Best Use of SerpApi Track](https://meridian-assets-tawny.vercel.app/track-serpapi-anim.webp)
+### SerpApi
 
-```
-npx tsx scripts/acceptance/run.ts --report     # full suite (~15 min, many model runs) → docs/ACCEPTANCE.md
-npx tsx scripts/acceptance/run.ts --only 1-10  # a category
-```
+For urban planning, census data and city GIS layers are useful, but they cannot tell us everything about current local businesses, recently announced developments, or the amenities surrounding a particular street. **SerpApi** gives Meridian a way to connect live information about the real world to our planning workspace.
 
-**Latest run: 96 pass · 4 partial · 0 fail.** [`docs/ACCEPTANCE.md`](docs/ACCEPTANCE.md) lists every prompt with its result and the evidence from the run. When something is only partly supported, the missing piece is named rather than papered over. For example, there is no sidewalk-gap inventory in the data, PUD entitlements and land ownership are not modelled, and the optimisers are greedy searches that cannot prove a result is minimal or optimal. The suite verifies capability. The language model's own planning is exercised in the app with an API key.
+We integrated Google Search, Google Maps, Google News, and Google Scholar through three agent tools:
 
-## Tests
+**1. `web_search`**
 
-```
-npm test               # vitest: blank canvas (build from scratch, run models, design round trip), sun & shadow geometry, bicycle stress, pedestrian activity & shade benefit, growth allocation, agent tool layer (dry runs, routing, input validation, shade ranking, emergency-access search), cascade policy, exact undo
-npm run typecheck
-```
+Our agent can research questions that are not answered by the local city model. This includes population growth, household size, median income, rent, rainfall, water supply, local ordinances, transit facts, planning research, and recent development news.
 
-The agent pipeline can be exercised end to end without an API key against a scripted mock of the streaming Messages API. The mock makes real tool calls (resolve a junction, find a parcel, build a tower, run traffic), reads their results back from the conversation, and writes a summary from them:
+Search results are normalized into compact responses containing facts, snippets, dates, and sources. The agent is instructed to cite figures, identify the relevant year, and acknowledge when a search does not provide a reliable answer instead of making something up. This helps us ground a proposed neighborhood design in real-world information rather than relying entirely on assumptions.
 
-```
-node scripts/dev/mock-anthropic.mjs 3999 &
-ANTHROPIC_API_KEY=mock MERIDIAN_ANTHROPIC_BASE_URL=http://localhost:3999 npm run dev
-node scripts/dev/act.mjs scripts/dev/agent-e2e.json /tmp/agent   # drives the real UI in headless Chromium
-```
+**2. `find_places`**
 
-## Architecture
+This is where search becomes particularly useful for urban planning. We can ask questions like *"Are there any grocery stores within a 10-minute walk of the Texas Capitol?"* The agent searches Google Maps, finds relevant locations, and converts their coordinates into Meridian's local map.
 
-```
-scripts/build-pack.ts     data pipeline → public/data/austin/{world,meta,reference,utilities,context}.json, landcover.bin, dem.bin
-src/state/                runtime (city pack or blank canvas), city presets, design autosave / files, draw-then-create, app store
-src/world/                immutable entity model, changesets (exact apply/revert), scenario branches, spatial index
-src/world/ops/            cascade-aware operations (OpBuilder) — streets, buildings, landscape, transit, districts, validation
-src/geometry/             polygon kernel, cross-sections, street/junction geometry, procedural massing
-src/sim/                  models (pure TS) run in a Web Worker on a replayed copy of the active scenario
-src/render/               MapLibre basemap + deck.gl scene (custom facade shader, chunked scene cache, overlays)
-src/agent/                tool definitions, client-side executor, place resolver, agent loop
-src/app/api/agent/        server route streaming Claude (adaptive thinking, tool use) as NDJSON
-src/components/           UI shell: inspector, cross-section editor, analysis dock, agent panel
-```
+Instead of relying on straight-line distances, we calculate walking times over the actual street network using Dijkstra's shortest-path algorithm at the same walking speed used by our access model. The agent can then identify accessibility gaps, display nearby places as map pins, and help us understand which parts of a district are underserved.
 
-- **One world model.** Manual tools and the agent call the same operations and commit the same changesets. Undo, redo, branching, comparison and borrowing all work on changesets, never on rendered geometry.
-- **Cascades are explicit.** Each operation returns a report (summary, warnings, resolved and unresolved conflicts) that is shown in the UI and returned to the agent. When an edit can't be resolved, it is reported as unresolved and never silently dropped. Historic-designated buildings are never auto-demolished, and demolishing more than 25 buildings or any historic one needs user approval.
-- **Simulations replay scenarios.** The worker holds the baseline and replays a scenario's changesets, so any branch can be simulated or compared without disturbing the editor.
+**3. `import_places`**
 
-## Data provenance
+With our opt-in import tool, discovered locations can be added to the city as points of interest in one reversible changeset. Once imported, those destinations can be counted by the walk-access and cycling models. 
 
-| Layer | Source | Kind |
-|---|---|---|
-| Building footprints & heights | City of Austin Building Footprints 2023 (LiDAR) matched to OSM building parts | measured (93% of buildings) |
-| Buildings, streets, POIs, parks | OpenStreetMap (BBBike extract 2026-10-17), ODbL | mapped |
-| Street ROW & lanes | Austin Strategic Mobility Plan street network | measured |
-| Land & improvement values, public ownership | Travis Central Appraisal District parcels (Travis County TNR monthly snapshot), prorated to lots (8,681 valued, 1,255 publicly owned). Only public bodies are named; private owners are not recorded. | measured |
-| ETOD overlay | City of Austin Equitable Transit-Oriented Development overlay (affordability-linked height bonus) | measured |
-| Sidewalks & curb ramps | City of Austin Sidewalk Network & Curb Ramp inventory (presence, A–F condition, width), matched to street sides (2,876 segments) and junctions | measured |
-| Lots, zoning, density bonus, Capitol View Corridors, Neighborhood Planning Areas, Downtown Austin Plan districts | City of Austin GIS | measured |
-| Impervious cover | City of Austin Impervious Cover 2023 | measured |
-| Tree canopy | City of Austin Tree Canopy 2022 (27% of the study area) | measured |
-| Storm drains & inlets, FEMA floodplain | City of Austin GIS | measured |
-| Transit routes & stops | Capital Metro (via City GIS) | measured |
-| Population & housing | US Census 2020 blocks (68,428 residents, 36,095 units) | measured, allocated to buildings by floor area |
-| Jobs | LEHD LODES 8 WAC 2023 (213,931 jobs) | measured, allocated to buildings by floor area |
-| Traffic counts | TxDOT AADT (30 stations) | measured, used for gateway calibration |
-| Terrain | AWS Terrain Tiles (USGS 3DEP-derived) | measured |
-| Weather | ERA5 reanalysis via Open-Meteo, 2023-08-15 | measured |
+This means live search results can actually become part of our planning analysis, instead of just extra information. For example, we can find nearby grocery stores or identify a gap in walking access, and rerun the accessibility model to compare the result.
 
-Where sources disagree in time, the newer source wins and the decision is recorded. For example, 26 LiDAR-2023 footprints inside sites OSM maps as construction in 2026 (including the Austin Convention Center rebuild) are treated as demolished.
+**Engineering around a limited API budget**
 
-Rebuild the pack (requires the raw extracts in `data/raw/`; see `scripts/fetch-osm.sh`, `scripts/fetch_austin_gis.py`, `scripts/fetch_extra.py`):
+We had a 1,000-credit SerpApi budget for the hackathon, so we made the integration more deliberate than a normal search bar. We built a server-side proxy to keep API keys out of the browser, restricted requests to approved engines and fields, normalized large responses into compact results, cached searches on disk, and deduplicated identical concurrent requests.
 
-```
-npm run data:austin
-```
+We also added a search toggle to the agent composer so users can deliberately request live research. Google Maps results appear with details like ratings, reviews, walking times, and map locations, with an option to add them to the simulated city.
 
-## Model assumptions (summary)
+Our goal was to make SerpApi a meaningful part of the planning workflow. It connects live external knowledge to the actual geometry, accessibility calculations, and decisions happening inside Meridian.
 
-Every simulation result carries its assumptions in the agent's tool output. They are not shown in the app; each model run's assumptions are sent once per session to `POST /api/telemetry`, which appends them to `.telemetry/model-assumptions.jsonl` on the server (override with `MERIDIAN_TELEMETRY_LOG`). These are planning-grade models for **comparing scenarios**. They are not forecasts.
+![Best Use of Gemini API Track](https://meridian-assets-tawny.vercel.app/track-gemini-anim.webp)
+### Gemini
 
-- **Traffic:** ITE 11th-ed. peak-hour trip rates on Census/LODES-allocated land use, gravity distribution, and gateways calibrated to TxDOT AADT (K = 0.09, D = 0.55). Assignment is static user equilibrium (Frank–Wolfe, BPR α = 0.15, β = 4). Junctions are screened with the critical-lane-volume method, and roundabouts use HCM 6 entry capacity. Calibration is reported as GEH per count station. There are no turn penalties, queue spill-back, or signal timing.
-- **Heat:** ERA5 air temperature and shortwave for the reference day, a 4 m land-cover raster with the City's measured tree canopy, and exact building and tree shadows from the sun position. Comparisons report both the area-wide mean and the local change where the model moved by 0.25 °C or more, because area-wide means hide local interventions. Pedestrian exposure is an MRT-style proxy, not UTCI, and is not calibrated to Landsat LST. Shade and tree placement are prioritised by *shade benefit*: sidewalk exposure above air temperature × √pedestrian activity. Activity is a proxy (residents, jobs and transit riders nearby, decayed with distance) because the pack has no footfall counts. Motorways and streets without sidewalks are excluded, and comparisons also report people-weighted sidewalk exposure.
-- **Stormwater:** NRCS TR-55 curve number method, hydrologic soil group D, NOAA Atlas 14 design storms. Curve numbers follow the ground surface, so pavement under tree canopy stays impervious (as in the City's impervious-cover data). Green roofs are planted inside a 1.5 m edge setback and get their own curve number. Reports list them separately from ground-level permeable surfaces. Ponds and rain gardens subtract their storage. Volumes only, with no routing.
-- **Flood:** Connected "bathtub" inundation on the DEM above Lady Bird Lake. No hydraulics.
-- **Cycling:** Bicycle Level of Traffic Stress (Mekuria, Furth & Nixon 2012; Furth 2017) from facility type, lanes per direction, posted speed, parking and unsignalised crossings. Low-stress (LTS ≤ 2) coverage counts residents within 15 minutes of destinations, and low-stress islands identify the high-stress links whose upgrade would join them. There are no traffic volumes and no measured operating speeds.
-- **Access:** Network walk times at 1.3 m/s to OSM amenities, parks, and transit (frequent = ≤ 15-min headway). The walk network leaves out motorways and any arterial segment with no sidewalk on either side (pedestrian level of traffic stress 4). Local streets without sidewalks stay walkable. Fire/EMS response is free-flow drive time from OSM-named stations, compared with the NFPA 1710 4-minute travel standard. Each signal costs 6 s, or 1 s with preemption. Emergency vehicles may run against one-way traffic at half speed (Texas Transportation Code §546.001), never on motorways.
-- **Capacity:** min(FAR × lot, height-limited floors × 70% coverage), with Capitol View Corridor ceilings. Historic and public parcels are held at their existing state.
-- **Growth:** a logistic population path toward a stated capacity, placed year by year on lots with remaining zoned capacity. Placement is weighted by redevelopment likelihood and transit access. Likelihood is 1 for vacant and parking lots; for built lots it falls with the ratio of improvement to land value from the appraisal roll, and it is 0 for historic lots. Lots within a 5–10 minute walk of frequent transit get up to ×1.5. It is a scenario, not a market forecast.
+We used the Gemini API to interpret planning requests in plain English, reason about the changes needed to achieve them, and translate those decisions into actions the simulator can execute.
 
-## Known limitations
+One of our most interesting uses of Gemini was our sketch-to-city workflow. Users can upload a photo of a bird's-eye drawing, whiteboard sketch, or rough neighborhood plan. Using Gemini's multimodal capabilities, we interpret the image and turn it into a structured plan describing streets, blocks, parks, bodies of water, rail lines, and other city features. We then validate that plan before a deterministic builder translates it into actual 3D geometry.
 
-- The study area is one Austin pack. The pipeline is city-agnostic, but other cities need their own source adapters.
-- Neighbourhood names without an official boundary (OSM label points such as Eastwoods) resolve to a labelled 400 m approximation.
-- Traffic is a static peak-hour model: off-peak hours scale the nearer peak's assignment by a typical weekday hourly profile and re-evaluate link times (BPR) at those volumes, without re-assigning routes. The trip animation is driven by assigned link flows, but it is a visualisation of the flows, not a microsimulation.
-- Pedestrian-level rendering uses procedural façades, not photogrammetry.
-- Headless browsers with software WebGL render at about 1 fps. Real GPUs are needed for the 60 fps target.
+Gemini also supports the reasoning behind our agentic planning experience. Given a request, the model can help determine which tools to use, what parts of the city to inspect, and which operations are needed to work toward the user's goal. Rather than letting the model directly modify the map through free-form text, we use structured tool calls that pass through Meridian's validation and safety systems. Every edit produces an explicit changeset, allowing us to inspect, undo, and compare the results.
+
+We also designed our agent architecture to handle different levels of complexity. A quick question about a location should not require the same amount of reasoning as generating an entire neighborhood. Our request router classifies tasks as quick, standard, or deep, allowing us to adjust model configuration, output limits, and execution budgets to suit each task.
+
+### Architecture and Simulation
+
+We built Meridian using Next.js, React, and TypeScript. The city itself is represented by an immutable world model with a spatial index, exact changesets, and support for scenario branching.
+
+Geometry operations are cascade-aware. When we widen a road, the application does not simply draw a wider strip. It updates the relevant street cross-sections, curbs, intersections, parcels, buildings, and infrastructure, then reports any conflicts that cannot be resolved automatically.
+
+Simulation models run in Web Workers on replayed scenario copies. This lets us compare alternative proposals without blocking the main editor or permanently changing the baseline city. For example, the heat model combines ERA5 weather, a four-meter land-cover raster, measured tree canopy, and building and tree shadows based on the sun's position. Stormwater uses NRCS TR-55 curve numbers and NOAA Atlas 14 design storms, while the traffic model uses trip rates, calibrated traffic gateways, and static user-equilibrium assignment.
+
+### Rendering in the Browser
+
+For rendering, we used MapLibre GL JS and deck.gl for the map and 3D scene, alongside custom GLSL shaders for building facades. Rather than constructing every window as separate geometry, the shader generates architectural details such as floor slabs, mullions, window patterns, roof materials, and illuminated windows.
+
+We also implemented chunked scene streaming, level of detail, frustum culling, and an adaptive rendering budget. Nearby chunks load first, while lighter data for surrounding areas is prepared ahead of time. Instanced meshes help us render repeated library objects efficiently.
+
+### Tech Stack
+
+| Category | Technologies |
+|---|---|
+| Framework | Next.js 16, React 19, TypeScript |
+| 3D rendering and maps | deck.gl, MapLibre GL JS, WebGL, custom GLSL shaders |
+| UI and styling | Tailwind CSS v4, Radix UI, cmdk |
+| State management | Zustand |
+| AI agent platform | Model routing, structured tool calls, streaming responses, session management |
+| Live research | SerpApi, Google Search, Google Maps, Google News, Google Scholar |
+| City editing | Geometry operations, building massing, spatial indexing, exact changesets |
+| Simulation and compute | TypeScript, Web Workers, GPU-based raster blending |
+| Persistence | IndexedDB, localStorage, server-side caches and ledgers |
+| Testing | Vitest, headless Chromium, mock streaming model API, recorded search fixtures |
+| Hosting | Vercel |
+
+Our city data combines OpenStreetMap, City of Austin GIS, LiDAR-derived building information, Travis Central Appraisal District, Census 2020, LEHD employment data, TxDOT traffic counts, Capital Metro, USGS terrain, and ERA5 weather data.
+
+---
+
+![Challenges](https://meridian-assets-tawny.vercel.app/challenges-torn.webp)
+
+We faced a lot of setbacks in such a short timeframe. These were some of our major challenges:
+
+**Balancing visual quality with performance**
+
+We wanted to render a detailed city without completely cooking the browser. So, we struggled with balancing visual quality, geographic detail, and performance. We wanted Austin to look like a real city, not a collection of placeholder boxes, but rendering thousands of buildings, their facades, trees, and other objects at once is expensive.
+
+We implemented lazy loading and chunked scene streaming so the application prioritizes the areas around the camera. We also used level-of-detail tiers, frustum culling, instanced meshes, and custom GPU shaders to avoid unnecessary geometry and rendering work. We had to be selective about what to render in detail and when. That tradeoff let us preserve the immersive experience.
+
+**Saving state without losing our work**
+
+The application has a lot of state to keep track of. We needed to preserve projects, scenarios, changesets, agent sessions, conversation history, work zones, and undo and redo operations.
+
+We implemented project persistence through IndexedDB and session persistence through localStorage, along with explicit changeset history. Sessions can be restored when we reopen a project, and runs interrupted by a reload are marked as stopped instead of being treated as completed.
+
+**Letting multiple agents work on the same city**
+
+We wanted agents to operate concurrently, but concurrency creates some surprisingly difficult problems. One agent might be working from a preview while another changes the relevant street. A user might switch scenario branches while a long-running agent is still working.
+
+We introduced a world lock, session-tagged changesets, scenario pinning, and checks for changes made since each agent last inspected the city. If an agent's assumptions become stale, it is informed rather than blindly continuing with an outdated plan. We also added approval flows for destructive operations and revalidate changes after approval, since the world may have changed while an agent was waiting.
+
+---
+
+![Accomplishments](https://meridian-assets-tawny.vercel.app/accomplishments-torn.webp)
+
+We are proud that we managed to build such an ambitious product in a single day. The idea had been on our minds for a while, so finally tuning it into a reality was a huge milestone. We are especially proud of these features:
+
+- **An AI agent that can actually edit a city:** We built agents that make real geometric changes, handle cascading effects, respect work zones, and produce reversible changesets instead of stopping at text-based suggestions.
+- **Sketch-to-city:** We can take a photo of a neighborhood drawing and turn it into a structured, editable district. That was one of the features we were most excited to see come together.
+- **Successful SerpApi integration:** None of us had used SerpApi before this project, so getting live search and Maps results to interact with the actual planning model was satisfying.
+- **A UI we genuinely enjoyed designing:** We went with an old-atlas aesthetic rather than a generic dashboard. We wanted the workspace to feel like opening a map of a kingdom.
+
+---
+
+![Insights](https://meridian-assets-tawny.vercel.app/insights-torn.webp)
+
+One of our biggest takeaways was that building a useful AI agent requires reliable tools, clear rules about what it can change, feedback about what happened, and a way to recover when something goes wrong.
+
+We also learned just how interconnected cities are. It is easy to draw a road or add a building, but making the whole surrounding environment respond correctly is a much harder problem. The geometry, infrastructure, and simulations all need to agree about what the city actually looks like.
+
+Another lesson was that speed and accuracy do not always have to fight each other. Caching, choosing the right amount of reasoning for each task, and keeping tool responses small can make a system faster without simply using a less capable model.
+
+And finally, we learned that hackathon projects become much more interesting when we focus on the parts we actually care about. We could have built a simple chat interface that answered urban planning questions, but we felt like implementing an agent that could explore and redesign on its own. Meridian became much more ambitious because we kept asking ourselves what would be cool to try next.
+
+---
+
+![Future](https://meridian-assets-tawny.vercel.app/future-torn.webp)
+
+We want Meridian to be able to support real planning projects beyond just one city. Our next steps include:
+
+- **More cities:** Austin is our starting point, but we want to build data pipelines for additional locations so people can explore and redesign the places they actually live.
+- **Better physical integration:** We want to improve our sketch-to-city workflow by moving it beyond 2D plans. We want to be able to generate structures from 3D visual input, not just bird's-eye view sketches.
+- **Deeper simulations:** More detailed traffic microsimulation, signal timing, and better-calibrated heat models would help us evaluate designs more rigorously.
+- **Shared planning projects:** We want teams of people and agents to collaborate on the same project, compare ideas, and develop proposals together.
+
+---
+
+Feel free to try out Meridian for yourself at [ge0.tech](https://ge0.tech)!
