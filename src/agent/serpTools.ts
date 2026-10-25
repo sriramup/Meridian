@@ -11,6 +11,7 @@ import { rt } from "@/state/runtime";
 import { SerpError, serpSearch } from "@/serp/client";
 import { discoverPlaces, importPlaces, importedPoi, SERP_POI_SOURCE } from "@/serp/discover";
 import { getSet, type LocalPlace } from "@/serp/store";
+import { showOnMap } from "@/serp/view";
 import type { SerpEngine, WebResult } from "@/serp/types";
 import type { OpResult } from "@/world/ops/core";
 import type { Vec2 } from "@/world/types";
@@ -111,6 +112,7 @@ export const SERP_TOOLS: Record<string, (i: In, ctx: ToolContext) => Promise<Too
     } catch (e) {
       return err("Find places", e instanceof SerpError ? e.message : (e as Error).message);
     }
+    if (set.places.length) showOnMap(set);
     const P = set.places;
     const within = wm ? P.filter((p) => p.walk_min <= wm) : [];
     const nearest = P[0];
