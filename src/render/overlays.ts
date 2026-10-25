@@ -10,7 +10,8 @@ import { offsetPath, polyLength } from "@/geometry/polyline";
 import { contextModel, useSims, type SimRecord } from "@/sim/client";
 import { dqT } from "@/sim/heat";
 import { bracket } from "@/sim/heatKpi";
-import { configureRasterImages, requestRaster } from "./rasterImages";
+import { trafficAtCached } from "@/sim/trafficHourly";
+import { HeatBlendLayer } from "./heatBlendLayer";
 import { useImpact, type ImpactPin } from "@/sim/impact";
 import { gridMask, ringFade, studyFade } from "./edge";
 import { rtMaybe } from "@/state/runtime";
@@ -19,7 +20,7 @@ import type { Street, Vec2 } from "@/world/types";
 import { BLUES, DENSITY, DIVERGE, HEAT, LOS, SUN, VIRIDIS, VIRIDIS_R, sample, type Palette } from "./palettes";
 import { programmeOf } from "@/world/ops/core";
 import { polyCentroid } from "@/geometry/polygon";
-import { dF, fmtDF, toF } from "@/lib/units";
+import { dF, fmtDF, mmToIn, perAcre, toF, toFt, toSqFt } from "@/lib/units";
 
 export interface OverlayState {
   accessCategory: string;
@@ -51,11 +52,6 @@ const FADES = { study: studyFade, ring: ringFade };
  * Raster overlay image faded out with the city: "study" for the study-area model grid, "ring" for
  * the surrounding-city grid (drawn only outside the study area).
  */
-/** a cached raster image, without building it */
-function peekImage(key: string): HTMLCanvasElement | null {
-  return (imgCache.get(key) as HTMLCanvasElement | undefined) ?? null;
-}
-
 function rasterImage(key: string, grid: Grid, value: (i: number) => [number, number, number, number] | null, edge: Fade = "study"): HTMLCanvasElement {
   const hit = imgCache.get(key);
   if (hit) {
@@ -90,112 +86,69 @@ function rasterImage(key: string, grid: Grid, value: (i: number) => [number, num
   return canvas;
 }
 
-/**
- * A raster of quantised values (heat: 0 = no data) coloured through a 256-entry RGBA lookup table:
- * one table read per cell instead of a palette interpolation, ~10× cheaper than rasterImage, so a
- * new run's first frame and the idle prewarm of the rest of the day cost little main-thread time.
- */
-function quantImage(key: string, grid: Grid, arr: Uint8Array, lut: Uint8ClampedArray, edge: Fade = "study"): HTMLCanvasElement {
-  const hit = imgCache.get(key);
-  if (hit) {
-    imgCache.delete(key);
-    imgCache.set(key, hit);
-    return hit as HTMLCanvasElement;
-  }
-  const { nx, ny } = grid;
-  const fade = gridMask(edge, rtMaybe()!.meta.bounds, grid, FADES[edge]);
-  const img = new ImageData(nx, ny);
-  const d = img.data;
-  for (let j = 0; j < ny; j++) {
-    const row = (ny - 1 - j) * nx;
-    for (let i = 0; i < nx; i++) {
-      const c = j * nx + i;
-      const f = fade[c];
-      const q = arr[c];
-      if (!f || !q) continue;
-      const o = (row + i) * 4,
-        l = q * 4;
-      d[o] = lut[l];
-      d[o + 1] = lut[l + 1];
-      d[o + 2] = lut[l + 2];
-      d[o + 3] = lut[l + 3] * f;
-    }
-  }
-  const canvas = document.createElement("canvas");
-  canvas.width = nx;
-  canvas.height = ny;
-  canvas.getContext("2d")!.putImageData(img, 0, 0);
-  if (imgCache.size > 120) imgCache.delete(imgCache.keys().next().value!);
-  imgCache.set(key, canvas);
-  return canvas;
-}
-
-const heatLuts = new Map<string, Uint8ClampedArray>();
+const heatLuts = new Map<string, Uint8Array>();
 /** surface temperature colours for quantised values (sim/heat qT) over the range lo–hi °C */
-function heatLut(lo: number, hi: number): Uint8ClampedArray {
+function heatLut(lo: number, hi: number): Uint8Array {
   const key = `${lo}:${hi}`;
   let l = heatLuts.get(key);
   if (!l) {
-    l = new Uint8ClampedArray(256 * 4);
+    l = new Uint8Array(256 * 4);
     for (let q = 1; q < 256; q++) {
       const c = sample(HEAT, norm(dqT(q), lo, hi));
-      l.set([c[0], c[1], c[2], 205], q * 4);
+      l.set([Math.round(c[0]), Math.round(c[1]), Math.round(c[2]), 205], q * 4);
     }
     heatLuts.set(key, l);
   }
   return l;
 }
 
-type Img = HTMLCanvasElement | ImageBitmap;
-const lastInSlot = new Map<string, Img>();
-
-configureRasterImages({
-  // an hour on screen redraws at once; background hours join (their textures upload) only while the
-  // camera is still, a few at a time
-  onReady: (urgent) => (urgent ? useApp.getState().bumpOverlay() : bumpWhenIdle()),
-  idle: cameraIdle,
-});
-
-let lastMove = 0;
-let moveHooked: unknown = null;
-/** the camera is still (not moving, and not for the last 400 ms) */
-function cameraIdle(): boolean {
-  const map = rtMaybe()?.map;
-  if (!map) return true;
-  if (moveHooked !== map) {
-    moveHooked = map;
-    map.on("move", () => (lastMove = performance.now()));
+// A heat difference (plan − comparison, °C) is quantised like a temperature so the same layer blends
+// it: q = 128 + 40·Δ (±3.2 °C), 0 = no data. Under 0.25 °C of change is drawn transparent.
+const DIFF_Q = 40;
+let diffLutCache: Uint8Array | null = null;
+function diffLut(): Uint8Array {
+  if (!diffLutCache) {
+    diffLutCache = new Uint8Array(256 * 4);
+    for (let q = 1; q < 256; q++) {
+      const d = (q - 128) / DIFF_Q;
+      const c = sample(DIVERGE, norm(d, -3, 3));
+      diffLutCache.set([Math.round(c[0]), Math.round(c[1]), Math.round(c[2]), Math.abs(d) < 0.25 ? 0 : 240], q * 4);
+    }
   }
-  return !map.isMoving() && performance.now() - lastMove > 400;
+  return diffLutCache;
 }
-
-let bumpTimer: ReturnType<typeof setTimeout> | null = null;
-function bumpWhenIdle() {
-  if (bumpTimer) return;
-  bumpTimer = setTimeout(() => {
-    bumpTimer = null;
-    if (cameraIdle()) useApp.getState().bumpOverlay();
-    else bumpWhenIdle();
-  }, 300);
-}
-
-/** a heat-style quantised raster: built in the raster worker (main thread only without Worker support) */
-function heatImage(key: string, grid: Grid, bounds: readonly number[], edge: Fade, values: Uint8Array, lut: Uint8ClampedArray, urgent: boolean): Img | null {
-  if (typeof Worker === "undefined") return urgent ? quantImage(key, grid, values, lut, edge) : null;
-  return requestRaster(key, grid, bounds, edge, values, lut, urgent);
-}
-
-/** stands in for an hour whose image isn't built yet, so the layer list never changes shape */
-let blank: HTMLCanvasElement | null = null;
-function blankCanvas() {
-  if (!blank) {
-    blank = document.createElement("canvas");
-    blank.width = blank.height = 1;
+const diffCache = new Map<string, Uint8Array>();
+function diffValues(key: string, a: Uint8Array, b: Uint8Array | undefined): Uint8Array {
+  let out = diffCache.get(key);
+  if (out) return out;
+  out = new Uint8Array(a.length);
+  for (let i = 0; i < a.length; i++) {
+    const q = a[i];
+    if (!q) continue;
+    const d = dqT(q) - dqT(b?.[i] || q);
+    out[i] = Math.max(1, Math.min(255, Math.round(128 + d * DIFF_Q)));
   }
-  return blank;
+  if (diffCache.size > 48) diffCache.delete(diffCache.keys().next().value!);
+  diffCache.set(key, out);
+  return out;
 }
 
-function bitmap(id: string, canvas: Img, opacity = 0.82, g: Grid = rtMaybe()!.meta.grid, visible = true): Layer {
+/** the city-edge fade of a grid as bytes (one per cell, row-major from the south edge) */
+const fades = new Map<string, Uint8Array>();
+function fadeBytes(edge: Fade, g: Grid): Uint8Array {
+  const b = rtMaybe()!.meta.bounds;
+  const key = `${edge}:${b.join(",")}:${g.x0},${g.y0},${g.cell},${g.nx},${g.ny}`;
+  let out = fades.get(key);
+  if (!out) {
+    const m = gridMask(edge, b, g, FADES[edge]);
+    out = new Uint8Array(m.length);
+    for (let i = 0; i < m.length; i++) out[i] = Math.round(Math.max(0, Math.min(1, m[i])) * 255);
+    fades.set(key, out);
+  }
+  return out;
+}
+
+function bitmap(id: string, canvas: HTMLCanvasElement, opacity = 0.82, g: Grid = rtMaybe()!.meta.grid, visible = true): Layer {
   return new BitmapLayer({
     id,
     ...common(),
@@ -215,8 +168,8 @@ export interface Legend {
   title: string;
   unit: string;
   palette: Palette;
-  min: number;
-  max: number;
+  min: number | string;
+  max: number | string;
   ticks?: string[];
   model: string;
   note?: string;
@@ -231,20 +184,20 @@ export function legendFor(overlay: OverlayId | null): Legend | null {
     case "sun":
       return { title: "Direct sun", unit: "hours", palette: SUN, min: 0, max: 12, model: "Shadow projection, 30-min steps" };
     case "runoff":
-      return { title: "Runoff depth", unit: "mm", palette: BLUES, min: 0, max: 260, model: "NRCS curve number, HSG D" };
+      return { title: "Runoff depth", unit: "in", palette: BLUES, min: 0, max: Math.round(mmToIn(260)), model: "NRCS curve number, HSG D" };
     case "flood":
-      return { title: "Inundation depth", unit: "m", palette: BLUES, min: 0, max: 5, model: "Connected bathtub on z15 DEM", note: "Screening only — not a hydraulic model" };
+      return { title: "Inundation depth", unit: "ft", palette: BLUES, min: 0, max: Math.round(toFt(5)), model: "Connected bathtub on z15 DEM", note: "Screening only — not a hydraulic model" };
     case "bike":
       return { title: "Bicycle level of traffic stress", unit: "LTS", palette: LOS, min: 1, max: 4, ticks: ["1", "2", "3", "4"], model: "Mekuria/Furth LTS: facility, lanes, speed, unsignalised crossings", note: "1–2 = comfortable for most adults" };
     case "access":
       if (overlayState.accessCategory === "emergency") return { title: "Fire / EMS response travel time", unit: "min", palette: VIRIDIS_R, min: 0, max: 8, model: "Vehicle network from fire & EMS stations, free-flow; NFPA 1710 standard 4 min" };
-      return { title: "Walk time to " + overlayState.accessCategory.replace("_", " "), unit: "min", palette: VIRIDIS_R, min: 0, max: 20, model: "Network shortest path, 1.3 m/s" };
+      return { title: "Walk time to " + overlayState.accessCategory.replace("_", " "), unit: "min", palette: VIRIDIS_R, min: 0, max: 20, model: "Network shortest path at walking pace (2.9 mph)" };
     case "density":
-      return { title: overlayState.densityMode === "residents" ? "Residents per hectare" : "Jobs per hectare", unit: "/ha", palette: DENSITY, min: 0, max: overlayState.densityMode === "residents" ? 400 : 2500, model: "Census 2020 HU / LODES 2023 jobs allocated to buildings; proposals estimated", note: "square-root colour scale" };
+      return { title: overlayState.densityMode === "residents" ? "Residents per acre" : "Jobs per acre", unit: "/ acre", palette: DENSITY, min: 0, max: Math.round(perAcre((overlayState.densityMode === "residents" ? 400 : 2500) / 1e4)), model: "Census 2020 HU / LODES 2023 jobs allocated to buildings; proposals estimated", note: "square-root colour scale" };
     case "growth":
-      return { title: `Added residents by ${overlayState.growthYear ?? "horizon"}`, unit: "/ha of lot", palette: VIRIDIS, min: 0, max: 600, model: "Logistic growth allocated by zoned capacity × redevelopment likelihood (TCAD) × transit access", note: "square-root colour scale · a scenario, not a forecast" };
+      return { title: `Added residents by ${overlayState.growthYear ?? "horizon"}`, unit: "/ acre of lot", palette: VIRIDIS, min: 0, max: Math.round(perAcre(600 / 1e4)), model: "Logistic growth allocated by zoned capacity × redevelopment likelihood (TCAD) × transit access", note: "square-root colour scale · a scenario, not a forecast" };
     case "zoning":
-      return { title: overlayState.capacityMode === "added" ? "Additional capacity under zoning" : "Binding constraint", unit: "m² GFA", palette: VIRIDIS, min: 0, max: 60000, model: "Base zoning FAR & height + density bonus + Capitol View Corridors (simplified)", note: "square-root colour scale" };
+      return { title: overlayState.capacityMode === "added" ? "Additional capacity under zoning" : "Binding constraint", unit: "sq ft floor area", palette: VIRIDIS, min: 0, max: `${Math.round(toSqFt(60000) / 1000)}k`, model: "Base zoning FAR & height + density bonus + Capitol View Corridors (simplified)", note: "square-root colour scale" };
     default:
       return null;
   }
@@ -261,54 +214,6 @@ function heatRange(): [number, number] {
   // one scale for the whole day (anchored to its hottest hour), so playback has no colour jumps
   const air = Math.round(Math.max(...(rec.result.airTemp as number[])));
   return [air - 4, air + 30];
-}
-
-const warmed = new Set<string>();
-/** run image builders one per idle slice (once per key) */
-function prewarm(key: string, jobs: (() => unknown)[]) {
-  if (warmed.has(key)) return;
-  warmed.add(key);
-  const idle = (cb: () => void) => ("requestIdleCallback" in window ? window.requestIdleCallback(() => cb(), { timeout: 400 }) : setTimeout(cb, 16));
-  const next = (k: number) => {
-    if (k >= jobs.length) return;
-    idle(() => {
-      jobs[k]();
-      // redraw so new hours' textures are uploaded now (at opacity 0), a few per idle slice, rather
-      // than all at once or on the frame playback reaches them
-      if (k % 4 === 3 || k === jobs.length - 1) useApp.getState().bumpOverlay();
-      next(k + 1);
-    });
-  };
-  next(0);
-}
-
-/**
- * The modelled hours i0 → i1 blended as (1 − t)·a + t·b at overall opacity alpha. Every hour of the
- * day is a permanent layer in fixed order, always visible, so moving through the day (and crossing
- * the hour mark) only changes opacity values: no layer is added, removed, hidden or reordered
- * (those structural changes showed as a white flash on the hour). Of the pair, the one drawn on top
- * (later in the list) gets its weight directly; the one beneath is scaled up to show through it.
- * Hours whose image isn't built yet hold a 1×1 transparent stand-in until the idle prewarm makes them.
- */
-function crossfade(id: string, n: number, img: (k: number, build: boolean) => Img | null, i0: number, i1: number, t: number, alpha: number, g?: Grid, askAll = false): Layer[] {
-  const w = new Map<number, number>([[i0, i0 === i1 ? 1 : 1 - t]]);
-  if (i1 !== i0) w.set(i1, t);
-  const [lo, hi] = i0 < i1 ? [i0, i1] : [i1, i0];
-  const upper = (w.get(hi) ?? 0) * alpha;
-  const lower = i0 === i1 ? alpha : ((w.get(lo) ?? 0) * alpha) / Math.max(1e-6, 1 - upper);
-  const out: Layer[] = [];
-  for (let k = 0; k < n; k++) {
-    const active = w.has(k);
-    const slot = `${id}-${k}`;
-    // askAll: every hour is requested (the inactive ones as background work); until an image lands
-    // the slot keeps what it showed before (e.g. the previous month's hour), so nothing flashes
-    const got = active || askAll ? img(k, active) : img(k, false);
-    if (got) lastInSlot.set(slot, got);
-    const c = got ?? lastInSlot.get(slot) ?? blankCanvas();
-    const op = !active ? 0 : k === hi && i0 !== i1 ? upper : lower;
-    out.push(bitmap(`${id}-${k}`, c, op, g));
-  }
-  return out;
 }
 
 /** the surrounding-city result for the same parameters (started on first request, redrawn when it lands) */
@@ -329,6 +234,7 @@ interface LinkVis {
   path: Position[];
   vc: number;
   flow: number;
+  /** congested speed, m/s */
   speed: number;
   diff?: number;
   key: string;
@@ -341,17 +247,17 @@ function trafficLinks(rec: SimRecord, hour: number, cmp?: SimRecord): LinkVis[] 
   const hit = trafficCache.get(key);
   if (hit) return hit;
   const r = rec.result;
-  const prof: number[] = r.hourly;
-  const peak = r.period === "am" ? 8 : 17;
-  const f = prof[Math.floor(hour)] / prof[peak];
+  // the hour's own volumes, v/c and speeds (both peaks scaled through the day: sim/trafficHourly)
+  const at = trafficAtCached(r, Math.floor(hour) + 0.5);
   const linkKey = (res: any, k: number) => {
     const p = res.paths[k] as number[];
     return `${p[0].toFixed(0)},${p[1].toFixed(0)}>${p[p.length - 2].toFixed(0)},${p[p.length - 1].toFixed(0)}`;
   };
   let base: Map<string, number> | null = null;
   if (cmp) {
+    const cat = trafficAtCached(cmp.result, Math.floor(hour) + 0.5);
     base = new Map();
-    for (let k = 0; k < cmp.result.paths.length; k++) base.set(linkKey(cmp.result, k), cmp.result.flows[k]);
+    for (let k = 0; k < cmp.result.paths.length; k++) base.set(linkKey(cmp.result, k), cat.flows[k]);
   }
   const out: LinkVis[] = [];
   for (let k = 0; k < r.paths.length; k++) {
@@ -362,12 +268,8 @@ function trafficLinks(rec: SimRecord, hour: number, cmp?: SimRecord): LinkVis[] 
     const meta = r.links[k];
     const off = Math.min(6, 1.5 + meta.lanes * 1.4);
     const path = offsetPath(pts, -off).map((p) => [p[0], p[1], 0.6] as Position);
-    const vc0 = r.vc[k];
-    const vc = vc0 * f;
-    const t0 = r.time[k] / (1 + 0.15 * Math.pow(vc0, 4));
-    const t = t0 * (1 + 0.15 * Math.pow(vc, 4));
     const lk = linkKey(r, k);
-    out.push({ path, vc, flow: r.flows[k] * f, speed: (meta.length / Math.max(0.1, t)) * 3.6, diff: base ? (r.flows[k] - (base.get(lk) ?? 0)) * f : undefined, key: lk, name: meta.name });
+    out.push({ path, vc: at.vc[k], flow: at.flows[k], speed: at.speed[k], diff: base ? at.flows[k] - (base.get(lk) ?? 0) : undefined, key: lk, name: meta.name });
   }
   if (trafficCache.size > 12) trafficCache.delete(trafficCache.keys().next().value!);
   trafficCache.set(key, out);
@@ -393,13 +295,13 @@ export function trafficTrips(hour: number): TripDatum[] {
   const out: TripDatum[] = [];
   // budget the number of animated vehicles; density stays proportional to modelled flow
   let total = 0;
-  for (const l of links) if (l.flow >= 20) total += (l.flow * (polyLength((l.path as [number, number][]).map((p) => [p[0], p[1]] as Vec2)) / Math.max(1.5, l.speed / 3.6))) / 3600;
+  for (const l of links) if (l.flow >= 20) total += (l.flow * (polyLength((l.path as [number, number][]).map((p) => [p[0], p[1]] as Vec2)) / Math.max(1.5, l.speed))) / 3600;
   const SCALE = Math.min(0.5, 9000 / Math.max(1, total * (TRIP_LOOP / 60)));
   for (const l of links) {
     if (l.flow < 20) continue;
     const pts = l.path as [number, number, number][];
     const L = polyLength(pts.map((p) => [p[0], p[1]] as Vec2));
-    const v = Math.max(1.5, l.speed / 3.6);
+    const v = Math.max(1.5, l.speed);
     const traverse = L / v;
     const headway = 3600 / (l.flow * SCALE);
     if (headway > TRIP_LOOP) continue;
@@ -484,46 +386,30 @@ export function overlayLayers(overlay: OverlayId | null, hour: number, _theme: s
   } else if (overlay === "heat") {
     const { rec, cmp } = shown("heat");
     if (rec) {
+      // one layer per grid, blending the two modelled hours around the clock on the GPU
+      // (render/heatBlendLayer): crossing an hour mark only rebinds textures, nothing is rebuilt
       const hours: number[] = rec.result.hours;
       const { i0, i1, t } = bracket(hours, hour);
       const [lo, hi2] = heatRange();
-      const image = (hi: number, build = true) => {
-        const key = `heat:${rec.id}:${hi}:${cmp?.id ?? ""}:${lo}`;
-        if (!build) return peekImage(key);
-        const arr: Uint8Array = rec.result.surface[hi];
-        const ci = cmp ? cmp.result.hours.indexOf(hours[hi]) : -1;
-        const carr: Uint8Array | undefined = cmp && ci >= 0 ? cmp.result.surface[ci] : undefined;
-        return rasterImage(key, g, (i) => {
-          const q = arr[i];
-          if (!q) return null;
-          if (carr) {
-            const d = dqT(q) - dqT(carr[i] || q);
-            if (Math.abs(d) < 0.25) return null;
-            return rgba(sample(DIVERGE, norm(d, -3, 3)), 240);
-          }
-          return rgba(sample(HEAT, norm(dqT(q), lo, hi2)), 205);
-        });
-      };
-      const lut = heatLut(lo, hi2);
-      const bounds = rtMaybe()!.meta.bounds;
-      // the hours on screen are built first; asking for the others (not urgent) is the prewarm,
-      // which the raster worker runs only while the camera is still
-      const plain = (hi: number, onScreen = true) => heatImage(`heat:${rec.id}:${hi}::${lo}`, g, bounds, "study", rec.result.surface[hi], lut, onScreen);
-      // the surrounding city (unaffected by edits) continues the map outward
-      const ctx = cmp ? null : surrounding("heat", rec.params);
-      if (ctx?.model === "heat") {
-        const cimage = (hi: number, onScreen = true) => {
-          const ci = ctx.hours.indexOf(hours[hi]);
-          const arr = ci < 0 ? null : ctx.surface[ci];
-          return arr ? heatImage(`heatctx:${JSON.stringify(rec.params)}:${hi}:${lo}`, ctx.gridSpec, bounds, "ring", arr, lut, onScreen) : null;
-        };
-        ground.push(...crossfade("heatctx", hours.length, cimage, i0, i1, t, 0.6, ctx.gridSpec, true));
-      } else if (!cmp) ground.push(...crossfade("heatctx", hours.length, () => null, i0, i1, t, 0.6));
       if (cmp) {
-        ground.push(...crossfade("heat", hours.length, image, i0, i1, t, 0.8));
-        // build the rest of the day's difference images in idle time so playback never stalls on one
-        prewarm(`heat:${rec.id}:${cmp.id}:${lo}`, hours.map((_, k) => () => image(k)));
-      } else ground.push(...crossfade("heat", hours.length, plain, i0, i1, t, 0.6, undefined, true));
+        const at = (k: number) => {
+          const ci = cmp.result.hours.indexOf(hours[k]);
+          return diffValues(`${rec.id}:${cmp.id}:${k}`, rec.result.surface[k], ci >= 0 ? cmp.result.surface[ci] : undefined);
+        };
+        ground.push(new HeatBlendLayer({ id: "heat", ...common(), grid: g, valuesA: at(i0), valuesB: at(i1), mix: t, fade: fadeBytes("study", g), lut: diffLut(), opacity: 0.8 }));
+      } else {
+        const lut = heatLut(lo, hi2);
+        // the surrounding city (unaffected by edits) continues the map outward
+        const ctx = surrounding("heat", rec.params);
+        if (ctx?.model === "heat") {
+          const at = (k: number) => {
+            const ci = ctx.hours.indexOf(hours[k]);
+            return ci < 0 ? null : ctx.surface[ci];
+          };
+          ground.push(new HeatBlendLayer({ id: "heatctx", ...common(), grid: ctx.gridSpec, valuesA: at(i0), valuesB: at(i1), mix: t, fade: fadeBytes("ring", ctx.gridSpec), lut, opacity: 0.6 }));
+        }
+        ground.push(new HeatBlendLayer({ id: "heat", ...common(), grid: g, valuesA: rec.result.surface[i0], valuesB: rec.result.surface[i1], mix: t, fade: fadeBytes("study", g), lut, opacity: 0.6 }));
+      }
     }
   } else if (overlay === "sun") {
     const { rec } = shown("sun");

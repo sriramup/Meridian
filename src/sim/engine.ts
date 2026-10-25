@@ -102,8 +102,17 @@ export class Engine {
       case "traffic": {
         const period = (P.period as "am" | "pm") ?? "pm";
         const extra = (P.extraResidents as { p: Vec2; residents: number }[] | undefined) ?? [];
-        const { input, net } = prepareTraffic(this.world.entities, meta, this.init.counts, { period, demandScale: (P.demandScale as number) ?? 1, iterations: (P.iterations as number) ?? 20 }, { extraResidents: extra });
-        const r = runTraffic(input, progress);
+        const prep = (per: "am" | "pm") => prepareTraffic(this.world.entities, meta, this.init.counts, { period: per, demandScale: (P.demandScale as number) ?? 1, iterations: (P.iterations as number) ?? 20 }, { extraResidents: extra });
+        const { input, net } = prep(period);
+        // day: both peaks, so the overlay can follow the clock through the day (sim/trafficHourly)
+        const day = !!P.day;
+        const r = runTraffic(input, day ? (p) => progress(p / 2) : progress);
+        let alt: { period: "am" | "pm"; flows: Float32Array; vc: Float32Array; time: Float32Array; vehTrips: number; kpi: typeof r.kpi } | undefined;
+        if (day) {
+          const other = period === "am" ? "pm" : "am";
+          const r2 = runTraffic(prep(other).input, (p) => progress(0.5 + p / 2));
+          alt = { period: other, flows: r2.flows, vc: r2.vc, time: r2.time, vehTrips: r2.kpi.vehTrips, kpi: r2.kpi };
+        }
         // link geometry for rendering (offset to the travel side happens on the client)
         const paths: number[][] = [];
         const meta2: { street: string; name?: string; cls: string; lanes: number; capacity: number; length: number }[] = [];
@@ -115,8 +124,10 @@ export class Engine {
           meta2.push({ street: l.streetId, name: l.name, cls: l.cls, lanes: l.lanes, capacity: l.capacity, length: l.length });
         }
         const nodes = r.nodes.slice(0, 400).map((n) => ({ ...n, id: net.nodes[n.node].id, p: net.nodes[n.node].p, name: [...new Set(this.world.incident(net.nodes[n.node].id).map((s) => s.name).filter(Boolean))].join(" / ") }));
-        const result = { ...r, nodes, paths, links: meta2, gateways: input.gateways.map((g) => ({ p: g.p, inbound: g.inbound, outbound: g.outbound, name: g.name, calibrated: g.calibrated })), hourly: HOURLY_PROFILE };
-        return { result, transfer: [r.flows.buffer, r.vc.buffer, r.time.buffer, r.speed.buffer] as ArrayBuffer[] };
+        const result = { ...r, nodes, paths, links: meta2, gateways: input.gateways.map((g) => ({ p: g.p, inbound: g.inbound, outbound: g.outbound, name: g.name, calibrated: g.calibrated })), hourly: HOURLY_PROFILE, alt };
+        const transfer = [r.flows.buffer, r.vc.buffer, r.time.buffer, r.speed.buffer] as ArrayBuffer[];
+        if (alt) transfer.push(alt.flows.buffer as ArrayBuffer, alt.vc.buffer as ArrayBuffer, alt.time.buffer as ArrayBuffer);
+        return { result, transfer };
       }
       case "heat": {
         const ref = this.heatRef(job.changesets);

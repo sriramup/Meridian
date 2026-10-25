@@ -21,6 +21,8 @@ export function bracket(hours: number[], h: number): { i0: number; i1: number; t
 export interface AreaKpi {
   /** mean surface temperature of every cell in scope, °C */
   surface: number | null;
+  /** air temperature at the hour (area-wide, °C); null when the run has none */
+  air: number | null;
   /** mean feels-like temperature on walkable hard ground, °C */
   feels: number | null;
   /** canopy cover share of the scope, 0..1 */
@@ -66,7 +68,7 @@ export function tilesIn(tiles: Pick<HeatTiles, "size" | "tx" | "ty">, g: GridSpe
 }
 
 /** KPIs over the selected tiles at hour `hour` (fractional, 0–24) */
-export function areaKpi(r: { hours: number[]; sunAlt?: number[]; tiles: HeatTiles }, sel: Uint32Array, hour: number): AreaKpi {
+export function areaKpi(r: { hours: number[]; sunAlt?: number[]; airTemp?: number[]; tiles: HeatTiles }, sel: Uint32Array, hour: number): AreaKpi {
   const T = r.tiles;
   let cells = 0,
     paths = 0,
@@ -103,6 +105,7 @@ export function areaKpi(r: { hours: number[]; sunAlt?: number[]; tiles: HeatTile
   const shaded = s0 === null && s1 === null ? null : s0 === null ? (t > 0.5 ? s1 : null) : s1 === null ? (t < 0.5 ? s0 : null) : mix(s0, s1);
   return {
     surface: cells ? mix(a.s, b.s) / cells : null,
+    air: r.airTemp && r.airTemp.length === r.hours.length ? mix(r.airTemp[i0], r.airTemp[i1]) : null,
     feels: paths ? mix(a.e, b.e) / paths : null,
     canopy: cells ? canopy / cells : 0,
     shaded,
