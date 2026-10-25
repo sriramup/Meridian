@@ -29,6 +29,7 @@ import { useSims } from "@/sim/client";
 import type { Changeset } from "@/world/world";
 import { entityName, viewCenter } from "./resolve";
 import { routeRequest, type Tier } from "./router";
+import { isSearchOn, searchNote } from "@/serp/store";
 import { MAX_STEPS } from "./models";
 import { effectOf } from "./toolDefs";
 import { executeTool, simSummary, type ToolContext, type ToolOutput } from "./tools";
@@ -467,7 +468,7 @@ export async function send(id: string, text: string, opts: { mode?: AgentMode; z
   const r = rtOf(id);
   const R = rtMaybe();
   const refs = useApp.getState().selection.slice(0, 6);
-  const route = routeRequest(text, { mode, hasSelection: refs.length > 0 });
+  const route = routeRequest(text, { mode, hasSelection: refs.length > 0, search: isSearchOn(id) });
   const t0 = Date.now();
   patch(id, (x) => ({
     mode,
@@ -486,6 +487,8 @@ export async function send(id: string, text: string, opts: { mode?: AgentMode; z
     blocks.push({ type: "text", text: `[runtime] Earlier conversation in this session (history not restored after a reload):\n${r.restored}` });
     r.restored = undefined;
   }
+  const sn = searchNote(id);
+  if (sn) blocks.push({ type: "text", text: sn });
   blocks.push({ type: "text", text });
   r.messages.push({ role: "user", content: blocks });
   r.abort = new AbortController();

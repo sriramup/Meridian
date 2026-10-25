@@ -56,3 +56,30 @@ describe("navigation requests route to the quick tier", () => {
   const notNav = ["show me the heat map", "show me where to put a school", "show me the traffic results", "take me through the options", "go ahead", "Where should the new park go?"];
   for (const text of notNav) it(`not navigation: ${text}`, () => expect(navigationTarget(text)).toBe(null));
 });
+
+import { searchIntent } from "@/agent/router";
+describe("live search requests (SerpApi tools) go to a capable tier", () => {
+  const cases: [string, "web" | "places"][] = [
+    ["Are there groceries within a 10-minute walk of Republic Square?", "places"],
+    ["restaurants near Congress & 6th", "places"],
+    ["Where are the coffee shops near the Capitol?", "places"],
+    ["find pharmacies near 21st and Guadalupe", "places"],
+    ["What is the population of Austin?", "web"],
+    ["look up the average household size in Austin", "web"],
+    ["research rainfall totals for Austin in 2025", "web"],
+    ["What does Austin's ordinance say about ADUs?", "web"],
+  ];
+  for (const [text, intent] of cases)
+    it(`${intent}: ${text}`, () => {
+      expect(searchIntent(text)).toBe(intent);
+      expect(navigationTarget(text)).toBe(null);
+      expect(routeRequest(text).tier).toBe("standard");
+    });
+  it("the Search toggle lifts a plain question off the quick tier", () => {
+    expect(routeRequest("What's the tallest building here?").tier).toBe("quick");
+    expect(routeRequest("What's the tallest building here?", { search: true }).tier).toBe("standard");
+  });
+  it("deep work stays deep", () => expect(routeRequest("Masterplan the east side of downtown for 3,000 homes, grounded in Austin's growth rate").tier).toBe("deep"));
+  for (const t of ["Where is Republic Square?", "take me to 21st and Guadalupe", "Build a 30-story mixed-use tower on the largest surface parking lot near Republic Square", "Plant street trees along Rainey Street"])
+    it(`not a search: ${t}`, () => expect(searchIntent(t)).toBe(null));
+});
