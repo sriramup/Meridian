@@ -95,7 +95,12 @@ export const SKETCH_TOOLS: Record<string, (i: In, ctx: ToolContext) => Promise<T
       { label: "Homes", value: String((c.data as { homes?: number })?.homes ?? 0) },
       { label: "Buildings", value: String((c.data as { buildings?: number })?.buildings ?? 0) },
     ];
-    if (c.applied && d.bbox) frame(d.bbox as [number, number, number, number]);
+    if (c.applied && d.bbox) {
+      // a little margin: the pitched view foreshortens the far edge
+      const [x0, y0, x1, y1] = d.bbox;
+      const m = Math.max(x1 - x0, y1 - y0) * 0.12;
+      frame([x0 - m, y0 - m, x1 + m, y1 + m]);
+    }
     return out;
   },
 };
