@@ -9,6 +9,7 @@ import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent as R
 import { confirmAction } from "../ConfirmDialog";
 import {
   Badge,
+  Button,
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
@@ -33,7 +34,7 @@ const ROW = 46;
 const GAP = 2;
 const SLOT = ROW + GAP;
 
-export const SIDEBAR_WIDTH = 252;
+export { SIDEBAR_WIDTH } from "@/state/panels";
 /** the shortcut that shows and hides the sidebar (⌘B on a Mac, Ctrl+B elsewhere, as in code editors) */
 export const SIDEBAR_KEY = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘B" : "Ctrl+B";
 
@@ -87,21 +88,18 @@ export function ProjectsSidebar() {
       className="flex h-full w-full flex-col border-r border-line-2"
       style={{ background: "var(--parchment), linear-gradient(270deg, #d8bd8c 0, #ecdab4 12px, #f4e6c7 60%, #eedcb6 100%)" }}
     >
-      <div className="flex h-[64px] shrink-0 items-end justify-between px-3 pb-2">
-        <span className="font-legend text-[13px] leading-none text-ink-3">Projects</span>
-        <span className="flex items-center gap-1">
-          <NewProjectMenu />
+      {/* the top bar's projects button moves here while the sidebar is open (as the Agent button
+          moves into the agents pane), at the same height as the top bar */}
+      <div className="flex h-[64px] shrink-0 items-center justify-between gap-2 pr-3 pl-2.5">
+        <span className="flex min-w-0 items-center gap-1">
           <Tooltip content="Hide projects" kbd={SIDEBAR_KEY} side="bottom">
-            <button
-              aria-label="Hide projects"
-              data-testid="sidebar-collapse"
-              onClick={() => setSidebarOpen(false)}
-              className="grid size-7 place-items-center rounded-[6px] text-ink-3 outline-none hover:bg-paper-3 hover:text-ink focus-visible:ring-2 focus-visible:ring-rose/25"
-            >
-              <PanelLeftClose size={15} strokeWidth={1.7} />
-            </button>
+            <Button variant="ghost" size="icon-sm" onClick={() => setSidebarOpen(false)} aria-label="Hide projects" data-testid="sidebar-collapse">
+              <PanelLeftClose strokeWidth={1.7} />
+            </Button>
           </Tooltip>
+          <span className="font-legend text-[13px] leading-none text-ink-3">Projects</span>
         </span>
+        <NewProjectMenu />
       </div>
       <div className="scroll-thin min-h-0 flex-1 overflow-y-auto px-2 pb-3">
         <div ref={rows} role="list" aria-label="Projects" className="relative flex flex-col" style={{ gap: GAP }}>

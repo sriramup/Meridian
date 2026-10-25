@@ -157,8 +157,7 @@ export function setSidebarOpen(open: boolean) {
   try {
     localStorage.setItem(SIDEBAR_KEY, open ? "1" : "0");
   } catch {}
-  // the map follows its container
-  setTimeout(() => rtMaybe()?.map?.resize(), 0);
+  // the sidebar opens over the map (src/state/panels.ts): the canvas keeps its size, no resize
 }
 export const toggleSidebar = () => setSidebarOpen(!useProjects.getState().sidebarOpen);
 
