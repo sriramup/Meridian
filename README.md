@@ -4,10 +4,12 @@
 
 ```
 npm install
-npm run dev            # http://localhost:3000 opens the blank canvas; http://localhost:3000/?city=austin opens Austin
+npm run dev            # http://localhost:3000 opens your last project (a fresh blank canvas on a first visit); ?city=austin opens Austin
 ```
 
-Switch between the blank canvas and Austin from the city menu next to the Meridian wordmark. The Austin data pack ships prebuilt in `public/data/austin/` (≈ 30 MB), so no API keys or downloads are needed to explore, edit, or simulate.
+Work is organised in **projects**, listed in the sidebar on the left (toggle it with the button at the far left of the top bar). *New* starts a project from a blank canvas or from the Austin template; click a project to open it, double-click (or F2) to rename it, right-click for Rename / Duplicate / Delete, and drag it (or Alt+↑/↓) to reorder. Every project, Austin-based ones included, is saved in the browser as you work: every proposal with its full undo history, and the last camera view. Opening a project never reloads the page: the next one is built under a short loading card and swapped in (`src/state/projects.ts`), and the address follows it (`?project=…`, so Back returns to the previous project). The single blank-canvas design saved by earlier versions becomes a project called *My design* on first start.
+
+The Austin data pack ships prebuilt in `public/data/austin/` (≈ 30 MB), so no API keys or downloads are needed to explore, edit, or simulate.
 
 ### Enabling the planning agent
 
@@ -59,11 +61,11 @@ The default view is an empty 3 × 3 km site with a faint 100 m grid. There is no
   - School and clinic floor space become walk-access destinations.
   - A building drawn as a fire station counts as a fire/EMS station.
 - **Climate.** Sun path, time zone and typical weather come from a climate city (Austin) so the environmental models have real inputs. The canvas uses 2.5 persons per household.
-- **Saving.** Your design (every branch, with full undo history) is saved in the browser as you work. Start over with *New blank canvas* in the city menu.
+- **Saving.** Each canvas is a project in the sidebar, saved in the browser as you work (every proposal, with full undo history). Start another with *New ▸ Blank canvas*; the *Start a city* card closes with its ×.
 
 ### Exporting and importing proposals
 
-The scenario menu (the coloured dot with the design's name) has **Export ▸ JSON / CSV** and **Import…**, on the blank canvas and on Austin alike.
+The proposal menu (the coloured dot with the proposal's name) switches proposals, renames them, starts a *New proposal…* from the base or a *Branch from “…”…* of the current one (each asks for a name), deletes one, and has **Export ▸ JSON / CSV** and **Import…**, on the blank canvas and on Austin alike.
 
 - **JSON** (`"format": "meridian-proposal", "version": 1`) is lossless. It holds the city (id, name, climate), the coordinate reference (local metres from an origin lon/lat), and per proposal: a summary (features added / modified / removed by kind, change in homes, jobs and floor area), the edit history, a readable GeoJSON `FeatureCollection` of the changed features in lon/lat with their key attributes (kind, name, use/type, floors, height, area, units, jobs, library definition and parameters, which attributes changed), and the exact changesets. Importing it replays the changesets as a new branch, entity for entity; it refuses files from another city or a newer version. *Export ▸ All designs* puts every branch in one file. Older blank-canvas design files are still imported (each branch becomes a design).
 - **CSV** has one row per changed feature: `proposal, city, action, kind, id, name, use_type, floors, height_m, area_m2, units, jobs, lon, lat, geometry_wkt` (WKT in lon/lat), `library_def, library_params` (JSON), `library_instance, library_placement` (JSON, lon/lat), `changed`; RFC 4180 quoting. Importing it re-creates what the columns carry as a new branch: buildings (one extruded footprint), areas, trees, paths, junction controls, street centrelines and classes, removals, and library primitives (placed again from definition + parameters). It cannot carry street cross-sections (re-created streets get their class default), building massing detail (setbacks, roofs, facade), the shapes of props without a known definition, or transit routes; the import lists what it could not carry. Use JSON for an exact copy.

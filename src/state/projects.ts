@@ -115,7 +115,8 @@ const SIDEBAR_KEY = "meridian.sidebar";
 const readSidebar = () => {
   try {
     const v = localStorage.getItem(SIDEBAR_KEY);
-    return v === null ? true : v === "1";
+    // open by default where the map keeps room beside it
+    return v === null ? window.innerWidth >= 1200 : v === "1";
   } catch {
     return true;
   }
@@ -353,11 +354,26 @@ export async function openProject(id: string, opts: { history?: "push" | "replac
   try {
     // the open project is saved before anything else happens
     await saveCurrent();
-    const [next, data] = await Promise.all([preset.kind === "sandbox" ? buildSandbox(meta.climate || preset.climate!, (p, l) => progress(p * 0.5, l)) : buildCity(meta.base, (p, l) => progress(p * 0.9, l)), backend().getData(id)]);
+    const build = () => (preset.kind === "sandbox" ? buildSandbox(meta.climate || preset.climate!, (p, l) => progress(p * 0.5, l)) : buildCity(meta.base, (p, l) => progress(p * 0.9, l)));
+    let [next, data] = await Promise.all([build(), backend().getData(id)]);
     progress(0.93, "Restoring proposals");
     await frame();
-    if (data?.scenarios && !next.scenarios.restore(data.scenarios)) warn("Some saved work could not be restored on this template");
-    next.world.takeDirty();
+    if (data?.scenarios) {
+      let ok = false;
+      try {
+        ok = next.scenarios.restore(data.scenarios);
+      } catch (e) {
+        // a half-replayed world is unusable: start again from the template
+        console.error("restore", e);
+        next = await build();
+      }
+      if (!ok) {
+        // keep what was saved (autosave would otherwise write over it)
+        void backend().kvSet(`unrestored:${id}:${Date.now()}`, data);
+        warn(`Saved proposals of “${meta.name}” could not be restored; it opened on its template`);
+      }
+    }
+    // (the replayed edits stay dirty: the scene builds them when the map starts)
     if (data?.view) next.startView = data.view;
     // ---- swap: the Shell unmounts (MapView removes the map and overlay), then the old world goes
     progress(0.97, "Drawing");

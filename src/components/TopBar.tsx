@@ -43,7 +43,7 @@ export function TopBar() {
     <div className="pointer-events-auto flex h-10 min-w-0 items-center gap-1 chrome scroll-ends pr-1.5 pl-1.5">
       <SidebarToggle />
       <button onClick={overview} className="mr-1 ml-0.5 flex h-full shrink-0 items-center text-ink" title="Overview">
-        <Wordmark className="@max-[700px]:[&>span]:hidden" />
+        <Wordmark className="@max-[960px]:[&>span]:hidden" />
       </button>
       <span className="mx-1 h-4 w-px bg-line-2" />
       <ProjectName />
@@ -196,7 +196,7 @@ function ScenarioMenu() {
           <button data-testid="proposal-menu" className="flex h-7 min-w-0 items-center gap-1.5 rounded-[6px] px-2 text-[12.5px] font-medium text-ink outline-none hover:bg-paper-3">
             <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: active.color }} />
             <span className="max-w-[140px] truncate">{active.name}</span>
-            <span className="tabular shrink-0 text-[11px] font-normal text-ink-4 @max-[820px]:hidden">{active.cursor ? `${active.cursor} edit${active.cursor > 1 ? "s" : ""}` : ""}</span>
+            <span className="tabular shrink-0 text-[11px] font-normal text-ink-4 @max-[1000px]:hidden">{active.cursor ? `${active.cursor} edit${active.cursor > 1 ? "s" : ""}` : ""}</span>
             <ChevronDown size={13} className="shrink-0 text-ink-4" />
           </button>
         </DropdownMenuTrigger>

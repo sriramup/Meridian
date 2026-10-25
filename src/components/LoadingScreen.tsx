@@ -13,6 +13,8 @@ import { Badge, Button } from "./ui/kit";
  */
 export function LoadingScreen() {
   const switching = useProjects((s) => s.switching);
+  // the name as it is now (a new project is often being named while it opens)
+  const liveName = useProjects((s) => s.list.find((p) => p.id === s.switching?.id)?.name);
   const status = useApp((s) => s.status);
   const appError = useApp((s) => s.error);
   const busy = !!switching || status !== "ready";
@@ -51,7 +53,7 @@ export function LoadingScreen() {
           <Wordmark className="origin-right scale-[0.72] opacity-80" />
         </div>
         <div className="mt-2.5 flex min-w-0 items-center gap-2">
-          <span className="min-w-0 truncate font-display text-[21px] leading-tight text-ink">{s?.name ?? "Meridian"}</span>
+          <span className="min-w-0 truncate font-display text-[21px] leading-tight text-ink">{liveName ?? s?.name ?? "Meridian"}</span>
           {preset && (
             <Badge variant={s?.base === "sandbox" ? "outline" : "accent"} className="shrink-0">
               {preset.badge}

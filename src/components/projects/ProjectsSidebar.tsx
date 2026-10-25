@@ -138,7 +138,8 @@ function NewProjectMenu() {
           </button>
         </DropdownMenuTrigger>
       </Tooltip>
-      <DropdownMenuContent align="end" className="w-64">
+      {/* focus goes to the new project's name, not back to this button */}
+      <DropdownMenuContent align="end" className="w-64" onCloseAutoFocus={(e) => e.preventDefault()}>
         <DropdownMenuLabel>Start from</DropdownMenuLabel>
         {TEMPLATES.map((t) => {
           const Icon = t.kind === "sandbox" ? SquareDashed : Building2;
@@ -291,11 +292,14 @@ function RenameField({ p }: { p: ProjectMeta }) {
   const ref = useRef<HTMLInputElement>(null);
   const done = useRef(false);
   useEffect(() => {
-    const t = setTimeout(() => {
+    const grab = () => {
+      if (done.current || document.activeElement === ref.current) return;
       ref.current?.focus();
       ref.current?.select();
-    }, 0);
-    return () => clearTimeout(t);
+    };
+    // again after menus close and the workspace mounts, which may move focus
+    const ts = [0, 120, 400].map((ms) => setTimeout(grab, ms));
+    return () => ts.forEach(clearTimeout);
   }, []);
   const finish = (keep: boolean) => {
     if (done.current) return;
