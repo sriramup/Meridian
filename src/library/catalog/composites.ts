@@ -3,6 +3,7 @@
 // and a business park. Every entity belongs to the one composite instance (re-configured together).
 
 import type { Polygon, Vec2 } from "@/world/types";
+import { difference, polyArea } from "@/geometry/polygon";
 import type { GenerateContext, ParamValues, PlacementInput, PrimitiveDef } from "../types";
 import { validateParams } from "../registry";
 import { type Frame, frameOf, polyToWorld, rng, subFrame, toWorld } from "../geometry/frame";
@@ -384,7 +385,7 @@ function urbanSchool(values: ParamValues, place: PlacementInput, ctx: GenerateCo
   const wingSide = rand() < 0.5 ? -1 : 1;
   if (wingLen > 8) {
     wingLen = Math.min(wingLen, D * 0.45);
-    bld(out, f, [wingSide * (barW / 2 - 9), yBar - bd / 2 - wingLen / 2 + 0.2], 0, { use: "education", width: 18, depth: wingLen, floors: Math.max(2, floors - 1), groundFloorHeight: 4.5, floorHeight: 4.0, facade, roofType: "flat", parapetHeight: 1.1 });
+    bld(out, f, [wingSide * (barW / 2 - 9), yBar - bd / 2 - wingLen / 2 - 0.05], 0, { use: "education", width: 18, depth: wingLen, floors: Math.max(2, floors - 1), groundFloorHeight: 4.5, floorHeight: 4.0, facade, roofType: "flat", parapetHeight: 1.1 });
   }
   // gymnasium / auditorium: a tall hall on the other side, behind the bar
   const gx = -wingSide * (barW / 2 - gym[0] / 2);
@@ -416,23 +417,58 @@ function urbanSchool(values: ParamValues, place: PlacementInput, ctx: GenerateCo
   let field = lv.field === "track" ? tryField("track", 176, 92) ?? tryField("football", 110, 49) ?? tryField("soccer", 100, 64) : tryField("soccer", lv.fieldL, lv.fieldW) ?? tryField("soccer", lv.fieldL * 0.75, lv.fieldW * 0.75);
   if (field) fieldPlaced = true;
   else field = { cx: W / 2, cy: -D / 2, Lx: 0, Ly: 0 };
-  // hard-court play yard in the remaining back corner
-  const yardW = W - 6 - field.Lx - 4,
-    yardD = Math.max(0, backD - 2);
-  if (yardW > 16 && yardD > 16) {
-    const cx = -W / 2 + 3 + yardW / 2,
-      cy = -D / 2 + 3 + yardD / 2;
-    areaL(out, f, "plaza", rectL(cx, cy, yardW, yardD), { name: "Play yard" });
-    let y = -D / 2 + 3 + 10;
-    for (let k = 0; k < lv.courts && y + 10 < -D / 2 + 3 + yardD; k++, y += 21) if (yardW >= 32) child(out, byId(RECREATION, "recreation.basketball_court"), { benches: 0 }, { site: polyToWorld(f, rectL(cx, y + 2, 32, 19)), rotation: ((f.a * 180) / Math.PI + 360) % 360 });
-    if (lv.play && yardD > 40) out.prop("recreation.playground", subFrame(f, [cx, -D / 2 + 3 + yardD - 14]), playgroundSolids("school", Math.min(22, yardW * 0.6)), { primary: false });
-  } else if (field.Lx === 0 && backD > 12) areaL(out, f, "grass", rectL(0, -D / 2 + 3 + backD / 2, W - 6, backD - 1), { name: "Play lawn" });
+  // the rest of the grounds behind the building: play yard, courts and a second diamond / tennis
+  // where they fit, packed left to right; whatever remains is lawn (see below)
+  const rx0 = -W / 2 + 3,
+    rx1 = W / 2 - 3 - (field.Lx ? field.Lx + 4 : 0),
+    ry0 = -D / 2 + 3,
+    ry1 = -D / 2 + 3 + Math.max(0, backD - 2);
+  const rot = ((f.a * 180) / Math.PI + 360) % 360;
+  let cx0 = rx0;
+  const slot = (w: number, d: number, fn: (cx: number, cy: number) => void) => {
+    if (cx0 + w > rx1 || d > ry1 - ry0) return false;
+    fn(cx0 + w / 2, ry0 + d / 2);
+    cx0 += w + 4;
+    return true;
+  };
+  if (lv.play) slot(34, Math.min(30, ry1 - ry0), (cx, cy) => {
+    areaL(out, f, "plaza", rectL(cx, cy, 34, Math.min(30, ry1 - ry0)), { name: "Play yard" });
+    out.prop("recreation.playground", subFrame(f, [cx, cy]), playgroundSolids("school", 18), { primary: false });
+  });
+  if (r.s("level") === "high" && ry1 - ry0 >= 75) {
+    const s0 = Math.min(100, ry1 - ry0, rx1 - cx0);
+    if (s0 >= 75) slot(s0, s0, (cx, cy) => child(out, byId(RECREATION, "recreation.baseball_field"), { length: s0 - 8, width: s0 - 8, runoff: 4 }, { site: polyToWorld(f, rectL(cx, cy, s0, s0)), rotation: rot }));
+  }
+  // courts in stacked rows
+  const rows = Math.max(1, Math.floor((ry1 - ry0 + 2) / 21));
+  let courts = lv.courts + (r.s("level") === "high" ? 2 : 0);
+  while (courts > 0 && cx0 + 32 <= rx1 && ry1 - ry0 >= 19) {
+    for (let k = 0; k < rows && courts > 0; k++, courts--) {
+      const tennis = r.s("level") !== "primary" && courts % 2 === 0;
+      child(out, byId(RECREATION, tennis ? "recreation.tennis_court" : "recreation.basketball_court"), { benches: 0 }, { site: polyToWorld(f, rectL(cx0 + 16, ry0 + 9.5 + k * 21, 32, 19)), rotation: rot });
+    }
+    cx0 += 36;
+  }
   // shade trees along the back and sides
   for (let x = -W / 2 + 4; x <= W / 2 - 4; x += 10) streetTree(out, toWorld(f, [x, -D / 2 + 1.5]), x * 0.3, 0.75);
   for (let y = -D / 2 + 12; y <= D / 2 - 20; y += 11) for (const sg of [-1, 1]) if (!(sg > 0 && W - barW > 18 && y > D / 2 - 55)) streetTree(out, toWorld(f, [sg * (W / 2 - 1.5), y]), y * 0.7 + sg, 0.7);
+  lawnFill(out, f, W, D);
   if (main) out.setPrimary(main.building);
   out.summary.unshift(`${name}: ${fmtInt(pupils)} pupils, ${Math.round(gfa).toLocaleString()} m² over ${floors} floors${fieldPlaced ? "" : " (no room for a full field)"}`);
   return out.done();
+}
+
+/** lawn over every part of a site not already a building or another surface */
+function lawnFill(out: Out, f: Frame, W: number, D: number) {
+  const site = polyToWorld(f, rectL(0, 0, W, D));
+  const cut: Polygon[] = [...out.buildings.map((b) => b.footprint), ...out.areas.filter((a) => a.type !== "campus").map((a) => a.poly)].filter((q) => q[0]?.length >= 3);
+  let rest: Polygon[];
+  try {
+    rest = cut.length ? difference(site, ...cut) : [site];
+  } catch {
+    return;
+  }
+  for (const q of rest) if (polyArea(q) > 30) out.area("grass", q, { primary: false });
 }
 
 const fmtInt = (x: number) => Math.round(x).toLocaleString();
@@ -525,6 +561,7 @@ function campusBlock(values: ParamValues, place: PlacementInput, ctx: GenerateCo
       for (let x = -qx / 2 + 6; x <= qx / 2 - 6; x += 11) for (const y of [-qy / 2 + 4, qy / 2 - 4]) streetTree(out, toWorld(f, [x, y]), x * 0.2 + y, 0.85);
     }
   }
+  lawnFill(out, f, W, D);
   if (first) out.setPrimary((first as NonNullable<typeof first>).building);
   out.summary.unshift(`Campus block (${role}) ${Math.round(W)} × ${Math.round(D)} m`);
   return out.done();
