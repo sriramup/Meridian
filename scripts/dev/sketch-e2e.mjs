@@ -25,11 +25,11 @@ page.on("console", (m) => m.type() === "error" && logs.push(`[console] ${m.text(
 page.on("pageerror", (e) => logs.push(`[pageerror] ${e.message}`));
 const step = (s) => console.log(`— ${s}`);
 const shot = (n) => page.screenshot({ path: `${out}/${n}.png` });
-const world = () => page.evaluate(async () => (await window.__meridianTools.run("get_context", {})).content);
-const counts = async () => {
-  const c = await world();
-  return JSON.stringify(c).match(/(\d+) buildings?/)?.[1] ?? JSON.stringify(c).slice(0, 200);
-};
+const counts = () =>
+  page.evaluate(async () => {
+    const c = (await window.__meridianTools.run("find_features", { kind: "building", limit: 1 })).content;
+    return c.total ?? c.count ?? c.matched ?? JSON.stringify(c).slice(0, 160);
+  });
 
 step("open the app (fresh browser: a blank canvas)");
 await page.goto(base, { waitUntil: "domcontentloaded", timeout: 120000 });
@@ -60,11 +60,12 @@ await shot("04-built-map");
 
 step("undo the build in one step, then redo");
 const before = await counts();
-await page.evaluate(() => window.__meridianTools.run("undo", { steps: 1 }));
+await page.evaluate(() => document.activeElement?.blur());
+await page.keyboard.press("Control+z");
 await page.waitForTimeout(2500);
 const afterUndo = await counts();
 await shot("05-undone");
-await page.evaluate(() => window.__meridianTools.run("redo", {}).catch(() => null));
+await page.keyboard.press("Control+Shift+z");
 await page.waitForTimeout(2500);
 console.log("undo:", before, "→", afterUndo, "→ redo:", await counts());
 

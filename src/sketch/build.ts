@@ -379,6 +379,8 @@ export function buildSketch(world: World, plan: SketchPlan, placement: Placement
   const hullPts: Vec2[] = [];
   for (const s of built) hullPts.push(...(b.get<Street>(s.id)?.path ?? []));
   for (const a of plan.areas) hullPts.push(...W(a.poly ?? []));
+  // land runs down to the water: the river's banks bound the built area, not the last street
+  for (const w of waterPolys) hullPts.push(...w[0]);
   for (const bl of plan.blocks) hullPts.push(...W(bl.poly));
   for (const f of plan.facilities) hullPts.push(F.toWorld(f.at), ...W(f.poly ?? []));
   let region: Polygon = F.outline;
@@ -408,7 +410,7 @@ export function buildSketch(world: World, plan: SketchPlan, placement: Placement
   const spacing = defaultDensity === "low" ? 170 : defaultDensity === "medium" ? 130 : 115;
   let infill = 0;
   for (const q of piecesOf()) {
-    if (polyArea(q) < spacing * spacing * 2.2 || minWidth(q) < spacing * 1.6) continue;
+    if (polyArea(q) < spacing * spacing * 1.6 || minWidth(q) < spacing * 1.25) continue;
     const box = obb(q[0]);
     const u: Vec2 = [Math.cos(box.angle), Math.sin(box.angle)],
       v: Vec2 = [-u[1], u[0]];
