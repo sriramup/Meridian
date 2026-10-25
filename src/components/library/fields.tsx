@@ -9,7 +9,7 @@ import { ColorField, Input, NumberField, SelectField, Slider, Switch, ToggleGrou
 const trim = (dec: number) => (v: number) => String(+v.toFixed(dec));
 
 /** a number with its unit: type (arithmetic allowed), step ▲▼, arrow keys (Shift ×10), or drag to scrub */
-export function NumberInput({ value, onChange, min, max, step, unit, label, integer }: { value: number; onChange: (v: number, final: boolean) => void; min?: number; max?: number; step: number; unit?: string; label?: string; integer?: boolean }) {
+export function NumberInput({ value, onChange, min, max, step, unit, label, integer, decimals = 2 }: { value: number; onChange: (v: number, final: boolean) => void; min?: number; max?: number; step: number; unit?: string; label?: string; integer?: boolean; decimals?: number }) {
   return (
     <NumberField
       value={value}
@@ -18,8 +18,8 @@ export function NumberInput({ value, onChange, min, max, step, unit, label, inte
       min={min}
       max={max}
       step={step}
-      precision={integer ? 0 : 2}
-      format={integer ? undefined : trim(2)}
+      precision={integer ? 0 : decimals}
+      format={integer ? undefined : trim(decimals)}
       unit={unit}
       aria-label={label}
       className="w-full"
@@ -28,7 +28,7 @@ export function NumberInput({ value, onChange, min, max, step, unit, label, inte
 }
 
 /** slider with a compact number field beside it */
-export function SliderInput(p: { value: number; onChange: (v: number, final: boolean) => void; min: number; max: number; step: number; unit?: string; label?: string; integer?: boolean }) {
+export function SliderInput(p: { value: number; onChange: (v: number, final: boolean) => void; min: number; max: number; step: number; unit?: string; label?: string; integer?: boolean; decimals?: number }) {
   // the thumb follows the pointer locally; the value upstream may lag behind a debounce
   const [live, setLive] = useState<number | null>(null);
   const v = live ?? p.value;
@@ -52,7 +52,7 @@ export function SliderInput(p: { value: number; onChange: (v: number, final: boo
         }}
       />
       <div className="w-[96px] shrink-0">
-        <NumberInput value={v} onChange={(x, f) => (f && setLive(null), p.onChange(x, f))} min={p.min} max={p.max} step={p.step} unit={p.unit} label={p.label} integer={p.integer} />
+        <NumberInput value={v} onChange={(x, f) => (f && setLive(null), p.onChange(x, f))} min={p.min} max={p.max} step={p.step} unit={p.unit} label={p.label} integer={p.integer} decimals={p.decimals} />
       </div>
     </div>
   );

@@ -4,6 +4,7 @@
 // directly (tests/library-form.test.ts).
 
 import { paramActive } from "@/library/registry";
+import { displayUnit } from "@/lib/units";
 import type { EnumParam, NumberParam, ParamSpec, ParamValues } from "@/library/types";
 
 export interface FormSection {
@@ -112,6 +113,53 @@ export function stepOf(p: NumberParam): number {
   return [1, 2, 5, 10].map((k) => k * mag).find((s) => s >= raw) ?? mag * 10;
 }
 
+/** a 1 / 2 / 5 step at least `raw` */
+const niceStep = (raw: number) => {
+  const mag = 10 ** Math.floor(Math.log10(raw));
+  return [1, 2, 5, 10].map((k) => k * mag).find((s) => s >= raw - 1e-12) ?? mag * 10;
+};
+
+export interface ShownNumber {
+  /** stored (SI) → shown */
+  show: (v: number) => number;
+  /** shown → stored (SI) */
+  store: (v: number) => number;
+  unit?: string;
+  min?: number;
+  max?: number;
+  step: number;
+  integer: boolean;
+  decimals: number;
+}
+
+/**
+ * How a number parameter is shown in the form: parameters are stored in SI units (m, m², per m²)
+ * and shown / typed in imperial ones (ft, sq ft, per acre) through src/lib/units.ts. Units without
+ * an imperial form (%, °, floors) pass through unchanged.
+ */
+export function shownNumber(p: NumberParam): ShownNumber {
+  const du = displayUnit(p.unit);
+  const step0 = stepOf(p);
+  if (!p.unit || du.label === p.unit) return { show: (v) => v, store: (v) => v, unit: p.unit, min: p.min, max: p.max, step: step0, integer: p.type === "integer", decimals: 2 };
+  const lo = p.min !== undefined ? du.toDisplay(p.min) : undefined;
+  const hi = p.max !== undefined ? du.toDisplay(p.max) : undefined;
+  // a step about as fine as the SI one, rounded to 1 / 2 / 5
+  const step = niceStep(Math.abs(du.toDisplay(step0) - du.toDisplay(0)) * 0.9);
+  const decimals = Math.max(0, Math.min(2, -Math.floor(Math.log10(step))));
+  const r = (v: number) => +v.toFixed(decimals);
+  return {
+    show: (v) => r(du.toDisplay(v)),
+    store: (v) => du.fromDisplay(v),
+    unit: du.label,
+    // the ends round inwards so a shown limit never stores past the real one
+    min: lo !== undefined ? Math.ceil(lo * 10 ** decimals - 1e-9) / 10 ** decimals : undefined,
+    max: hi !== undefined ? Math.floor(hi * 10 ** decimals + 1e-9) / 10 ** decimals : undefined,
+    step,
+    integer: false,
+    decimals,
+  };
+}
+
 /** clamp and round a number to its spec; NaN falls back to the current value */
 export function coerceNumber(p: NumberParam, raw: unknown, current: number): number {
   let n = typeof raw === "number" ? raw : typeof raw === "string" ? parseFloat(raw.replace(/[^0-9.eE+-]/g, "")) : NaN;
@@ -162,6 +210,11 @@ export function formatValue(p: ParamSpec, v: unknown): string {
   switch (p.type) {
     case "number":
     case "integer": {
+      const d = shownNumber(p);
+      if (d.unit !== p.unit) {
+        const n = d.show(typeof v === "number" ? v : p.default);
+        return `${n.toLocaleString("en-US", { maximumFractionDigits: d.decimals })} ${d.unit}`;
+      }
       const n = typeof v === "number" ? v : p.default;
       const s = stepOf(p);
       const dec = p.type === "integer" ? 0 : Math.max(2, Math.min(3, -Math.floor(Math.log10(s))));

@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, LibraryBig, LayoutGrid, MousePointer2, Ruler, Spline, Square, TramFront, TreeDeciduous } from "lucide-react";
+import { Building2, Grid3x3, LibraryBig, LayoutGrid, MousePointer2, Ruler, Spline, Square, TramFront, TreeDeciduous } from "lucide-react";
 import { Fragment, useEffect, type ReactNode } from "react";
 import { TYPOLOGIES } from "@/geometry/massing";
 import { MODEL } from "@/render/theme";
@@ -10,7 +10,9 @@ import { useApp, type Palette, type Tool } from "@/state/store";
 import { SPECIES } from "@/world/species";
 import type { Vec2 } from "@/world/types";
 import { LibraryPanel } from "./library/LibraryPanel";
-import { NumberField, Segmented, SelectField, Slider, Switch } from "@/components/ui/kit";
+import { Kbd, NumberField, Popover, PopoverContent, PopoverTrigger, Segmented, SelectField, Slider, Switch } from "@/components/ui/kit";
+import { gridOn, useSnap } from "@/state/snap";
+import { GRID_SIZES_FT, type GridFt } from "@/world/ops/snap";
 import { Button, IconButton, Tip, cx } from "./ui";
 
 const TOOLS: { id: Tool; icon: typeof Building2; label: string; key: string; group: number }[] = [
@@ -49,9 +51,60 @@ export function Toolbar() {
             </Fragment>
           );
         })}
+        <span className="mx-1.5 my-1 h-px bg-line" />
+        <GridControl />
       </div>
       {draw.pending ? <ConfirmCard /> : tool === "library" ? <LibraryPanel /> : tool === "tree" ? <PlantingPalette /> : tool === "street" ? <StreetPalette /> : tool === "building" ? <BuildingPalette /> : tool === "area" ? <AreaPalette /> : tool === "district" ? <DistrictPalette /> : tool === "transit" ? <TransitPalette /> : null}
     </div>
+  );
+}
+
+/** the grid & snapping button: click for the grid, its size and street-frontage snapping */
+function GridControl() {
+  const snap = useSnap();
+  const on = gridOn(snap);
+  useEffect(() => {
+    // ' toggles the grid (as in design tools)
+    const k = (e: KeyboardEvent) => {
+      if (e.key !== "'" || e.metaKey || e.ctrlKey || e.altKey || (e.target as HTMLElement)?.closest("input,textarea,select,[contenteditable]")) return;
+      const s = useSnap.getState();
+      s.setGrid(!gridOn(s));
+    };
+    window.addEventListener("keydown", k);
+    return () => window.removeEventListener("keydown", k);
+  }, []);
+  return (
+    <Popover>
+      <Tip label="Grid & snapping" kbd="'" side="right">
+        <PopoverTrigger asChild>
+          <IconButton aria-label="Grid & snapping" active={on}>
+            <Grid3x3 size={16} strokeWidth={1.7} />
+          </IconButton>
+        </PopoverTrigger>
+      </Tip>
+      <PopoverContent side="right" align="end" className="w-[248px] space-y-2.5">
+        <Field label="Grid">
+          <Switch size="sm" checked={on} onCheckedChange={(v) => snap.setGrid(v)} aria-label="Grid" />
+        </Field>
+        <Segmented
+          size="xs"
+          value={String(snap.sizeFt)}
+          onChange={(v) => {
+            snap.setSize(+v as GridFt);
+            if (!on) snap.setGrid(true);
+          }}
+          aria-label="Grid size"
+          className="w-full"
+          options={GRID_SIZES_FT.map((ft) => ({ value: String(ft), label: `${ft} ft` }))}
+        />
+        <Field label="Face streets">
+          <Switch size="sm" checked={snap.street} onCheckedChange={(v) => snap.setStreet(v)} aria-label="Face streets" />
+        </Field>
+        <p className="border-t border-line pt-2 text-[11px] leading-snug text-ink-4">
+          Points, corners and moves snap to the grid; buildings near a street face it and sit on the frontage line. Turns go in 15° steps. Hold <Kbd size="xs">Alt</Kbd> to place freely, <Kbd size="xs">Shift</Kbd> to turn freely.
+        </p>
+      </PopoverContent>
+    </Popover>
   );
 }
 

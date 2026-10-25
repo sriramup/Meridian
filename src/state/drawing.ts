@@ -7,6 +7,7 @@ import { createDrawn, drawConflict, type DrawnTool } from "./create";
 import { rt } from "./runtime";
 import { useApp } from "./store";
 import { LocalProjection } from "@/world/projection";
+import { snapPoint } from "./snap";
 
 export interface DrawState {
   points: Vec2[];
@@ -24,14 +25,17 @@ export function resetDraw() {
   useApp.getState().bumpTool();
 }
 
+/** outline / line tools snap to building corners and the grid (Alt: free); trees are placed freely */
+const snapped = (p: Vec2) => (useApp.getState().tool === "tree" ? p : snapPoint(p, true));
+
 export function addPoint(p: Vec2) {
-  draw.points.push(p);
+  draw.points.push(snapped(p));
   useApp.getState().bumpTool();
 }
 
 let rafPending = false;
 export function setCursor(p: Vec2 | null) {
-  draw.cursor = p;
+  draw.cursor = p && snapped(p);
   if (rafPending) return;
   rafPending = true;
   requestAnimationFrame(() => {

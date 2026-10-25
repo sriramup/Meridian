@@ -9,7 +9,7 @@ import { useState } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleHeader, CollapsibleTrigger, Segmented, cn as cx } from "@/components/ui/kit";
 import type { NumberParam, ParamSpec, ParamValues, PrimitiveDef } from "@/library";
 import { ChipsInput, ColorInput, NumberInput, SelectInput, SliderInput, SwitchInput, TextInput } from "./fields";
-import { changedKeys, coerce, formatValue, groupForm, groupSummary, stepOf, widgetFor, type FormGroup } from "./formModel";
+import { changedKeys, coerce, formatValue, groupForm, groupSummary, shownNumber, widgetFor, type FormGroup } from "./formModel";
 
 export interface ParamFormProps {
   def: PrimitiveDef;
@@ -112,15 +112,16 @@ function Field({ p, value, set }: { p: ParamSpec; value: unknown; set: (p: Param
   );
   switch (w) {
     case "slider": {
-      const n = p as NumberParam;
-      return stacked(<SliderInput value={Number(value ?? n.default)} onChange={(v, f) => set(p, v, f)} min={n.min!} max={n.max!} step={stepOf(n)} unit={n.unit} label={p.label} integer={n.type === "integer"} />);
+      // stored in metres (SI), shown and typed in imperial units
+      const d = shownNumber(p as NumberParam);
+      return stacked(<SliderInput value={d.show(Number(value ?? (p as NumberParam).default))} onChange={(v, f) => set(p, d.store(v), f)} min={d.min!} max={d.max!} step={d.step} unit={d.unit} label={p.label} integer={d.integer} decimals={d.decimals} />);
     }
     case "number": {
-      const n = p as NumberParam;
-      const v = Number(value ?? n.default);
+      const d = shownNumber(p as NumberParam);
+      const v = d.show(Number(value ?? (p as NumberParam).default));
       return row(
         <div className="w-full max-w-[150px]">
-          <NumberInput value={v} onChange={(x, f) => set(p, x, f)} min={n.min} max={n.max} step={stepOf(n)} unit={n.unit} label={p.label} integer={n.type === "integer"} />
+          <NumberInput value={v} onChange={(x, f) => set(p, d.store(x), f)} min={d.min} max={d.max} step={d.step} unit={d.unit} label={p.label} integer={d.integer} decimals={d.decimals} />
         </div>,
       );
     }

@@ -4,24 +4,33 @@
 // op is dry-run under the cursor and what it would create is drawn as a ghost (red with the reason
 // when it can't go there).
 //
-//   point    move to aim, click to place; press and drag to set the heading; [ ] turn by 15°
-//   rect     drag a rectangle (lined up with the screen); a click places the default size
+//   point    move to aim, click to place; press and drag to set the heading (15° steps, Shift
+//            free); [ ] turn by 15°, R by 90°; near a street a building faces it and settles on
+//            the frontage / setback line
+//   rect     drag a rectangle (lined up with the street it fronts, else the grid, else the
+//            screen); a click places the default size
+//   With the grid on, points, corners, vertices and moves snap to it (Alt: free). A red preview
+//   (a collision, with the reason) can't be placed; a dashed outline shows the nearest free spot.
 //   polygon  click corners; click the first one, double-click or Enter to finish
 //   path     click points; double-click or Enter (or click the last point) to finish
-//   Esc clears the shape, then goes back to the list; Backspace removes the last point;
+//   Esc clears the shape, then goes back to the list; Enter places / finishes; Backspace removes the last point;
 //   hold Space to pan with the mouse while placing.
 
 import { COORDINATE_SYSTEM, type Layer, type Position } from "@deck.gl/core";
+import { PathStyleExtension } from "@deck.gl/extensions";
 import { PathLayer, ScatterplotLayer, SolidPolygonLayer, TextLayer } from "@deck.gl/layers";
 import { useEffect, useMemo, useState } from "react";
 import { useLayerSlot } from "@/render/layerSlots";
 import { SolidInstances, solidLayers, type PackedLayer } from "@/render/solids";
 import { rt } from "@/state/runtime";
+import { useSnap } from "@/state/snap";
 import { useApp } from "@/state/store";
 import { LocalProjection } from "@/world/projection";
 import type { Building, Entity, Prop, Street, Tree, Vec2 } from "@/world/types";
 import { useLibrary } from "./libraryStore";
-import { armedDef, commitMove, commitPlacement, computeMovePreview, computePreview, currentPlacement, DRAG_MIN, type Preview } from "./placement";
+import { armedDef, commitMove, commitPlacement, computeMovePreview, computePreview, currentPlacement, DRAG_MIN, snapPoint, type Preview } from "./placement";
+
+const dashExt = new PathStyleExtension({ dash: true });
 
 const RED: [number, number, number] = [214, 70, 60];
 const BLUE: [number, number, number] = [52, 92, 190];
@@ -88,7 +97,7 @@ function useMapPointer() {
         if (def.placement === "polygon" && pts.length >= 3 && near(p, pts[0])) return finish();
         if (def.placement === "path" && pts.length >= 2 && near(p, pts[pts.length - 1])) return finish();
         if (pts.length && near(p, pts[pts.length - 1], 4)) return; // the second click of a double-click
-        useLibrary.setState({ points: [...pts, p], tick: s.tick + 1 });
+        useLibrary.setState({ points: [...pts, snapPoint(p, true)], tick: s.tick + 1 });
       };
       const dbl = (e: { preventDefault: () => void }) => {
         if (!armed()) return;
@@ -156,13 +165,19 @@ function useMapPointer() {
         else s.disarm();
       } else if (e.key === "Enter") {
         stop();
-        finish();
+        const p = armedDef()?.placement;
+        if (s.moving) commitMove();
+        else if (p === "point" || p === "rect") commitPlacement();
+        else finish();
       } else if (e.key === "Backspace" && s.points.length) {
         stop();
         useLibrary.setState({ points: s.points.slice(0, -1), tick: s.tick + 1 });
       } else if (e.key === "[" || e.key === "]") {
         stop();
         s.setRotation(s.rotation + (e.key === "[" ? 15 : -15));
+      } else if (e.key.toLowerCase() === "r" && !e.metaKey && !e.ctrlKey && !s.moving) {
+        stop();
+        s.setRotation(s.rotation + (e.shiftKey ? -90 : 90));
       }
     };
     // left-drag aims / draws while a point or rect primitive is armed; Space restores panning
@@ -288,7 +303,44 @@ function previewLayers(pv: Preview | null, defPlacement: string | undefined, nig
     layers.push(new PathLayer({ id: "lib-draw-heading", ...common, data: [{ path: [s.drag.from, s.drag.to] }], getPath: (d: { path: Position[] }) => d.path.map((p) => [p[0], p[1], 0.4] as Position), getColor: [...tone, 255], getWidth: 2, widthUnits: "pixels", parameters: FLAT }));
   if (pv?.place.site && defPlacement === "rect")
     layers.push(new PathLayer({ id: "lib-draw-rect", ...common, data: [{ path: [...pv.place.site[0], pv.place.site[0][0]] }], getPath: (d: { path: Position[] }) => d.path.map((p) => [p[0], p[1], 0.4] as Position), getColor: [...tone, 255], getWidth: 2, widthUnits: "pixels", parameters: FLAT }));
+  if (pv?.suggestion?.length)
+    layers.push(
+      new PathLayer({
+        id: "lib-draw-free",
+        ...common,
+        data: pv.suggestion.map((q) => ({ path: [...q[0], q[0][0]] })),
+        getPath: (d: { path: Position[] }) => d.path.map((p) => [p[0], p[1], 0.4] as Position),
+        getColor: [...BLUE, 230],
+        getWidth: 1.6,
+        widthUnits: "pixels",
+        getDashArray: [5, 4],
+        dashJustified: true,
+        extensions: [dashExt],
+        parameters: FLAT,
+      } as never),
+    );
   const anchor = s.cursor ?? pv?.place.at;
+  if (pv?.readout && anchor && (pv.ok || !pv.error))
+    layers.push(
+      new TextLayer({
+        id: "lib-draw-readout",
+        ...common,
+        data: [{ p: anchor, t: pv.readout }],
+        getPosition: (d: { p: Vec2 }) => [d.p[0], d.p[1], 1],
+        getText: (d: { t: string }) => d.t,
+        getSize: 11.5,
+        getColor: [255, 255, 255, 255],
+        background: true,
+        getBackgroundColor: [44, 62, 110, 225],
+        backgroundPadding: [6, 3],
+        getTextAnchor: "start",
+        getPixelOffset: [14, 18],
+        fontFamily: "Geist, system-ui, sans-serif",
+        fontWeight: 500,
+        characterSet: "auto",
+        parameters: FLAT,
+      }),
+    );
   if (pv && !pv.ok && pv.error && anchor)
     layers.push(
       new TextLayer({
@@ -325,13 +377,15 @@ export function LibraryPlacement() {
   const defId = useLibrary((s) => s.defId);
   const movingId = useLibrary((s) => s.moving);
   const worldVersion = useApp((s) => s.worldVersion);
+  // snapping settings and modifier keys change the preview too
+  const snapKey = useSnap((s) => `${s.gridSandbox}${s.gridCity}${s.sizeFt}${s.street}${s.free}${s.freeTurn}`);
   const [preview, setPreview] = useState<Preview | null>(null);
   useEffect(() => {
     if (tool !== "library" || (!defId && !movingId)) return setPreview(null);
     if (movingId) return setPreview(computeMovePreview());
     const def = armedDef();
     setPreview(def ? computePreview(def) : null);
-  }, [tool, defId, movingId, tick, worldVersion]);
+  }, [tool, defId, movingId, tick, worldVersion, snapKey]);
   const layers = useMemo(() => (tool === "library" && (defId || movingId) ? previewLayers(preview, movingId ? "point" : armedDef()?.placement, theme === "night") : null), [preview, tool, defId, movingId, theme, tick]);
   useLayerSlot("library-placement", "top", layers);
   return null;

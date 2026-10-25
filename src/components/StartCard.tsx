@@ -42,7 +42,7 @@ export function StartCard() {
   return (
     <div className="pointer-events-auto chrome w-[440px] max-w-[calc(100vw-32px)] p-4">
       <div className="font-display text-[20px] leading-none font-semibold text-ink">Start a city</div>
-      <p className="mt-1.5 text-[12px] leading-snug text-ink-3">An empty 3 × 3 km site (grid squares are 100 m). Place buildings, parks, streets and furniture from the library and set every dimension; everything runs through the heat, shade, stormwater, traffic and access models.</p>
+      <p className="mt-1.5 text-[12px] leading-snug text-ink-3">An empty 1.9 × 1.9 mi site (strong grid lines every 100 ft). Place buildings, parks, streets and furniture from the library and set every dimension; everything runs through the heat, shade, stormwater, traffic and access models.</p>
       <button onClick={() => openLibrary(null)} className="mt-3 flex h-9 w-full items-center gap-2 rounded-[6px] border border-line-2 bg-paper px-2.5 text-left text-[12.5px] text-ink-4 transition-colors hover:border-gold">
         <Search size={14} className="text-ink-3" />
         <span className="flex-1">Search {total ? `${total} building blocks` : "the library"}: apartments, café, oak, bench…</span>

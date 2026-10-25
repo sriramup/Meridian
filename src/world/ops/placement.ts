@@ -6,7 +6,10 @@ import { kerbOffsets } from "@/geometry/crossSection";
 import { pointInPoly, polyBBox } from "@/geometry/polygon";
 import { closestOnPath } from "@/geometry/polyline";
 import { dist } from "@/geometry/vec";
-import type { Area, Building, Polygon, Street, Tree, Vec2 } from "../types";
+import { propFootprint } from "@/library/frame";
+import type { Area, Building, Polygon, Prop, Street, Tree, Vec2 } from "../types";
+import { clashes } from "./collision";
+import { isSolidProp } from "./library";
 import type { World } from "../world";
 import { buildingOverlaps, rowConflicts } from "./validate";
 
@@ -80,6 +83,8 @@ export function treeProblem(world: World, p: Vec2, r: number, also: Vec2[] = [])
 export interface ShapeConflicts {
   /** existing buildings the shape overlaps */
   buildings: Building[];
+  /** solid objects (props) a building outline would stand on */
+  props: Prop[];
   /** streets whose right-of-way the shape overlaps */
   streets: Street[];
   /** one-line consequence for the UI, or null when the shape is clean */
@@ -90,15 +95,18 @@ export interface ShapeConflicts {
 
 /** what a drawn building / area polygon runs into */
 export function shapeConflicts(world: World, tool: "building" | "area", ring: Vec2[]): ShapeConflicts {
-  if (ring.length < 3) return { buildings: [], streets: [], message: null, blocking: false };
+  if (ring.length < 3) return { buildings: [], props: [], streets: [], message: null, blocking: false };
   const poly: Polygon = [ring];
   const streets = rowConflicts(world, poly, { minArea: 2 }).map((c) => c.street);
   const buildings = buildingOverlaps(world, poly, new Set())
     .filter((o) => o.area > 1)
     .map((o) => o.building);
+  const props = tool === "building" ? (world.query(polyBBox(poly), ["prop"]) as Prop[]).filter((q) => isSolidProp(q) && clashes(poly, q.footprint ?? propFootprint(q.p, q.rot, q.solids))) : [];
   const n = buildings.length;
-  const msg = n ? `Overlaps ${n} building${n > 1 ? "s" : ""}` : streets.length ? (tool === "building" ? "Crosses the road" : "Road excluded") : null;
-  return { buildings, streets, message: msg, blocking: !!msg };
+  const k = props.length;
+  const what = [n ? `${n} building${n > 1 ? "s" : ""}` : "", k ? `${k} object${k > 1 ? "s" : ""}` : ""].filter(Boolean).join(" and ");
+  const msg = what ? `Overlaps ${what}` : streets.length ? (tool === "building" ? "Crosses the road" : "Road excluded") : null;
+  return { buildings, props, streets, message: msg, blocking: !!msg };
 }
 
 /** buildings a new street of the given total width would cut through */
