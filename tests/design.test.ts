@@ -50,6 +50,16 @@ describe("facilitiesFromText", () => {
     expect(k("park")).toBe(3);
     expect(facilitiesFromText("a main street with shops").some((f) => f.kind === "shops")).toBe(true);
   });
+
+  it("reads it as typed, typos and all", () => {
+    const typed = OWNER.replace("university", "unviersity") + " Keep in mind proper design principles for cities.";
+    const f = facilitiesFromText(typed);
+    expect(f.find((x) => x.kind === "university")?.count).toBe(1);
+    expect(f.find((x) => x.kind === "restaurant")?.count).toBe(2);
+    expect(facilitiesFromText("two resturants and an elementry school").map((x) => x.kind).sort()).toEqual(["primary_school", "restaurant"]);
+    // short everyday words are never "corrected" into facilities
+    expect(facilitiesFromText("a parking policy for the station area")).toEqual([]);
+  });
 });
 
 describe("designNeighborhood", () => {
