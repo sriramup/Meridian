@@ -58,6 +58,12 @@ describe("design tools", () => {
     expect(JSON.stringify(r.content).length).toBeLessThan(8000);
   });
 
+  it("surfaces the generator's advisories (school seats short of demand) at the top of the result", async () => {
+    const r = await exec("design_neighborhood", { area: [[-1400, -1400], [-200, -1400], [-200, -400], [-1400, -400]], homes: 9000, facilities: [{ kind: "primary_school", count: 1 }] });
+    expect(r.content.advisories?.[0]).toMatch(/primary school/i);
+    expect(r.display.status).toBe("warn");
+  });
+
   it("critique_design scores any area and reports issues in imperial units", async () => {
     const r = await exec("critique_design", { area: SITE });
     expect(r.content.overall).toBeGreaterThanOrEqual(0);
