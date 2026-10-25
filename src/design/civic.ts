@@ -120,7 +120,7 @@ export function planCivicCells(g: GridPlan, prog: Programme, rng: Rng, parkCells
               break;
             case "park": {
               const others = sites.filter((x) => x.kind === "park").reduce((m, x) => Math.min(m, dist(centreOf(g, x.cells), c)), Infinity);
-              s += -dC * 1.5 + Math.min(1.5, others / 400) + (sites.some((x) => x.kind === "primary_school" && adjacent(x.cells, cs)) ? 0.6 : 0) + (arterial ? -0.6 : 0);
+              s += -dC * 1.5 + Math.min(2, others / 300) + (sites.some((x) => x.kind === "primary_school" && adjacent(x.cells, cs)) ? 0.6 : 0) + (arterial ? -0.6 : 0);
               break;
             }
           }

@@ -60,7 +60,7 @@ export const OFFICE_TOWER: Typology = { key: "office_tower", label: "Office towe
 
 /** score thresholds: lots below enter the rung (yard family uses 0..3.6, perimeter 3.6..) */
 const YARD_CUTS = [1.0, 1.9, 2.8];
-const PERIM_CUTS = [4.3, 5.1, 6.2, 7.0];
+const PERIM_CUTS = [4.3, 5.1, 6.0, 6.6];
 export const PERIMETER_FROM = 3.6;
 
 /** pick a rung by score within a family (shophouses are chosen separately, on retail frontage) */

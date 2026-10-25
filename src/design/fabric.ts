@@ -155,7 +155,9 @@ export const INTENSITY_RANGE: Record<DensityClass, [number, number]> = { low: [-
 
 function edgeScore(e: BlockEdge, blk: Block, o: FabricOptions): number {
   const d = dist(efPt(e.f, e.f.len / 2, 0), o.centre);
-  const centre = 1.5 * (1 - smooth(d / o.radius));
+  // the centre's pull: dense programmes peak sharply (towers at the core, mid-rise around it)
+  const pull = o.prog.density === "very_high" ? 3 : o.prog.density === "high" ? 2.6 : 1.5;
+  const centre = pull * (1 - smooth(d / o.radius));
   const park = o.parks.some((p) => dist(polyCentroid(p), efPt(e.f, e.f.len / 2, -15)) < 60) ? 0.3 : 0;
   return o.intensity + ROLE_BONUS[e.role] + centre + park;
 }
@@ -245,7 +247,7 @@ export function planFabric(blocks: Block[], o: FabricOptions): FabricPlan {
     for (const l of cands) {
       if (need <= 0) break;
       if (rng.chance(0.35)) continue; // keep housing in the mix on every main street
-      const tower = l.score >= 7.2 && o.prog.maxFloors >= 20 && l.depth >= 26;
+      const tower = (l.t.key === "tower" || l.score >= 7.2) && o.prog.maxFloors >= 20 && l.depth >= 26;
       const t = tower ? OFFICE_TOWER : OFFICE;
       const nl = makeLot({ key: l.block } as Block, l.edge, l.poly, l.s0, l.s1, l.depth, l.score, l.corner, t, rng, o, pal, undefined);
       if (!nl) continue;
@@ -357,24 +359,27 @@ export function lotPlacement(l: Lot, rng: Rng, palette: PaletteName): { def: str
       def: t.def,
       site: l.site,
       rotation: l.heading,
-      params: { fitToSite: true, unitWidth: rng.range(5.6, 7.2), depth: t.depth[1], floors: l.floors, heightVariation: 0, varyColour: false, stagger: rng.pick([0, 0, 0.6]), facade: l.facade, ...(flat ? { roofType: "flat", parapetHeight: 0.9 } : { roofType: "gable", ridge: "short", roofPitch: rng.range(30, 40), roofMaterial: rng.pick(pal.pitched) }), ...name },
+      params: { fitToSite: true, unitWidth: rng.range(5.6, 7.2), depth: t.depth[1], floors: l.floors, heightVariation: 0, varyColour: false, stagger: rng.pick([0, 0, 0.6]), facade: l.facade, ...(flat ? { roofType: "flat", parapetHeight: 0.9 } : { roofType: "gable", ridge: "short", roofPitch: rng.range(30, 40), roofMaterial: rng.pick(pal.pitched), overhang: 0 }), ...name },
     };
   }
   const base: ParamValues = { shape: "site", floors: l.floors, facade: l.facade, siteInset: 0, ...name };
+  // balconies are generated on every wall; on attached (party-wall) buildings they would project into
+  // the neighbour, so only free-standing buildings and towers above their podium get them
+  const balc = (p: number) => (t.side > 0 || t.key === "tower" ? rng.chance(p) : false);
   switch (t.key) {
     case "walkup":
-      return { def: t.def, site: l.site, rotation: l.heading, params: { ...base, ...(rng.chance(0.45) ? { roofType: "hip", roofPitch: 22, roofMaterial: rng.pick(pal.pitched), parapetHeight: 0 } : flatRoof()), balconies: rng.chance(0.5) } };
+      return { def: t.def, site: l.site, rotation: l.heading, params: { ...base, ...(rng.chance(0.45) ? { roofType: "hip", roofPitch: 22, roofMaterial: rng.pick(pal.pitched), parapetHeight: 0 } : flatRoof()), balconies: balc(0.5) } };
     case "shophouse":
       return { def: t.def, site: l.site, rotation: l.heading, params: { ...base, groundUse: "retail", awning: rng.chance(0.7), awningColor: rng.pick(["#b65a3c", "#2a5a3c", "#3c6ca8", "#7a4a2a", "#24395e"]), parapetHeight: rng.range(0.8, 1.8) } };
     case "apartments":
-      return { def: t.def, site: l.site, rotation: l.heading, params: { ...base, ...flatRoof(), balconies: rng.chance(0.55), groundUse: l.retail ? "retail" : "same", awning: l.retail && rng.chance(0.6) } };
+      return { def: t.def, site: l.site, rotation: l.heading, params: { ...base, ...flatRoof(), balconies: balc(0.55), groundUse: l.retail ? "retail" : "same", awning: l.retail && rng.chance(0.6) } };
     case "five_over_one":
-      return { def: t.def, site: l.site, rotation: l.heading, params: { ...base, ...flatRoof(), podiumFloors: 1, towerCoverage: 100, groundUse: l.retail ? "retail" : "same", awning: l.retail, balconies: rng.chance(0.6), setbackEvery: rng.chance(0.2) ? l.floors - 1 : 0, setbackDepth: 2 } };
+      return { def: t.def, site: l.site, rotation: l.heading, params: { ...base, ...flatRoof(), podiumFloors: 1, towerCoverage: 100, groundUse: l.retail ? "retail" : "same", awning: l.retail, balconies: balc(0.6), setbackEvery: rng.chance(0.2) ? l.floors - 1 : 0, setbackDepth: 2 } };
     case "midrise":
-      return { def: t.def, site: l.site, rotation: l.heading, params: { ...base, ...flatRoof(), use: "residential", groundUse: l.retail ? "retail" : "same", groundFloorHeight: l.retail ? 5 : 0, awning: l.retail && rng.chance(0.5), balconies: rng.chance(0.5), setbackEvery: rng.chance(0.4) ? Math.max(4, l.floors - 2) : 0, setbackDepth: 2.5, penthouse: rng.chance(0.5) } };
+      return { def: t.def, site: l.site, rotation: l.heading, params: { ...base, ...flatRoof(), use: "residential", groundUse: l.retail ? "retail" : "same", groundFloorHeight: l.retail ? 5 : 0, awning: l.retail && rng.chance(0.5), balconies: balc(0.5), setbackEvery: rng.chance(0.4) ? Math.max(4, l.floors - 2) : 0, setbackDepth: 2.5, penthouse: rng.chance(0.5) } };
     case "tower": {
       const podium = rng.int(3, 5);
-      return { def: t.def, site: l.site, rotation: l.heading, params: { ...base, ...flatRoof(), podiumFloors: podium, towerCoverage: clamp(Math.round((Math.min(950, polyArea(l.site) * 0.6) / polyArea(l.site)) * 100), 30, 70), towerOffsetY: -rng.range(0, 3), groundUse: l.retail ? "retail" : "same", balconies: rng.chance(0.7), topScale: rng.chance(0.2) ? 85 : 100, setbackEvery: rng.chance(0.25) ? 8 : 0, setbackDepth: 1.5, penthouse: true } };
+      return { def: t.def, site: l.site, rotation: l.heading, params: { ...base, ...flatRoof(), podiumFloors: podium, towerCoverage: clamp(Math.round((Math.min(950, polyArea(l.site) * 0.6) / polyArea(l.site)) * 100), 30, 70), towerOffsetY: -rng.range(0, 3), groundUse: l.retail ? "retail" : "same", balconies: balc(0.7), topScale: rng.chance(0.2) ? 85 : 100, setbackEvery: rng.chance(0.25) ? 8 : 0, setbackDepth: 1.5, penthouse: true } };
     }
     case "office":
       return { def: t.def, site: l.site, rotation: l.heading, params: { ...base, ...flatRoof(), groundUse: "retail", penthouse: true, setbackEvery: rng.chance(0.3) ? Math.max(4, l.floors - 3) : 0, setbackDepth: 3 } };

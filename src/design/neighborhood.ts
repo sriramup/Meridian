@@ -241,7 +241,7 @@ export function designNeighborhood(world: World, spec: NeighborhoodSpec, actor: 
       for (const lot of lotsBy.get(blk.key) ?? []) {
         const pl = lotPlacement(lot, brng, palette);
         if (!pl) continue;
-        const r = placePrimitive(world, { def: pl.def, params: pl.params, site: pl.site, at: pl.at, rotation: pl.rotation, onConflict: "carve", lenient: true }, actor, sb);
+        const r = placePrimitive(world, { def: pl.def, params: pl.params, site: pl.site, at: pl.at, rotation: pl.rotation, onConflict: "safe", lenient: true }, actor, sb);
         if (!r.ok) continue;
         typCount.set(lot.t.label, (typCount.get(lot.t.label) ?? 0) + 1);
         for (const y of lot.yard) yardTree(sb, y, brng);

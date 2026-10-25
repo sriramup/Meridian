@@ -170,8 +170,9 @@ export function facilitiesFromText(text: string): FacilityRequest[] {
   for (const p of parts) {
     for (const [re, kind] of WORDS) {
       if (!re.test(p)) continue;
-      const m = /\b(\d+|a|an|one|two|three|four|five|six|few|several|couple)\b(?:\s+of)?\s+[a-z\s]*$/i.exec(p.slice(0, p.search(re)));
-      const w = m?.[1]?.toLowerCase();
+      // the count word nearest the facility ("add a few parks" → few)
+      const words = [...p.slice(0, p.search(re)).matchAll(/\b(\d+|a|an|one|two|three|four|five|six|few|several|couple)\b/gi)];
+      const w = words[words.length - 1]?.[1]?.toLowerCase();
       const count = w ? (Number(w) || NUM[w] || 1) : 1;
       if (!out.some((f) => f.kind === kind)) out.push({ kind, count });
       break;
