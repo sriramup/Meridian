@@ -34,3 +34,23 @@ describe("request router", () => {
     expect((performance.now() - t0) / 1000).toBeLessThan(2);
   });
 });
+
+import { navigationTarget } from "@/agent/router";
+describe("navigation requests route to the quick tier", () => {
+  const nav: [string, string][] = [
+    ["take me to 21st and Guadalupe", "21st and Guadalupe"],
+    ["Can you take me to 21st & Guadalupe?", "21st & Guadalupe"],
+    ["go to Pine Street", "Pine Street"],
+    ["show me the university", "the university"],
+    ["fly to W 21st St and Guadalupe St", "W 21st St and Guadalupe St"],
+    ["Where is Republic Square?", "Republic Square"],
+    ["zoom to the Capitol", "the Capitol"],
+  ];
+  for (const [text, target] of nav)
+    it(text, () => {
+      expect(navigationTarget(text)).toBe(target);
+      expect(routeRequest(text)).toMatchObject({ tier: "quick", reason: "navigation" });
+    });
+  const notNav = ["show me the heat map", "show me where to put a school", "show me the traffic results", "take me through the options", "go ahead", "Where should the new park go?"];
+  for (const text of notNav) it(`not navigation: ${text}`, () => expect(navigationTarget(text)).toBe(null));
+});

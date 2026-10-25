@@ -29,6 +29,7 @@ import { useSims } from "@/sim/client";
 import type { Changeset } from "@/world/world";
 import { entityName, viewCenter } from "./resolve";
 import { routeRequest, type Tier } from "./router";
+import { MAX_STEPS } from "./models";
 import { effectOf } from "./toolDefs";
 import { executeTool, simSummary, type ToolContext, type ToolOutput } from "./tools";
 import type { AgentMode, AgentSession, AgentsApi, ChatItem, Segment, ToolCallView, Zone } from "./types";
@@ -61,7 +62,6 @@ interface Runtime {
   run?: { scenario: string; startedAt: number; zone: Zone | null; mode: AgentMode };
 }
 
-const MAX_STEPS = 60;
 const RESULT_CHARS = 16000;
 const KEY = (city: string) => `meridian.agents.v1.${city}`;
 
@@ -487,7 +487,13 @@ export async function send(id: string, text: string, opts: { mode?: AgentMode; z
   let firstMs: number | undefined;
   let model: string | undefined;
   try {
-    for (let step = 0; step < MAX_STEPS; step++) {
+    const maxSteps = MAX_STEPS[route.tier];
+    for (let step = 0; step < maxSteps; step++) {
+      if (step === maxSteps - 1) {
+        // last allowed turn: ask for a wrap-up instead of more tool calls (keeps the loop bounded)
+        const last = r.messages[r.messages.length - 1];
+        if (last?.role === "user" && Array.isArray(last.content)) (last.content as Anthropic.Beta.BetaContentBlockParam[]).push({ type: "text", text: "[runtime] Step limit reached for this request: do not call more tools; summarise what was done and what remains." });
+      }
       const itemId = nid("a");
       const ts = Date.now();
       pushItem(id, { kind: "assistant", id: itemId, segments: [], done: false, startedAt: ts });
