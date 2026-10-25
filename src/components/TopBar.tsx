@@ -324,7 +324,7 @@ function ViewMenu() {
   const showChanges = useApp((s) => s.showChanges);
   const layers = useApp((s) => s.layers);
   const toggle = useApp((s) => s.toggleLayer);
-  const item = "flex cursor-default items-center gap-2 rounded-[6px] px-2 py-1.5 text-[12.5px] text-ink outline-none data-[highlighted]:bg-accent-2";
+  const item = "flex h-8 cursor-default items-center gap-2.5 rounded-[6px] px-2 text-[12.5px] text-ink outline-none data-[highlighted]:bg-paper-3";
   const box = (on: boolean) => <span className={cx("grid h-3.5 w-3.5 place-items-center rounded-[3px] border", on ? "border-rose/60 bg-accent text-on-accent" : "border-line-2")}>{on && <Check size={10} strokeWidth={3} />}</span>;
   return (
     <DM.Root>
@@ -336,12 +336,14 @@ function ViewMenu() {
           </DM.Trigger>
       </Tip>
       <DM.Portal>
-        <DM.Content sideOffset={6} align="end" className="chrome z-50 w-60 p-1">
+        <DM.Content sideOffset={6} align="end" collisionPadding={8} className="kit-surface kit-pop z-50 w-64 p-1">
+          <div className="px-2 pt-1.5 pb-1.5 font-legend text-[11px] leading-4 font-medium text-ink-3">Map display</div>
           <DM.CheckboxItem checked={showChanges} onSelect={(e) => e.preventDefault()} onCheckedChange={() => useApp.getState().setShowChanges(!showChanges)} className={item}>
             {box(showChanges)}
             Highlight what the plan changes
           </DM.CheckboxItem>
-          <DM.Separator className="my-1 h-px bg-line" />
+          <DM.Separator className="-mx-1 my-1 h-px bg-line" />
+          <div className="px-2 pt-1 pb-1.5 font-legend text-[11px] leading-4 font-medium text-ink-3">Layers</div>
           {(
             [
               ["labels", "Street names"],

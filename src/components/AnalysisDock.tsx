@@ -555,14 +555,18 @@ const ChipBar = memo(function ChipBar({ overlay, busy }: { overlay: OverlayId | 
           </button>
         </DM.Trigger>
         <DM.Portal>
-          <DM.Content side="top" align="end" sideOffset={8} className="chrome z-50 w-60 p-1">
-            <div className="px-2 pt-1.5 pb-1 font-legend text-[12.5px] leading-none text-ink-3">Other analyses</div>
+          <DM.Content side="top" align="end" sideOffset={8} collisionPadding={8} className="kit-surface kit-pop z-50 w-72 p-1">
+            <div className="px-2 pt-1.5 pb-1.5 font-legend text-[11px] leading-4 font-medium text-ink-3">Other analyses</div>
             {extra.map((c) => (
-              <DM.Item key={c.id} onSelect={() => setOverlay(overlay === c.id ? null : c.id)} className="flex cursor-default items-center gap-2 rounded-[5px] px-2 py-1.5 text-[12.5px] text-ink outline-none data-[highlighted]:bg-paper-3">
-                <c.icon size={13} strokeWidth={1.8} className="text-ink-3" />
-                <span className="flex-1">{c.label}</span>
-                <span className="truncate text-[10.5px] text-ink-4">{c.hint}</span>
-                {overlay === c.id && <Check size={13} className="shrink-0 text-rose" />}
+              <DM.Item key={c.id} onSelect={() => setOverlay(overlay === c.id ? null : c.id)} className="flex cursor-default items-center gap-2.5 rounded-[6px] px-2 py-1.5 outline-none data-[highlighted]:bg-paper-3">
+                <span className={cx("grid size-7 shrink-0 place-items-center rounded-[6px] border", overlay === c.id ? "border-accent/50 bg-accent text-on-accent" : "border-line bg-paper-2 text-ink-3")}>
+                  <c.icon size={14} strokeWidth={1.8} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[12.5px] leading-4 font-medium text-ink">{c.label}</span>
+                  <span className="block truncate text-[11px] leading-4 text-ink-4">{c.hint}</span>
+                </span>
+                {overlay === c.id && <Check size={14} className="shrink-0 text-rose" />}
               </DM.Item>
             ))}
           </DM.Content>
