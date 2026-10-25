@@ -27,6 +27,24 @@ Agents call Claude through the server route `src/app/api/agent/route.ts`. It nee
 ANTHROPIC_API_KEY=sk-ant-…
 ```
 
+### Live search with SerpApi
+
+Agents can reach beyond the city data with live Google and Google Maps results from [SerpApi](https://serpapi.com):
+
+- **Research with sources.** `web_search` finds a real city's population, household size, rents, rainfall, ordinances, transit facts, news or research; answers cite numbered sources with their domains. Use it to ground a design ("size it for Austin's household size").
+- **Amenity and walkability audits.** "Are there groceries within a 10-minute walk of Republic Square?" runs `find_places`: Google Maps results become numbered pins with walking times over the street network. On request, `import_places` (or the card's **Add as destinations**) adds them as points of interest so the walk-access model counts current places. It is one change, and undo removes it.
+- **Local discovery.** "Restaurants near Congress & 6th" gives pins and cards with ratings, reviews and open now. The top-bar search also offers **Search Google Maps for "…" nearby** on real-city projects. A search is spent only when you choose that row.
+- The composer's **Search** toggle (globe) asks a run to ground its answer with these tools. The pane's footnote shows the search budget.
+
+The key stays on the server (`src/app/api/serp/route.ts`, `src/serp/server.ts`). Repeated searches are cached in `.cache/serpapi/` for 7 days. A credit ledger in `.telemetry/serpapi.json` refuses searches past the cap.
+
+```
+# .env.local
+SERPAPI_API_KEY=…
+MERIDIAN_SERP_CAP=200                         # searches this server may spend ("off" disables the cap)
+MERIDIAN_SERP_FIXTURES=tests/fixtures/serpapi # answer from recorded responses: no network, no credits (tests, demos)
+```
+
 ---
 
 ## What you can do

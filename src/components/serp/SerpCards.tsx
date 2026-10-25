@@ -13,7 +13,7 @@ import { fmtLen } from "@/lib/units";
 import { applyOp } from "@/state/actions";
 import { rtMaybe } from "@/state/runtime";
 import { useApp } from "@/state/store";
-import { importedPoi, importPlaces } from "@/serp/discover";
+import { counted, importPlaces } from "@/serp/discover";
 import { useSerp, type LocalPlace, type PlaceSet } from "@/serp/store";
 import { showOnMap } from "@/serp/view";
 import type { SerpCard, WebResult } from "@/serp/types";
@@ -198,7 +198,7 @@ export const PlacesCard = memo(function PlacesCard({ set, walkMinutes }: { set: 
   useApp((s) => s.worldVersion);
   const R = rtMaybe();
   const importable = useMemo(() => set.places.filter((p) => p.inside), [set]);
-  const imported = R ? importable.filter((p) => importedPoi(R.world, p)).length : 0;
+  const imported = R ? importable.filter((p) => counted(R.world, p)).length : 0;
   const within = walkMinutes ? set.places.filter((p) => p.walk_min <= walkMinutes).length : null;
   const list = all ? set.places : set.places.slice(0, 5);
   return (
