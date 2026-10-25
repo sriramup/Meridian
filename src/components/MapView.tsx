@@ -6,7 +6,8 @@ import maplibregl from "maplibre-gl";
 import { useEffect, useRef } from "react";
 import { basemapStyle, setBasemapNight } from "@/render/basemap";
 import { buildLayers, forgetLayers, hoverLayers, stackLayers, zoomBand, type SceneLayers } from "@/render/layers";
-import { MODEL } from "@/render/theme";
+import { dayTheme } from "@/render/theme";
+import { useTheme } from "@/state/theme";
 import { skyFor } from "@/render/sky";
 import { daylight, daylightFor, setDaylight, useNight } from "@/render/daylight";
 import { ChunkLoader } from "@/render/chunkLoader";
@@ -128,7 +129,7 @@ export function MapView() {
     const sun = new SunLight({ timestamp: daylight.sunTs, color: daylight.sun.color, intensity: daylight.sun.intensity, _shadow: dbg.get("shadows") === "1" });
     const moon = new SunLight({ timestamp: daylight.moonTs, color: daylight.moon.color, intensity: daylight.moon.intensity });
     const fx = new LightingEffect({ ambient, sun, moon });
-    fx.shadowColor = MODEL.shadow;
+    fx.shadowColor = dayTheme().shadow;
 
     let deckDrew = true;
     const overlay = new MapboxOverlay({
@@ -288,7 +289,7 @@ export function MapView() {
           loader.invalidate();
           if (loader.cam) loader.setCamera(loader.cam, false);
         }
-        scene = buildLayers({ rt: R, theme: MODEL, app: { selection: I.selection, layers: I.layersOn, highlight: I.highlight, cameraMode: I.cameraMode, night: I.night }, zoom: band, loader });
+        scene = buildLayers({ rt: R, theme: dayTheme(), app: { selection: I.selection, layers: I.layersOn, highlight: I.highlight, cameraMode: I.cameraMode, night: I.night }, zoom: band, loader });
       }
       // street-edge lines over raster overlays: in the ground band (so never over buildings,
       // whenever the rasters arrive), faded in as the camera comes down, following chunk visibility
@@ -313,7 +314,7 @@ export function MapView() {
         pinCache.layers = pKey[0] ? impactPins() : [];
       }
       const ground = kerbs.length ? [...I.extra.ground, ...kerbs] : I.extra.ground;
-      const layers = [...stackLayers(scene, { ground, top: I.extra.top }), ...hoverLayers(R, MODEL, I.hover, I.selection), ...pinCache.layers, ...I.tools];
+      const layers = [...stackLayers(scene, { ground, top: I.extra.top }), ...hoverLayers(R, dayTheme(), I.hover, I.selection), ...pinCache.layers, ...I.tools];
       cancelAnimationFrame(trafficRaf);
       if (I.overlay === "traffic" && I.trafficShown && dbg.get("anim") !== "0") {
         // modelled vehicles animate on top of the static scene
@@ -335,6 +336,16 @@ export function MapView() {
     };
     composeRef.current = compose;
     const unImpact = useImpact.subscribe(() => compose());
+    // the interface theme picks the map's day palette (paper or graphite): recolour in place
+    const unTheme = useTheme.subscribe(() => {
+      R.scene.setTheme(dayTheme());
+      fx.shadowColor = dayTheme().shadow;
+      sceneKey = [];
+      baseNight = -1;
+      skyDirty = true;
+      compose();
+      deck?.redraw("theme");
+    });
 
     // ---- the frame loop: fps meter, the clock, the loader's per-frame work, re-stacking and idle
     // work. The loader adds layers only after deck.gl has drawn the previous batch, so tessellation
@@ -386,6 +397,7 @@ export function MapView() {
       cancelAnimationFrame(trafficRaf);
       unHour();
       unImpact();
+      unTheme();
       composeRef.current = null;
       map.remove();
       R.map = null;

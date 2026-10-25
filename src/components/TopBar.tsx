@@ -28,6 +28,7 @@ import {
 import { Input } from "./ui/kit";
 import { IconButton, Tip, cx } from "./ui";
 import { PlaceSearch } from "./PlaceSearch";
+import { SettingsMenu } from "./SettingsMenu";
 import { confirmAction } from "./ConfirmDialog";
 import { promptText } from "./projects/PromptDialog";
 import { SIDEBAR_KEY } from "./projects/ProjectsSidebar";
@@ -303,6 +304,7 @@ export function ViewControls({ agentOpen }: { agentOpen: boolean }) {
           <CircleHelp size={15} strokeWidth={1.7} />
         </IconButton>
       </Tip>
+      <SettingsMenu />
       {!agentOpen && (
         <>
           <span className="mx-0.5 h-4 w-px bg-line-2" />

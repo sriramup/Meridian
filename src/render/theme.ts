@@ -4,7 +4,7 @@ export type RGBA = [number, number, number, number];
 export type RGB = [number, number, number];
 
 export interface Theme {
-  id: "model" | "night";
+  id: "model" | "night" | "graphite";
   background: string;
   ground: RGB;
   land: RGB;
@@ -169,3 +169,91 @@ export const NIGHT: Theme = {
   night: 1,
   shadow: [0, 0, 0, 0.25],
 };
+
+/**
+ * The map by day under the Dark interface: the same model in neutral graphite, so the scene sits
+ * with the panels over it. Buildings stay light enough for sun and shadow to read; the analysis
+ * overlays' colours carry over unchanged.
+ */
+export const GRAPHITE: Theme = {
+  ...MODEL,
+  id: "graphite",
+  background: "#1d1f23",
+  ground: [38, 40, 45],
+  land: [42, 44, 49],
+  context: [35, 37, 42],
+  contextBuilding: [72, 75, 82],
+  contextRoad: [55, 58, 64],
+  area: {
+    park: [48, 62, 51],
+    grass: [50, 63, 52],
+    wood: [42, 57, 46],
+    pitch: [48, 63, 51],
+    water: [34, 52, 66],
+    parking: [56, 58, 63],
+    plaza: [62, 63, 67],
+    construction: [60, 58, 54],
+    campus: [52, 54, 59],
+    cemetery: [47, 59, 49],
+    retention: [36, 58, 70],
+    raingarden: [46, 66, 52],
+    permeable: [58, 59, 63],
+  },
+  strip: {
+    sidewalk: [78, 80, 86],
+    planting: [50, 64, 53],
+    parking: [58, 60, 65],
+    bike: [48, 88, 66],
+    cycletrack: [44, 96, 68],
+    buffer: [80, 82, 87],
+    travel: [62, 64, 70],
+    bus: [104, 58, 54],
+    turn: [64, 66, 72],
+    median: [52, 68, 55],
+    tram: [70, 70, 75],
+    shoulder: [60, 62, 68],
+    plaza: [82, 82, 86],
+  },
+  carriageway: [62, 64, 70],
+  kerbTop: [88, 90, 96],
+  island: [52, 68, 55],
+  markWhite: [196, 198, 204],
+  markYellow: [196, 158, 70],
+  building: {
+    residential: [204, 207, 213],
+    office: [196, 201, 210],
+    retail: [206, 204, 200],
+    mixed: [202, 204, 208],
+    hotel: [200, 202, 207],
+    civic: [198, 196, 192],
+    education: [198, 196, 192],
+    religious: [194, 190, 184],
+    health: [204, 206, 210],
+    industrial: [180, 182, 186],
+    parking: [170, 172, 176],
+    utility: [174, 176, 180],
+    other: [192, 194, 198],
+  },
+  glass: [150, 166, 188],
+  proposed: [182, 152, 255],
+  proposedEdge: [138, 108, 232],
+  selection: [88, 140, 255],
+  hover: [132, 168, 248],
+  tree: [84, 118, 88],
+  treeDark: [66, 98, 72],
+  trunk: [92, 82, 72],
+  path: [92, 92, 94],
+  text: [228, 229, 233, 255],
+  textHalo: [22, 24, 28, 230],
+  shadow: [0, 0, 0, 0.38],
+};
+
+/** which day palette the map uses: paper under Cartography, graphite under the Dark interface */
+export function mapIsGraphite(): boolean {
+  return typeof document !== "undefined" && document.documentElement.dataset.theme === "dark";
+}
+
+/** the map's day theme for the current interface theme */
+export function dayTheme(): Theme {
+  return mapIsGraphite() ? GRAPHITE : MODEL;
+}

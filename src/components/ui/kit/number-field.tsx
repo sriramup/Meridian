@@ -166,7 +166,7 @@ export const NumberField = forwardRef<HTMLInputElement, NumberFieldProps>(functi
         pad,
         "has-[input:focus-visible]:border-rose/55 has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-rose/20",
         scrub && !disabled && "cursor-ew-resize has-[input:focus]:cursor-auto",
-        scrubbing && "border-rose/55 bg-[#f8eed6]",
+        scrubbing && "border-rose/55 bg-field",
         disabled && "pointer-events-none opacity-45",
         className,
       )}

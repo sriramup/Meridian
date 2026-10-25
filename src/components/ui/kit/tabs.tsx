@@ -37,7 +37,7 @@ export const TabsTrigger = forwardRef<ElementRef<typeof T.Trigger>, ComponentPro
         "inline-flex cursor-default select-none items-center justify-center gap-1.5 whitespace-nowrap text-[12px] font-medium leading-none transition-colors disabled:opacity-40 [&_svg[width='24']:not([class*='size-'])]:size-3.5",
         focusRing,
         variant === "segmented"
-          ? "h-full rounded-[4px] px-2.5 text-ink-3 hover:text-ink aria-selected:bg-[#f8eed6] aria-selected:text-rose aria-selected:shadow-[0_1px_2px_rgb(88_60_28/0.22)]"
+          ? "h-full rounded-[4px] px-2.5 text-ink-3 hover:text-ink aria-selected:bg-field aria-selected:text-rose aria-selected:shadow-[0_1px_2px_rgb(88_60_28/0.22)]"
           : "relative -mb-px h-full border-b-2 border-transparent px-0.5 text-ink-3 hover:text-ink aria-selected:border-rose aria-selected:text-ink",
         className,
       )}

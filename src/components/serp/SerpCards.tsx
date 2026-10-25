@@ -32,7 +32,7 @@ export function SerpCards({ steps }: { steps: { kind: string; call?: ToolCallVie
 
 function Shell({ icon, title, meta, children }: { icon: React.ReactNode; title: React.ReactNode; meta?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section data-serp-card className="overflow-hidden rounded-[9px] border border-line bg-[#f8eed6]/70 shadow-[0_1px_1px_rgb(88_60_28/0.06)]">
+    <section data-serp-card className="overflow-hidden rounded-[9px] border border-line bg-field/70 shadow-[0_1px_1px_rgb(88_60_28/0.06)]">
       <header className="flex items-center gap-1.5 border-b border-line/70 px-2.5 py-1.5">
         <span className="grid size-4 shrink-0 place-items-center text-rose">{icon}</span>
         <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-ink-2">{title}</span>

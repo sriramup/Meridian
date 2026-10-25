@@ -15,7 +15,7 @@
 import { create } from "zustand";
 import { sunAltAz } from "@/lib/sun";
 import { LIGHTING_DATE } from "./sky";
-import type { RGB } from "./theme";
+import { mapIsGraphite, type RGB } from "./theme";
 
 export interface Daylight {
   /** local hour it was computed for */
@@ -138,14 +138,17 @@ export const NIGHT_TONE = {
 
 /** basemap colours by day and by night; blended by `night` */
 const BASE_DAY = { bg: "#e8d6b1", water: "#b4cac8", park: "#d3d4b0", road: "#d8c39d", major: "#cdb488", label: "#6e5234", halo: "#f1e3c3" };
+/** the day basemap under the Dark interface (render/theme.ts GRAPHITE) */
+const BASE_GRAPHITE = { bg: "#1d1f23", water: "#1c2a35", park: "#26332a", road: "#30333a", major: "#3a3d44", label: "#8b8f98", halo: "#1d1f23" };
 const BASE_NIGHT = { bg: "#14161a", water: "#121c25", park: "#18211b", road: "#24272c", major: "#2b2f35", label: "#7c8088", halo: "#14161a" };
 export type BasemapColors = typeof BASE_DAY;
 const hex = (s: string): RGB => [parseInt(s.slice(1, 3), 16), parseInt(s.slice(3, 5), 16), parseInt(s.slice(5, 7), 16)];
 const toHex = (c: RGB) => "#" + c.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
 export function basemapColors(night: number): BasemapColors {
-  if (night <= 0) return BASE_DAY;
+  const day = mapIsGraphite() ? BASE_GRAPHITE : BASE_DAY;
+  if (night <= 0) return day;
   if (night >= 1) return BASE_NIGHT;
   const out = {} as BasemapColors;
-  for (const k of Object.keys(BASE_DAY) as (keyof BasemapColors)[]) out[k] = toHex(mixRGB(hex(BASE_DAY[k]), hex(BASE_NIGHT[k]), night));
+  for (const k of Object.keys(day) as (keyof BasemapColors)[]) out[k] = toHex(mixRGB(hex(day[k]), hex(BASE_NIGHT[k]), night));
   return out;
 }
