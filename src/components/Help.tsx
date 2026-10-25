@@ -79,7 +79,7 @@ export function HelpDialog() {
               <Row k={<><Keys>⌘Z</Keys><Keys>⇧⌘Z</Keys></>}>Undo and redo</Row>
             </Section>
             <Section title="Finding things">
-              <Row k={<><Keys>/</Keys><Keys>⌘K</Keys></>}>Search for a tool or an action</Row>
+              <Row k={<><Keys>/</Keys><Keys>⌘K</Keys></>}>Search for a place, street or address</Row>
               <Row k={<Keys>⌘J</Keys>}>Ask the agent</Row>
               <Row k={<Keys>N</Keys>}>Day or night</Row>
               <Row k={<Keys>?</Keys>}>This guide</Row>

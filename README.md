@@ -40,7 +40,7 @@ ANTHROPIC_API_KEY=sk-ant-…
 | **Compare** | Scenario branches with exact undo/redo. Compare any two branches with KPI deltas and difference maps. Borrow changes from one branch into another. |
 | **Navigate** | Orbit, cinematic fly-to, flyovers, a street-level view modelled on Street View (P: click the ground or a facade to walk there, click the arrows to step along the street, double-click to jump, drag to look around, scroll or pinch to zoom, Esc to come back up), a night theme (N), and time-of-day sun (lit for the hour on a fixed reference day, the September equinox: the month changes modelled temperatures, never how buildings or trees look). The city streams in around the camera, nearest first, with less detail in the distance. |
 
-Keyboard: `/` or `⌘K` search for a tool or action (or ask the agent) · `?` controls guide · `V` select · `L` library (`B` buildings, `A` parks, `T` trees) · `S` street · `D` district · `R` transit line · `M` measure · `Delete` remove the selection · `1–0` overlays · `N` night · `P` street level · `⌘Z / ⇧⌘Z` undo/redo · `⌘J` agent.
+Keyboard: `/` or `⌘K` search for a place, street, intersection or address · `?` controls guide · `V` select · `L` library (`B` buildings, `A` parks, `T` trees) · `S` street · `D` district · `R` transit line · `M` measure · `Delete` remove the selection · `1–0` overlays · `N` night · `P` street level · `⌘Z / ⇧⌘Z` undo/redo · `⌘J` agent.
 
 Camera: drag to pan; right-drag, `Ctrl`-, `Shift`-, `Alt`/`⌥`- or middle-drag to rotate and tilt (or drag the compass, top right; click it to face north). `Q / E` turn, `⇧↑ / ⇧↓` tilt. The `?` button lists every control.
 
