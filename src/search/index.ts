@@ -3,7 +3,7 @@
 // (src/agent/resolve.ts) both read it:
 //
 //   searchPlaces("21st & guadalupe")   → ranked PlaceResult[] (max 5 by default)
-//   resolvePlace("Republic Square")     → the best PlaceResult, or null
+//   bestPlace("Republic Square")        → the best PlaceResult, or null
 //   intersectionOf("21st", "Guadalupe") → the junction(s) where two named streets meet
 //
 // Results carry local-metre `point` and `bbox` and the world entity `ids` they stand for.
@@ -15,6 +15,7 @@ import { PlaceIndex, type PlaceResult } from "./placeIndex";
 
 export { PlaceIndex, fmtLength, type PlaceKind, type PlaceResult } from "./placeIndex";
 export { abbreviate, looksLikeAddress, normKey, splitIntersection, tokenize } from "./normalize";
+export { matchScore } from "./placeIndex";
 
 const indexes = new WeakMap<World, PlaceIndex>();
 
@@ -41,7 +42,7 @@ export function searchPlaces(query: string, limit = 5, world?: World): PlaceResu
 }
 
 /** the single best place for a query, or null when nothing matches well */
-export function resolvePlace(query: string, world?: World): PlaceResult | null {
+export function bestPlace(query: string, world?: World): PlaceResult | null {
   const r = searchPlaces(query, 1, world)[0];
   return r && r.score >= 0.75 ? r : null;
 }
