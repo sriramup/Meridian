@@ -5,6 +5,7 @@
 import { LIBRARY_TOOL_DEFS } from "./libraryToolDefs";
 import { NAV_TOOL_DEFS } from "./navToolDefs";
 import { DESIGN_TOOL_DEFS } from "./designToolDefs";
+import { SERP_TOOL_DEFS } from "./serpToolDefs";
 
 type Schema = Record<string, unknown>;
 export interface ToolDef {
@@ -354,6 +355,7 @@ export const TOOL_DEFS: ToolDef[] = [
   ...NAV_TOOL_DEFS,
   ...DESIGN_TOOL_DEFS,
   ...LIBRARY_TOOL_DEFS,
+  ...SERP_TOOL_DEFS,
 ];
 
 const MUTATING = new Set(["create_building", "modify_buildings", "merge_buildings", "remove_features", "green_roofs", "edit_streets", "set_junction", "create_street", "move_streets", "realign_streets", "remove_streets", "set_street_attributes", "create_area", "convert_areas", "plant_trees", "create_transit_route", "optimize_stops", "generate_district", "optimize_emergency", "design_neighborhood"]);

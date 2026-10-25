@@ -36,6 +36,8 @@ import type { Changeset } from "@/world/world";
 import { NAV_TOOLS } from "./navTools";
 import { DESIGN_TOOLS } from "./designTools";
 import { LIBRARY_TOOLS, libraryBrief, libraryDetail, libraryMatch } from "./libraryTools";
+import { SERP_TOOLS } from "./serpTools";
+import type { SerpCard } from "@/serp/types";
 import { blockAt, entityName, entityPoint, junctionOf, polyOf, resolveArea, resolveLocation, resolvePlace, resolveStreets, viewBounds, viewCenter, type AreaRef, type Loc } from "./resolve";
 
 export interface ToolDisplay {
@@ -46,6 +48,8 @@ export interface ToolDisplay {
   changesetId?: string;
   metrics?: { label: string; value: string; delta?: string; tone?: "good" | "bad" | "neutral" }[];
   simId?: string;
+  /** SerpApi search results, rendered as a card in the agents pane */
+  serp?: SerpCard;
 }
 
 export interface ToolOutput {
@@ -2218,6 +2222,7 @@ export const TOOLS: Record<string, (i: In, ctx: ToolContext) => Promise<ToolOutp
   ...NAV_TOOLS,
   ...DESIGN_TOOLS,
   ...LIBRARY_TOOLS,
+  ...SERP_TOOLS,
 };
 
 /** check streamed tool input against the tool's JSON schema (required keys and top-level types) before running it */

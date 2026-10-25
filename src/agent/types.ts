@@ -33,7 +33,7 @@ export interface ToolCallView {
   input?: Record<string, unknown>;
   status: "streaming" | "running" | "done" | "error" | "cancelled" | "blocked";
   /** tool display card (title, lines, metrics) from the executor */
-  display?: { title: string; detail?: string; status: "ok" | "error" | "warn"; lines?: string[]; changesetId?: string; metrics?: { label: string; value: string; delta?: string; tone?: "good" | "bad" | "neutral" }[]; simId?: string };
+  display?: { title: string; detail?: string; status: "ok" | "error" | "warn"; lines?: string[]; changesetId?: string; metrics?: { label: string; value: string; delta?: string; tone?: "good" | "bad" | "neutral" }[]; simId?: string; serp?: import("@/serp/types").SerpCard };
   startedAt: number;
   ms?: number;
 }

@@ -126,6 +126,16 @@ export function normalizeWeb(engine: Exclude<SerpEngine, "google_maps">, query: 
   if (questions.length) out.questions = questions;
   if (!out.answer) delete out.answer;
   if (!out.entity) delete out.entity;
+  // the answer and the entity cite a numbered source like everything else (added when not listed)
+  for (const x of [out.answer, out.entity]) {
+    if (!x?.url) continue;
+    const s = out.sources.find((r) => r.url === x.url);
+    if (s) x.n = s.n;
+    else {
+      x.n = out.sources.length + 1;
+      out.sources.push({ n: x.n, title: x.title ?? x.domain ?? x.url, url: x.url, domain: x.domain ?? domainOf(x.url) });
+    }
+  }
   return out;
 }
 
