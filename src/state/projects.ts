@@ -5,6 +5,7 @@
 //
 // Other modules key per-project state off `currentProjectId()` and `onProjectChange`.
 
+import { flushSync } from "react-dom";
 import { create } from "zustand";
 import { CITY_PRESETS, climateOf, cityFromUrl, presetOf } from "./cities";
 import { defaultBackend, type LegacyDesign, type ProjectBackend, type ProjectData, type ProjectMeta, type SavedView } from "./persist";
@@ -261,7 +262,12 @@ if (typeof window !== "undefined") {
 
 // ---------------------------------------------------------------- lifecycle
 
-const frame = () => new Promise<void>((r) => (typeof requestAnimationFrame === "undefined" ? setTimeout(r, 0) : requestAnimationFrame(() => setTimeout(r, 0))));
+/** let the page paint (a frame, or 60 ms when frames are not coming: hidden tab, busy GPU) */
+const frame = () =>
+  new Promise<void>((r) => {
+    const t = setTimeout(r, 60);
+    if (typeof requestAnimationFrame !== "undefined") requestAnimationFrame(() => setTimeout(() => (clearTimeout(t), r()), 0));
+  });
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function setUrl(id: string, mode: "push" | "replace" | "none") {
@@ -359,7 +365,8 @@ export async function openProject(id: string, opts: { history?: "push" | "replac
     if (rtMaybe()) {
       await saveCurrent();
       const canvases = typeof document === "undefined" ? [] : [...document.querySelectorAll("canvas")];
-      useApp.setState({ status: "loading" });
+      // unmount the workspace now (MapView removes the map and its overlay)
+      flushSync(() => useApp.setState({ status: "loading" }));
       await frame();
       releaseContexts(canvases);
       const { disposeSimWorker } = await import("@/sim/client");
