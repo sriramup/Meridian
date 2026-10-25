@@ -180,30 +180,6 @@ function plantedTrees(all: TreeDatum[]) {
   return plantedCache.out;
 }
 
-let gridCache: { key: string; data: { path: Position[]; w: number; a: number }[] } | null = null;
-function siteGrid(b: readonly number[], T: Theme, common: object): Layer {
-  const key = b.join(",");
-  if (gridCache?.key !== key) {
-    const data: { path: Position[]; w: number; a: number }[] = [];
-    for (let x = Math.ceil(b[0] / 100) * 100; x <= b[2]; x += 100) data.push({ path: [[x, b[1]], [x, b[3]]], w: x % 500 ? 1 : 1.4, a: x % 500 ? 0.35 : 0.7 });
-    for (let y = Math.ceil(b[1] / 100) * 100; y <= b[3]; y += 100) data.push({ path: [[b[0], y], [b[2], y]], w: y % 500 ? 1 : 1.4, a: y % 500 ? 0.35 : 0.7 });
-    data.push({ path: [[b[0], b[1]], [b[2], b[1]], [b[2], b[3]], [b[0], b[3]], [b[0], b[1]]], w: 2, a: 1 });
-    gridCache = { key, data };
-  }
-  const line = (T.id === "night" ? T.land.map((c) => c + 34) : T.land.map((c) => c - 34)) as [number, number, number];
-  return new PathLayer<{ path: Position[]; w: number; a: number }>({
-    id: "site-grid",
-    ...common,
-    data: gridCache.data,
-    getPath: (d) => d.path,
-    getWidth: (d) => d.w,
-    widthUnits: "pixels",
-    getColor: (d) => [...line, 255 * d.a] as RGBA,
-    updateTriggers: { getColor: [T.id] },
-    parameters: FLAT,
-  });
-}
-
 type Outlined = { e: Entity | undefined; color: RGBA; width: number };
 
 /**
@@ -275,8 +251,7 @@ export function buildLayers(ctx: LayerContext): SceneLayers {
       }),
     ),
   );
-  // blank canvas: a faint survey grid (100 m, stronger every 500 m) and the edge of the site
-  if (rt.meta.sandbox) layers.push(keep("site-grid", [T.id, b.join(",")], () => siteGrid(b, T, common)));
+  // the blank canvas's grid and site edge: src/components/library/SnapGrid.tsx (layer slot)
   if (!rt.meta.sandbox && loader.globals.has("ctx-areas")) {
     layers.push(
       keep("ctx-areas", [T.id, lay.context], () =>

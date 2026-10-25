@@ -10,6 +10,7 @@ import { rt } from "@/state/runtime";
 import { useApp } from "@/state/store";
 import { duplicateInstance, instanceOf, moveInstance, reconfigureInstance, removeInstance, rotateInstance, type LibraryOpResult } from "@/world/ops/library";
 import type { LibraryRef, Vec2 } from "@/world/types";
+import { shortError } from "./placement";
 
 const user = { author: "user" as const };
 
@@ -27,33 +28,31 @@ let timer: ReturnType<typeof setTimeout> | null = null;
 let queued: { id: string; patch: Record<string, unknown>; final: boolean } | null = null;
 const THROTTLE = 150;
 
-/** commit, replacing the gesture's previous step so the whole gesture is one undo entry */
-function commitGesture(res: LibraryOpResult, final: boolean): boolean {
-  const R = rt();
-  const s = R.scenarios.active;
-  if (gestureCs && s.cursor > 0 && s.changesets[s.cursor - 1]?.id === gestureCs) R.scenarios.undo(1);
-  gestureCs = null;
-  if (!res.ok || !res.changeset) {
-    // the gesture's last good state was undone above; report why this one failed
-    useApp.getState().bumpWorld();
-    useApp.getState().notify(res.error ?? "Can't apply that", "warn");
-    return false;
-  }
-  const ok = applyOp(res);
-  if (ok && !final) gestureCs = res.changeset.id;
-  return ok;
-}
+/** the last refusal told to the user during this gesture (said once, not on every step) */
+let toldOnce: string | null = null;
 
 function run(id: string, patch: Record<string, unknown>, final: boolean) {
   const R = rt();
   // regenerate from the state before the gesture began
   const s = R.scenarios.active;
-  if (gestureCs && s.cursor > 0 && s.changesets[s.cursor - 1]?.id === gestureCs) {
-    R.scenarios.undo(1);
-    gestureCs = null;
-  }
+  const stepped = !!gestureCs && s.cursor > 0 && s.changesets[s.cursor - 1]?.id === gestureCs;
+  if (stepped) R.scenarios.undo(1);
   const res = reconfigureInstance(R.world, id, patch, user);
-  commitGesture(res, final);
+  if (!res.ok || !res.changeset) {
+    // refused (it would collide, or has no room): keep the gesture's last good step
+    if (stepped) R.scenarios.redo(1);
+    else gestureCs = null;
+    if (final) gestureCs = null;
+    useApp.getState().bumpWorld();
+    const why = shortError(res.error ?? "Can't apply that");
+    if (final || toldOnce !== why) useApp.getState().notify(why, "warn");
+    toldOnce = final ? null : why;
+    return;
+  }
+  gestureCs = null;
+  const ok = applyOp(res);
+  if (ok && !final) gestureCs = res.changeset.id;
+  if (final) toldOnce = null;
 }
 
 /**
@@ -96,22 +95,41 @@ export function moveBy(id: string, by: Vec2): LibraryOpResult {
   return moveInstance(rt().world, [id], by, user);
 }
 
-/** a copy beside the original, selected */
+/**
+ * A copy beside the original, selected: to its right along its own heading (a building's side, so
+ * copies make a row), else left, behind, in front, or the nearest free spot further out.
+ */
 export function duplicate(id: string): boolean {
   const R = rt();
   const info = instanceOf(R.world, id);
   if (!info) return false;
-  // offset by about the instance's size so the copy sits next to it
-  let w = 6;
-  const e = R.world.get(info.primary);
-  if (e && (e.kind === "building" || e.kind === "area" || e.kind === "prop")) {
-    const poly = e.kind === "building" ? e.footprint : e.kind === "area" ? e.poly : e.footprint;
-    if (poly) {
-      const xs = poly[0].map((p) => p[0]);
-      w = Math.max(...xs) - Math.min(...xs) + 2;
-    }
+  // the instance's size along / across its heading
+  const t = ((info.placement.rotation ?? 0) * Math.PI) / 180;
+  const u: Vec2 = [Math.cos(t), Math.sin(t)];
+  const v: Vec2 = [-u[1], u[0]];
+  let w = 6,
+    d = 6;
+  const pts = info.entities.flatMap((eid) => {
+    const e = R.world.get(eid);
+    return e?.kind === "building" ? e.footprint[0] : e?.kind === "area" ? e.poly[0] : e?.kind === "prop" ? (e.footprint?.[0] ?? [e.p]) : e?.kind === "tree" ? [e.p] : [];
+  });
+  if (pts.length) {
+    const a = pts.map((p) => p[0] * u[0] + p[1] * u[1]);
+    const b = pts.map((p) => p[0] * v[0] + p[1] * v[1]);
+    w = Math.max(...a) - Math.min(...a) + 2;
+    d = Math.max(...b) - Math.min(...b) + 2;
   }
-  const res = duplicateInstance(R.world, [id], [w, 0], user);
+  const tries: Vec2[] = [];
+  for (const k of [1, 2, 3]) tries.push([u[0] * w * k, u[1] * w * k], [-u[0] * w * k, -u[1] * w * k], [v[0] * d * k, v[1] * d * k], [-v[0] * d * k, -v[1] * d * k]);
+  let res: LibraryOpResult | null = null;
+  for (const off of tries) {
+    res = duplicateInstance(R.world, [id], off, user);
+    if (res.ok) break;
+  }
+  if (!res || !res.ok) {
+    useApp.getState().notify("No free room beside it for a copy", "warn");
+    return false;
+  }
   if (!applyOp(res)) return false;
   const made = (res.data?.instances as string[] | undefined)?.[0];
   const copy = made ? instanceOf(R.world, made) : null;

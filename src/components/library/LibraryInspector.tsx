@@ -9,6 +9,7 @@ import { NumberField, Tooltip } from "@/components/ui/kit";
 import { ensureLibrary, getPrimitive, type ParamValues } from "@/library";
 import { rt } from "@/state/runtime";
 import { useApp } from "@/state/store";
+import { fmtFt, fmtSqFt } from "@/lib/units";
 import { programmeOf } from "@/world/ops/core";
 import { instanceOf } from "@/world/ops/library";
 import type { Building, Entity, LibraryRef } from "@/world/types";
@@ -31,7 +32,8 @@ export function LibraryInspector({ e, onClose }: { e: Entity & { lib: LibraryRef
   // the form shows what was last asked for while a throttled change is still being applied
   const [values, setValues] = useState<ParamValues>(params);
   const key = JSON.stringify(params);
-  useEffect(() => setValues(params), [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  const worldVersion = useApp((s) => s.worldVersion);
+  useEffect(() => setValues(params), [key, worldVersion]); // eslint-disable-line react-hooks/exhaustive-deps
   const id = info?.primary ?? e.id;
   const heading = info?.placement.rotation ?? 0;
   const hasHeading = !!info?.placement.at;
@@ -52,16 +54,16 @@ export function LibraryInspector({ e, onClose }: { e: Entity & { lib: LibraryRef
       <div className="flex items-center gap-1 border-b border-line px-2 py-1.5">
         {hasHeading && (
           <>
-            <Tooltip content="Turn 15° left">
-              <IconButton size="sm" aria-label="Turn left" onClick={() => rotateBy(id, 15)}>
+            <Tooltip content="Turn 15° left (Shift: 90°)">
+              <IconButton size="sm" aria-label="Turn left" onClick={(ev) => rotateBy(id, ev.shiftKey ? 90 : 15)}>
                 <RotateCcw size={14} />
               </IconButton>
             </Tooltip>
             <div className="w-[76px]">
               <NumberField value={Math.round(heading)} onChange={() => {}} onCommit={(v) => setHeading(id, v)} min={-360} max={720} step={5} unit="°" aria-label="Heading" stepper={false} />
             </div>
-            <Tooltip content="Turn 15° right">
-              <IconButton size="sm" aria-label="Turn right" onClick={() => rotateBy(id, -15)}>
+            <Tooltip content="Turn 15° right (Shift: 90°)">
+              <IconButton size="sm" aria-label="Turn right" onClick={(ev) => rotateBy(id, ev.shiftKey ? -90 : -15)}>
                 <RotateCw size={14} />
               </IconButton>
             </Tooltip>
@@ -73,7 +75,7 @@ export function LibraryInspector({ e, onClose }: { e: Entity & { lib: LibraryRef
             <Move size={14} />
           </IconButton>
         </Tooltip>
-        <Tooltip content="Duplicate beside it">
+        <Tooltip content="Duplicate beside it (the nearest free side)">
           <IconButton size="sm" aria-label="Duplicate" onClick={() => duplicate(id)}>
             <Copy size={14} />
           </IconButton>
@@ -117,10 +119,10 @@ function Facts({ e, members }: { e: Entity; members: number }) {
   if (e.kind === "building") {
     const b = e as Building;
     const p = programmeOf(b, R.meta.calibration.householdSize);
-    rows.push(["Height", `${num(b.height)} m · ${b.floors} floors`], ["Floor area", `${num(p.gfa)} m²`]);
+    rows.push(["Height", `${fmtFt(b.height)} · ${b.floors} floor${b.floors === 1 ? "" : "s"}`], ["Floor area", fmtSqFt(p.gfa)]);
     if (p.units) rows.push(["Homes", num(p.units)]);
     if (p.jobs) rows.push(["Jobs", num(p.jobs)]);
-  } else if (e.kind === "prop") rows.push(["Height", `${num(e.height)} m`]);
+  } else if (e.kind === "prop") rows.push(["Height", fmtFt(e.height)]);
   if (members > 1) rows.push(["Parts", `${members} features`]);
   if (!rows.length) return null;
   return (

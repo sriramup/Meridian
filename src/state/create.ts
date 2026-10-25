@@ -6,7 +6,7 @@
 import { buildSection, sectionWidth } from "@/geometry/crossSection";
 import type { Typology } from "@/geometry/massing";
 import { createBuilding } from "@/world/ops/buildings";
-import type { OpResult } from "@/world/ops/core";
+import { OpBuilder, type OpResult } from "@/world/ops/core";
 import { generateDistrict } from "@/world/ops/district";
 import { createArea } from "@/world/ops/landscape";
 import { shapeConflicts, streetConflicts } from "@/world/ops/placement";
@@ -57,7 +57,12 @@ export function createDrawn(tool: DrawnTool, pts: Vec2[], opts: { replace?: bool
   switch (tool) {
     case "building": {
       const fire = P.building.use === "fire_station";
-      res = createBuilding(R.world, { site: [pts], spec: { typology: P.building.typology as Typology, floors: P.building.floors, use: (fire ? "civic" : P.building.use) as Use }, name: fire ? nextName("Fire Station", "building") : undefined, demolishConflicts: opts.replace }, actor);
+      // replacing also clears the solid objects (kiosks, shelters…) the outline stands on
+      const b = new OpBuilder(R.world, actor.author);
+      if (opts.replace) for (const q of shapeConflicts(R.world, "building", pts).props) b.remove(q.id);
+      const name = fire ? nextName("Fire Station", "building") : undefined;
+      const r = createBuilding(R.world, { site: [pts], spec: { typology: P.building.typology as Typology, floors: P.building.floors, use: (fire ? "civic" : P.building.use) as Use }, name, demolishConflicts: opts.replace }, actor, b);
+      res = r.ok ? b.finish(`Build ${name ?? P.building.typology.replace("_", " ")}`) : r;
       break;
     }
     case "area":

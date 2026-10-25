@@ -102,13 +102,13 @@ export interface FrontSnap {
  * setback line, settle it there. `frontDepth` is the distance from the anchor to the front edge
  * along the item's local +y (half the depth for a centred rectangle).
  */
-export function frontageSnap(f: Frontage, p: Vec2, frontDepth: number, tol = 2.5): FrontSnap {
+export function frontageSnap(f: Frontage, p: Vec2, frontDepth: number, tol = 2.5, setbacks: number[] = SETBACKS): FrontSnap {
   const rotation = facingRotation(f);
   const dist = (p[0] - f.foot[0]) * f.normal[0] + (p[1] - f.foot[1]) * f.normal[1];
   const frontAt = dist - frontDepth; // where the front edge would be (from the centreline)
   let setback: number | null = null;
   let bd = tol;
-  for (const s of SETBACKS) {
+  for (const s of setbacks) {
     const d = Math.abs(frontAt - (f.rowEdge + s));
     if (d <= bd) {
       bd = d;

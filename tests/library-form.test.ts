@@ -62,7 +62,7 @@ describe("parameter form model", () => {
   });
 
   it("formats values with units and finds changed keys", () => {
-    expect(formatValue(specs[2], 12.5)).toBe("12.5 m");
+    expect(formatValue(specs[2], 12.5)).toBe("41 ft");
     expect(formatValue(specs[4], 35)).toBe("35°");
     expect(formatValue(specs[7], ["retail", "homes"])).toBe("Retail, Homes");
     expect(stepOf(specs[2] as NumberParam)).toBe(2);
@@ -82,6 +82,24 @@ describe("grouped form", () => {
     const g2 = groupForm(specs, { ...d, roof: "hip" });
     expect(g2.find((x) => x.title === "Roof")!.basic.map((p) => p.key)).toEqual(["roof", "pitch"]);
     expect(g2.find((x) => x.title === "Roof")!.advanced).toEqual([]);
-    expect(groupSummary(g.find((x) => x.title === "Massing")!, d)).toBe("4 · 20 m");
+    expect(groupSummary(g.find((x) => x.title === "Massing")!, d)).toBe("4 · 66 ft");
+  });
+});
+
+describe("imperial form units", () => {
+  it("shows metres as feet and stores metres back; passes other units through", async () => {
+    const { shownNumber } = await import("@/components/library/formModel");
+    const d = shownNumber({ key: "w", label: "Width", type: "number", default: 12, min: 4, max: 60, unit: "m" });
+    expect(d.unit).toBe("ft");
+    expect(d.show(12)).toBe(39);
+    expect(d.store(10)).toBeCloseTo(3.048);
+    expect(d.min).toBe(14); // 4 m = 13.1 ft, rounded inwards
+    expect(d.max).toBe(196);
+    const a = shownNumber({ key: "a", label: "Area", type: "number", default: 100, min: 0, max: 5000, unit: "m²" });
+    expect(a.unit).toBe("sq ft");
+    expect(a.show(100)).toBeCloseTo(1076, 0);
+    const pct = shownNumber({ key: "p", label: "Share", type: "number", default: 50, min: 0, max: 100, unit: "%" });
+    expect(pct.unit).toBe("%");
+    expect(pct.show(50)).toBe(50);
   });
 });
